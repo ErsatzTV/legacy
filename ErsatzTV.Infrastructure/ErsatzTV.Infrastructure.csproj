@@ -23,12 +23,12 @@
         <PackageReference Include="Lucene.Net" Version="4.8.0-beta00017" />
         <PackageReference Include="Lucene.Net.Analysis.Common" Version="4.8.0-beta00017" />
         <PackageReference Include="Lucene.Net.QueryParser" Version="4.8.0-beta00017" />
-        <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.15" />
+        <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.6" />
         <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.15">
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
-        <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="9.0.15" />
+        <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.6" />
         <PackageReference Include="Newtonsoft.Json.Schema" Version="4.0.1" />
         <PackageReference Include="Refit" Version="10.1.6" />
         <PackageReference Include="Refit.Newtonsoft.Json" Version="10.1.6" />
