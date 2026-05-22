@@ -16,7 +16,7 @@
         <PackageReference Include="CliWrap" Version="3.10.1" />
         <PackageReference Include="Dapper" Version="2.1.79" />
         <PackageReference Include="EFCore.BulkExtensions" Version="[9.0.2,10)" />
-        <PackageReference Include="Elastic.Clients.Elasticsearch" Version="9.4.0" />
+        <PackageReference Include="Elastic.Clients.Elasticsearch" Version="9.4.1" />
         <PackageReference Include="Humanizer.Core" Version="3.0.10" />
         <PackageReference Include="Jint" Version="4.9.2" />
         <PackageReference Include="JsonSchema.Net" Version="9.2.1" />

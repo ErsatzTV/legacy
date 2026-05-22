@@ -12,7 +12,7 @@
 
     <ItemGroup>
         <PackageReference Include="CliWrap" Version="3.10.1" />
-        <PackageReference Include="Hardware.Info" Version="110.0.0" />
+        <PackageReference Include="Hardware.Info" Version="110.0.0.1" />
         <PackageReference Include="LanguageExt.Core" Version="4.4.9" />
         <PackageReference Include="Lennox.NvEncSharp" Version="2.1.1" />
         <PackageReference Include="Microsoft.Extensions.Caching.Abstractions" Version="10.0.8" />
