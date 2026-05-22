@@ -43,9 +43,6 @@ namespace ErsatzTV.Core.Next.Config
 
         [JsonProperty("reports_folder")]
         public string ReportsFolder { get; set; }
-
-        [JsonProperty("save_reports", NullValueHandling = NullValueHandling.Ignore)]
-        public bool? SaveReports { get; set; }
     }
 
     public partial class Normalization

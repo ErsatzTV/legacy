@@ -281,7 +281,11 @@ public class StartFFmpegNextSessionHandler(
         FFmpegProfileViewModel ffmpegProfile,
         CancellationToken cancellationToken)
     {
-        var ffmpeg = new Ffmpeg();
+        var ffmpeg = new Ffmpeg
+        {
+            // next only keeps errors, so always pass the folder
+            ReportsFolder = FileSystemLayout.FFmpegReportsFolder
+        };
 
         Option<string> ffmpegPath = await configElementRepository.GetValue<string>(
             ConfigElementKey.FFmpegPath,
@@ -304,15 +308,6 @@ public class StartFFmpegNextSessionHandler(
         Option<bool> maybeSaveReports = await configElementRepository.GetValue<bool>(
             ConfigElementKey.FFmpegSaveReports,
             cancellationToken);
-
-        foreach (bool saveReports in maybeSaveReports)
-        {
-            if (saveReports)
-            {
-                ffmpeg.SaveReports = true;
-                ffmpeg.ReportsFolder = FileSystemLayout.FFmpegReportsFolder;
-            }
-        }
 
         var audioNormalization = new Audio
         {
