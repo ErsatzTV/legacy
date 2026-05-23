@@ -1,8 +1,10 @@
 ﻿using System.Runtime.InteropServices;
+using ErsatzTV.Application.Streaming;
 using ErsatzTV.Core.Interfaces.Metadata;
 using ErsatzTV.FFmpeg.Capabilities;
 using ErsatzTV.FFmpeg.Capabilities.Nvidia;
 using ErsatzTV.FFmpeg.Runtime;
+using MediatR;
 using Microsoft.Extensions.Caching.Memory;
 
 namespace ErsatzTV.Services.RunOnce;
@@ -58,6 +60,11 @@ public class PlatformSettingsService(IServiceScopeFactory serviceScopeFactory) :
                     memoryCache.Set("ffmpeg.vaapi_displays", displays);
                 }
             }
+
+            var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
+            NextVersion.Version = await mediator.Send(new GetNextVersion(), stoppingToken);
+
+            Serilog.Log.Logger.Information("ErsatzTV Next version {Version}", NextVersion.Version);
         }
     }
 }

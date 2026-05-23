@@ -1,6 +1,5 @@
 using System.Globalization;
 using System.IO.Abstractions;
-using System.Runtime.InteropServices;
 using System.Threading.Channels;
 using ErsatzTV.Application.Channels;
 using ErsatzTV.Application.FFmpegProfiles;
@@ -32,8 +31,10 @@ public class StartFFmpegNextSessionHandler(
     ChannelWriter<IBackgroundServiceRequest> workerChannel,
     ILogger<StartFFmpegNextSessionHandler> logger,
     ILogger<NextSessionWorker> sessionWorkerLogger)
-    : IRequestHandler<StartFFmpegNextSession, Either<BaseError, string>>
+    : NextChannelHandlerBase(fileSystem), IRequestHandler<StartFFmpegNextSession, Either<BaseError, string>>
 {
+    private readonly IFileSystem _fileSystem = fileSystem;
+
     public Task<Either<BaseError, string>> Handle(
         StartFFmpegNextSession request,
         CancellationToken cancellationToken) =>
@@ -73,7 +74,7 @@ public class StartFFmpegNextSessionHandler(
         NextSessionWorker worker = new NextSessionWorker(
             validationResult.ChannelBinary,
             config,
-            fileSystem,
+            _fileSystem,
             localFileSystem,
             serviceScopeFactory,
             sessionWorkerLogger);
@@ -108,7 +109,7 @@ public class StartFFmpegNextSessionHandler(
         SessionMustBeInactive(request)
             .BindT(_ => FolderMustBeEmpty(request))
             .BindT(_ => ChannelBinaryMustExist())
-            .BindT(result => ChannelMustExist(request, result, cancellationToken))
+            .BindT(channelBinary => ChannelMustExist(request, new ValidationResult(channelBinary, null, null), cancellationToken))
             .BindT(result => FFmpegProfileMustExist(result, cancellationToken));
 
     private async Task<Validation<BaseError, Unit>> SessionMustBeInactive(StartFFmpegNextSession request)
@@ -137,35 +138,6 @@ public class StartFFmpegNextSessionHandler(
         localFileSystem.EmptyFolder(folder);
 
         return Task.FromResult<Validation<BaseError, Unit>>(Unit.Default);
-    }
-
-    private Task<Validation<BaseError, ValidationResult>> ChannelBinaryMustExist()
-    {
-        string nextFolder = SystemEnvironment.NextFolder;
-        if (string.IsNullOrWhiteSpace(nextFolder))
-        {
-            string processFileName = Environment.ProcessPath ?? string.Empty;
-            string processExecutable = Path.GetFileNameWithoutExtension(processFileName);
-            nextFolder = Path.GetDirectoryName(processFileName);
-            if ("dotnet".Equals(processExecutable, StringComparison.OrdinalIgnoreCase))
-            {
-                nextFolder = AppContext.BaseDirectory;
-            }
-        }
-
-        string executable = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
-            ? "ersatztv-channel.exe"
-            : "ersatztv-channel";
-
-        string channelBinary = fileSystem.Path.Combine(ReplaceTilde(nextFolder), executable);
-        if (!fileSystem.Path.Exists(channelBinary))
-        {
-            return Task.FromResult<Validation<BaseError, ValidationResult>>(
-                BaseError.New("ersatztv-channel binary does not exist!"));
-        }
-
-        return Task.FromResult<Validation<BaseError, ValidationResult>>(
-            new ValidationResult(channelBinary, null, null));
     }
 
     private async Task<Validation<BaseError, ValidationResult>> ChannelMustExist(
@@ -199,29 +171,6 @@ public class StartFFmpegNextSessionHandler(
         }
 
         return BaseError.New($"FFmpeg profile {result.Channel.FFmpegProfileId} not exist");
-    }
-
-    public string ReplaceTilde(string path)
-    {
-        if (!path.StartsWith('~'))
-        {
-            return path;
-        }
-
-        string userFolder = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-
-        switch (path)
-        {
-            case "~":
-                return userFolder;
-            case not null
-                when path.Length == 2 &&
-                     (path[1] == fileSystem.Path.DirectorySeparatorChar ||
-                      path[1] == fileSystem.Path.AltDirectorySeparatorChar):
-                return userFolder + fileSystem.Path.DirectorySeparatorChar;
-            default:
-                return fileSystem.Path.Combine(userFolder, path[2..]);
-        }
     }
 
     private async Task<string> GetMultiVariantPlaylist(StartFFmpegNextSession request)
@@ -407,7 +356,7 @@ public class StartFFmpegNextSessionHandler(
             }
         };
 
-        string playoutFolder = fileSystem.Path.Combine(FileSystemLayout.NextPlayoutsFolder, channel.Number, "current");
+        string playoutFolder = _fileSystem.Path.Combine(FileSystemLayout.NextPlayoutsFolder, channel.Number, "current");
 
         return new ChannelConfig
         {
