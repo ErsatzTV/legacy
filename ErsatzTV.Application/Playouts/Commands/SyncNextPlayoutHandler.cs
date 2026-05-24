@@ -166,6 +166,14 @@ public partial class SyncNextPlayoutHandler(
             .ThenInclude(i => (i as Episode).EpisodeMetadata)
             .ThenInclude(em => em.Subtitles)
             .Include(i => i.MediaItem)
+            .ThenInclude(i => (i as Image).MediaVersions)
+            .ThenInclude(mv => mv.MediaFiles)
+            .Include(i => i.MediaItem)
+            .ThenInclude(i => (i as Image).MediaVersions)
+            .ThenInclude(mv => mv.Streams)
+            .Include(i => i.MediaItem)
+            .ThenInclude(i => (i as Image).ImageMetadata)
+            .Include(i => i.MediaItem)
             .ThenInclude(i => (i as Movie).MediaVersions)
             .ThenInclude(mv => mv.MediaFiles)
             .Include(i => i.MediaItem)
@@ -223,7 +231,7 @@ public partial class SyncNextPlayoutHandler(
             {
                 if (playoutItem.MediaItem is not Episode && playoutItem.MediaItem is not Movie &&
                     playoutItem.MediaItem is not OtherVideo && playoutItem.MediaItem is not MusicVideo &&
-                    playoutItem.MediaItem is not RemoteStream)
+                    playoutItem.MediaItem is not RemoteStream && playoutItem.MediaItem is not Image)
                 {
                     continue;
                 }
