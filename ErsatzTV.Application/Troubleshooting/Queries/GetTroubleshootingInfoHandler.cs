@@ -264,7 +264,7 @@ public class GetTroubleshootingInfoHandler : IRequestHandler<GetTroubleshootingI
             WorkAheadSegmenterLimit = await workAheadSegmenterLimit.IfNoneAsync(1),
             InitialSegmentCount = await initialSegmentCount.IfNoneAsync(1),
             HlsDirectOutputFormat = await outputFormatKind.IfNoneAsync(OutputFormatKind.MpegTs),
-            DefaultMpegTsScript = await defaultMpegTsScript.IfNoneAsync("Default")
+            DefaultMpegTsScript = await defaultMpegTsScript.IfNoneAsync("default")
         };
 
         foreach (int watermarkId in watermark)
