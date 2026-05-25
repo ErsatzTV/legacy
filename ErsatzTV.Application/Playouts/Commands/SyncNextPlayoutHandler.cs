@@ -256,6 +256,17 @@ public partial class SyncNextPlayoutHandler(
 
                 foreach (Core.Next.Source source in maybeSource)
                 {
+                    if (playoutItem.InPoint > TimeSpan.Zero)
+                    {
+                        source.InPointMs = (long)playoutItem.InPoint.TotalMilliseconds;
+                    }
+
+                    var duration = playoutItem.MediaItem.GetDurationForPlayout();
+                    if (playoutItem.OutPoint > TimeSpan.Zero && playoutItem.OutPoint < duration)
+                    {
+                        source.OutPointMs = (long)playoutItem.OutPoint.TotalMilliseconds;
+                    }
+
                     nextPlayoutItem.Source = source;
                 }
 
@@ -278,11 +289,7 @@ public partial class SyncNextPlayoutHandler(
                         },
                         Video = new Core.Next.TrackSelection
                         {
-                            Source = new Core.Next.Source
-                            {
-                                SourceType = videoSource.SourceType,
-                                Path = videoSource.Path,
-                            }
+                            Source = videoSource
                         }
                     };
                 }
