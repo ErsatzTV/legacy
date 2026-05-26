@@ -304,6 +304,7 @@ public partial class SyncNextPlayoutHandler(
                     var audioVersion = new MediaItemAudioVersion(playoutItem.MediaItem, headVersion);
                     await SelectTracks(
                         channel,
+                        playoutItem,
                         audioVersion,
                         nextPlayoutItem,
                         playoutItem.PreferredAudioLanguageCode ?? channel.PreferredAudioLanguageCode,
@@ -327,6 +328,7 @@ public partial class SyncNextPlayoutHandler(
 
     private async Task SelectTracks(
         Channel channel,
+        PlayoutItem playoutItem,
         MediaItemAudioVersion audioVersion,
         Core.Next.PlayoutItem nextPlayoutItem,
         string preferredAudioLanguage,
@@ -335,7 +337,7 @@ public partial class SyncNextPlayoutHandler(
         ChannelSubtitleMode subtitleMode,
         CancellationToken cancellationToken)
     {
-        List<Subtitle> allSubtitles = await GetSubtitles(audioVersion.MediaItem);
+        List<Subtitle> allSubtitles = await GetSubtitles(audioVersion.MediaItem, playoutItem.Id, playoutItem.InPoint);
 
         Option<MediaStream> maybeAudioStream = Option<MediaStream>.None;
         Option<Subtitle> maybeSubtitle = Option<Subtitle>.None;
@@ -404,6 +406,21 @@ public partial class SyncNextPlayoutHandler(
                     {
                         SourceType = Core.Next.SourceType.Local,
                         Path = subtitle.Path,
+                    };
+                }
+            }
+            else if (subtitle.Path.StartsWith("http://localhost", StringComparison.OrdinalIgnoreCase))
+            {
+                if (nextPlayoutItem.Tracks?.Subtitle?.Source is null)
+                {
+                    nextPlayoutItem.Tracks ??= new Core.Next.PlayoutItemTracks();
+                    nextPlayoutItem.Tracks.Subtitle ??= new Core.Next.TrackSelection();
+                    nextPlayoutItem.Tracks.Subtitle.Source = new Core.Next.Source
+                    {
+                        SourceType = Core.Next.SourceType.Http,
+                        Uri = subtitle.Path,
+                        KeepAlive = false,
+                        Reconnect = true
                     };
                 }
             }
@@ -672,7 +689,10 @@ public partial class SyncNextPlayoutHandler(
         }
     }
 
-    private static async Task<List<Subtitle>> GetSubtitles(MediaItem mediaItem)
+    private static async Task<List<Subtitle>> GetSubtitles(
+        MediaItem mediaItem,
+        int playoutItemId,
+        TimeSpan playoutItemInPoint)
     {
         List<Subtitle> allSubtitles = mediaItem switch
         {
@@ -682,7 +702,7 @@ public partial class SyncNextPlayoutHandler(
             Movie movie => await Optional(movie.MovieMetadata).Flatten().HeadOrNone()
                 .Map(mm => mm.Subtitles ?? [])
                 .IfNoneAsync([]),
-            //MusicVideo musicVideo => await GetMusicVideoSubtitles(musicVideo, channel, settings),
+            MusicVideo => GetMusicVideoSubtitles(playoutItemId, playoutItemInPoint),
             OtherVideo otherVideo => await Optional(otherVideo.OtherVideoMetadata).Flatten().HeadOrNone()
                 .Map(mm => mm.Subtitles ?? [])
                 .IfNoneAsync([]),
@@ -702,5 +722,26 @@ public partial class SyncNextPlayoutHandler(
         allSubtitles.RemoveAll(s => s.IsImage && s.SubtitleKind is not SubtitleKind.Embedded);
 
         return allSubtitles;
+    }
+
+    private static List<Subtitle> GetMusicVideoSubtitles(int playoutItemId, TimeSpan playoutItemInPoint)
+    {
+        string seekToMs = playoutItemInPoint > TimeSpan.Zero
+            ? $"?seekToMs={(long)playoutItemInPoint.TotalMilliseconds}"
+            : string.Empty;
+
+        return
+        [
+            new Subtitle
+            {
+                Codec = "ass",
+                Default = true,
+                Forced = true,
+                IsExtracted = false,
+                SubtitleKind = SubtitleKind.Generated,
+                Path = $"http://localhost:{Settings.StreamingPort}/ffmpeg/music-video-credits/{playoutItemId}{seekToMs}",
+                SDH = false
+            }
+        ];
     }
 }

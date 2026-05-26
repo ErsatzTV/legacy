@@ -60,9 +60,10 @@ public class GetMusicVideoCreditsByPlayoutItemIdHandler(
             switch (playoutItem.Playout.Channel.MusicVideoCreditsMode)
             {
                 case ChannelMusicVideoCreditsMode.GenerateSubtitles:
-                    var fileWithExtension = $"{playoutItem.Playout.Channel.MusicVideoCreditsTemplate}.sbntxt";
-                    if (!string.IsNullOrWhiteSpace(fileWithExtension))
+                    string templateName = playoutItem.Playout.Channel.MusicVideoCreditsTemplate;
+                    if (!string.IsNullOrWhiteSpace(templateName))
                     {
+                        var fileWithExtension = $"{templateName}.sbntxt";
                         subtitles.AddRange(
                             await musicVideoCreditsGenerator.GenerateCreditsSubtitleFromTemplate(
                                 musicVideo,
@@ -74,7 +75,7 @@ public class GetMusicVideoCreditsByPlayoutItemIdHandler(
                     {
                         logger.LogWarning(
                             "Music video credits template {Template} does not exist; falling back to built-in template",
-                            fileWithExtension);
+                            templateName);
 
                         subtitles.AddRange(
                             await musicVideoCreditsGenerator.GenerateCreditsSubtitle(
