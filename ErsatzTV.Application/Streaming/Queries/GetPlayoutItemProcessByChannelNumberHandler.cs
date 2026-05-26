@@ -654,7 +654,7 @@ public class GetPlayoutItemProcessByChannelNumberHandler : FFmpegProcessHandler<
                         await _musicVideoCreditsGenerator.GenerateCreditsSubtitleFromTemplate(
                             musicVideo,
                             channel.FFmpegProfile,
-                            settings,
+                            settings.StreamSeek,
                             Path.Combine(FileSystemLayout.MusicVideoCreditsTemplatesFolder, fileWithExtension)));
                 }
                 else

@@ -10,6 +10,6 @@ public interface IMusicVideoCreditsGenerator
     Task<Option<Subtitle>> GenerateCreditsSubtitleFromTemplate(
         MusicVideo musicVideo,
         FFmpegProfile ffmpegProfile,
-        FFmpegPlaybackSettings settings,
+        Option<TimeSpan> streamSeek,
         string templateFileName);
 }

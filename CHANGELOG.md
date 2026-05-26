@@ -16,6 +16,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Fix HLS Direct playback when JWT auth is also used
 - Use configured ffmpeg path for motion and subtitle graphics elements
   - Previously, these elements required ffmpeg to be on PATH
+- Fix erroneous warning `Unable to locate MPEG-TS Script in folder Default` on installations with case-sensitive file systems
 
 ## [26.5.1] - 2026-05-08
 ### Fixed

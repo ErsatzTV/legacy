@@ -46,6 +46,23 @@ public class InternalController : StreamingControllerBase
     [HttpGet("ffmpeg/stream/{channelNumber}")]
     public Task<IActionResult> GetStream(string channelNumber) => GetTsLegacyStream(channelNumber);
 
+    [HttpGet("ffmpeg/music-video-credits/{playoutItemId:int}")]
+    public async Task<IActionResult> GetMusicVideoCredits(
+        int playoutItemId,
+        [FromQuery] long? seekToMs,
+        CancellationToken cancellationToken)
+    {
+        Option<string> maybeCreditsFile = await _mediator.Send(
+            new GetMusicVideoCreditsByPlayoutItemId(playoutItemId, Optional(seekToMs)),
+            cancellationToken);
+        foreach (string creditsFile in maybeCreditsFile)
+        {
+            return new PhysicalFileResult(creditsFile, "text/x-ssa");
+        }
+
+        return NotFound();
+    }
+
     [HttpGet("ffmpeg/remote-stream/{remoteStreamId}")]
     public async Task<IActionResult> GetRemoteStream(int remoteStreamId, CancellationToken cancellationToken)
     {

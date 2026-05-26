@@ -87,7 +87,7 @@ public class MusicVideoCreditsGenerator(ITempFilePool tempFilePool, ILogger<Musi
     public async Task<Option<Subtitle>> GenerateCreditsSubtitleFromTemplate(
         MusicVideo musicVideo,
         FFmpegProfile ffmpegProfile,
-        FFmpegPlaybackSettings settings,
+        Option<TimeSpan> streamSeek,
         string templateFileName)
     {
         try
@@ -111,12 +111,12 @@ public class MusicVideoCreditsGenerator(ITempFilePool tempFilePool, ILogger<Musi
                         metadata.Album,
                         metadata.Plot,
                         metadata.ReleaseDate,
-                        AllArtists = (metadata.Artists ?? new List<MusicVideoArtist>()).Map(a => a.Name),
+                        AllArtists = (metadata.Artists ?? []).Map(a => a.Name),
                         Artist = artist,
-                        Studios = (metadata.Studios ?? new List<Studio>()).Map(s => s.Name),
-                        Directors = (metadata.Directors ?? new List<Director>()).Map(s => s.Name),
+                        Studios = (metadata.Studios ?? []).Map(s => s.Name),
+                        Directors = (metadata.Directors ?? []).Map(s => s.Name),
                         musicVideo.GetHeadVersion().Duration,
-                        StreamSeek = await settings.StreamSeek.IfNoneAsync(TimeSpan.Zero)
+                        StreamSeek = await streamSeek.IfNoneAsync(TimeSpan.Zero)
                     });
 
                 string fileName = tempFilePool.GetNextTempFile(TempFileCategory.Subtitle);
