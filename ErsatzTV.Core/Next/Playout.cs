@@ -105,6 +105,25 @@ namespace ErsatzTV.Core.Next
     ///
     /// An external command whose stdout is an MPEG-TS stream, proxied to ffmpeg over loopback
     /// HTTP.
+    ///
+    /// A placeholder source resolved at playback time by fetching a `PlayoutItem` JSON document
+    /// over HTTP(S). The returned item replaces this one; its `start` is forced to the current
+    /// transcode position and its `finish` is clamped to the placeholder's `finish`. Because
+    /// `start` advances each tick, the resolver is re-hit while the transcode position remains
+    /// inside the placeholder window, allowing a sequence of distinct items to be returned for a
+    /// single placeholder. The resolved item's `source` may not itself be `dynamic`.
+    ///
+    /// The channel automatically injects the following request headers (in addition to any
+    /// configured via `headers`), all formatted per RFC 3339 for timestamps:
+    ///
+    /// - `X-Etv-Channel` — the channel number this request is for.
+    /// - `X-Etv-Dynamic-Id` — a stable identifier for the placeholder; resolvers can use it to
+    /// coalesce or cache decisions across the multiple calls that occur while transcoding stays
+    /// inside one placeholder window.
+    /// - `X-Etv-Now` — the current transcode position; this is the `start` that will be forced
+    /// onto the resolved item.
+    /// - `X-Etv-Until` — the placeholder's `finish`; the resolver should not return an item that
+    /// extends beyond this (it will be clamped if it does).
     /// </summary>
     public partial class Source
     {
@@ -137,6 +156,9 @@ namespace ErsatzTV.Core.Next
 
         /// <summary>
         /// Custom HTTP headers, e.g. ["Authorization: Bearer {{TOKEN}}"].
+        ///
+        /// Custom HTTP headers, e.g. ["Authorization: Bearer {{TOKEN}}"]. Supports {{TEMPLATE}}
+        /// expansion.
         /// </summary>
         [JsonProperty("headers")]
         public List<string> Headers { get; set; }
@@ -161,6 +183,8 @@ namespace ErsatzTV.Core.Next
 
         /// <summary>
         /// Socket timeout in microseconds.
+        ///
+        /// Request timeout in microseconds. Defaults to 10 seconds.
         /// </summary>
         [JsonProperty("timeout_us")]
         public long? TimeoutUs { get; set; }
@@ -169,12 +193,18 @@ namespace ErsatzTV.Core.Next
         /// URI template, e.g. "https://example.com/file.mkv?token={{MY_SECRET}}".
         ///
         /// RTSP URI template, e.g. "rtsp://user:{{PASSWORD}}@camera.lan:554/stream".
+        ///
+        /// URI template for the resolver endpoint, e.g.
+        /// "http://localhost:8409/fallback?channel=5&token={{MY_SECRET}}". Must respond with a JSON
+        /// `PlayoutItem`.
         /// </summary>
         [JsonProperty("uri", NullValueHandling = NullValueHandling.Ignore)]
         public string Uri { get; set; }
 
         /// <summary>
         /// Custom User-Agent string.
+        ///
+        /// Custom User-Agent string. Supports {{TEMPLATE}} expansion.
         /// </summary>
         [JsonProperty("user_agent")]
         public string UserAgent { get; set; }
@@ -339,6 +369,25 @@ namespace ErsatzTV.Core.Next
     ///
     /// An external command whose stdout is an MPEG-TS stream, proxied to ffmpeg over loopback
     /// HTTP.
+    ///
+    /// A placeholder source resolved at playback time by fetching a `PlayoutItem` JSON document
+    /// over HTTP(S). The returned item replaces this one; its `start` is forced to the current
+    /// transcode position and its `finish` is clamped to the placeholder's `finish`. Because
+    /// `start` advances each tick, the resolver is re-hit while the transcode position remains
+    /// inside the placeholder window, allowing a sequence of distinct items to be returned for a
+    /// single placeholder. The resolved item's `source` may not itself be `dynamic`.
+    ///
+    /// The channel automatically injects the following request headers (in addition to any
+    /// configured via `headers`), all formatted per RFC 3339 for timestamps:
+    ///
+    /// - `X-Etv-Channel` — the channel number this request is for.
+    /// - `X-Etv-Dynamic-Id` — a stable identifier for the placeholder; resolvers can use it to
+    /// coalesce or cache decisions across the multiple calls that occur while transcoding stays
+    /// inside one placeholder window.
+    /// - `X-Etv-Now` — the current transcode position; this is the `start` that will be forced
+    /// onto the resolved item.
+    /// - `X-Etv-Until` — the placeholder's `finish`; the resolver should not return an item that
+    /// extends beyond this (it will be clamped if it does).
     /// </summary>
     public partial class PlayoutItemSource
     {
@@ -371,6 +420,9 @@ namespace ErsatzTV.Core.Next
 
         /// <summary>
         /// Custom HTTP headers, e.g. ["Authorization: Bearer {{TOKEN}}"].
+        ///
+        /// Custom HTTP headers, e.g. ["Authorization: Bearer {{TOKEN}}"]. Supports {{TEMPLATE}}
+        /// expansion.
         /// </summary>
         [JsonProperty("headers")]
         public List<string> Headers { get; set; }
@@ -395,6 +447,8 @@ namespace ErsatzTV.Core.Next
 
         /// <summary>
         /// Socket timeout in microseconds.
+        ///
+        /// Request timeout in microseconds. Defaults to 10 seconds.
         /// </summary>
         [JsonProperty("timeout_us")]
         public long? TimeoutUs { get; set; }
@@ -403,12 +457,18 @@ namespace ErsatzTV.Core.Next
         /// URI template, e.g. "https://example.com/file.mkv?token={{MY_SECRET}}".
         ///
         /// RTSP URI template, e.g. "rtsp://user:{{PASSWORD}}@camera.lan:554/stream".
+        ///
+        /// URI template for the resolver endpoint, e.g.
+        /// "http://localhost:8409/fallback?channel=5&token={{MY_SECRET}}". Must respond with a JSON
+        /// `PlayoutItem`.
         /// </summary>
         [JsonProperty("uri", NullValueHandling = NullValueHandling.Ignore)]
         public string Uri { get; set; }
 
         /// <summary>
         /// Custom User-Agent string.
+        ///
+        /// Custom User-Agent string. Supports {{TEMPLATE}} expansion.
         /// </summary>
         [JsonProperty("user_agent")]
         public string UserAgent { get; set; }
@@ -487,7 +547,7 @@ namespace ErsatzTV.Core.Next
         public TimingType TimingType { get; set; }
     }
 
-    public enum SourceType { Http, Lavfi, Local, Rtsp, Script };
+    public enum SourceType { Dynamic, Http, Lavfi, Local, Rtsp, Script };
 
     /// <summary>
     /// Anchor position within the primary content frame.
@@ -518,7 +578,7 @@ namespace ErsatzTV.Core.Next
         public static string ToJson(this Playout self) => JsonConvert.SerializeObject(self, ErsatzTV.Core.Next.Converter.Settings);
     }
 
-    internal static class Converter
+    public static class Converter
     {
         public static readonly JsonSerializerSettings Settings = new JsonSerializerSettings
         {
@@ -546,6 +606,8 @@ namespace ErsatzTV.Core.Next
             var value = serializer.Deserialize<string>(reader);
             switch (value)
             {
+                case "dynamic":
+                    return SourceType.Dynamic;
                 case "http":
                     return SourceType.Http;
                 case "lavfi":
@@ -570,6 +632,9 @@ namespace ErsatzTV.Core.Next
             var value = (SourceType)untypedValue;
             switch (value)
             {
+                case SourceType.Dynamic:
+                    serializer.Serialize(writer, "dynamic");
+                    return;
                 case SourceType.Http:
                     serializer.Serialize(writer, "http");
                     return;

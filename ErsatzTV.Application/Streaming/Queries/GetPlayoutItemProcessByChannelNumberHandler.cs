@@ -1,25 +1,18 @@
-﻿using System.IO.Abstractions;
-using CliWrap;
-using Dapper;
+﻿using CliWrap;
 using ErsatzTV.Application.Playouts;
 using ErsatzTV.Core;
 using ErsatzTV.Core.Domain;
 using ErsatzTV.Core.Domain.Filler;
-using ErsatzTV.Core.Domain.Scheduling;
 using ErsatzTV.Core.Errors;
 using ErsatzTV.Core.Extensions;
 using ErsatzTV.Core.FFmpeg;
-using ErsatzTV.Core.Interfaces.Emby;
 using ErsatzTV.Core.Interfaces.FFmpeg;
-using ErsatzTV.Core.Interfaces.Jellyfin;
-using ErsatzTV.Core.Interfaces.Plex;
-using ErsatzTV.Core.Interfaces.Repositories;
 using ErsatzTV.Core.Interfaces.Streaming;
-using ErsatzTV.Core.Scheduling;
 using ErsatzTV.FFmpeg;
 using ErsatzTV.FFmpeg.State;
 using ErsatzTV.Infrastructure.Data;
 using ErsatzTV.Infrastructure.Extensions;
+using ErsatzTV.Infrastructure.Scheduling;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -27,58 +20,35 @@ namespace ErsatzTV.Application.Streaming;
 
 public class GetPlayoutItemProcessByChannelNumberHandler : FFmpegProcessHandler<GetPlayoutItemProcessByChannelNumber>
 {
-    private static readonly Random FallbackRandom = new();
-
-    private readonly IArtistRepository _artistRepository;
-    private readonly IEmbyPathReplacementService _embyPathReplacementService;
     private readonly IExternalJsonPlayoutItemProvider _externalJsonPlayoutItemProvider;
     private readonly IFFmpegProcessService _ffmpegProcessService;
-    private readonly IFileSystem _fileSystem;
-    private readonly IJellyfinPathReplacementService _jellyfinPathReplacementService;
     private readonly ILogger<GetPlayoutItemProcessByChannelNumberHandler> _logger;
-    private readonly IMediaCollectionRepository _mediaCollectionRepository;
     private readonly IMusicVideoCreditsGenerator _musicVideoCreditsGenerator;
     private readonly IWatermarkSelector _watermarkSelector;
     private readonly IGraphicsElementSelector _graphicsElementSelector;
-    private readonly IDecoSelector _decoSelector;
-    private readonly IPlexPathReplacementService _plexPathReplacementService;
+    private readonly IDynamicPlayoutItemService _dynamicPlayoutItemService;
     private readonly ISongVideoGenerator _songVideoGenerator;
-    private readonly ITelevisionRepository _televisionRepository;
     private readonly bool _isDebugNoSync;
 
     public GetPlayoutItemProcessByChannelNumberHandler(
         IDbContextFactory<TvContext> dbContextFactory,
         IFFmpegProcessService ffmpegProcessService,
-        IFileSystem fileSystem,
         IExternalJsonPlayoutItemProvider externalJsonPlayoutItemProvider,
-        IPlexPathReplacementService plexPathReplacementService,
-        IJellyfinPathReplacementService jellyfinPathReplacementService,
-        IEmbyPathReplacementService embyPathReplacementService,
-        IMediaCollectionRepository mediaCollectionRepository,
-        ITelevisionRepository televisionRepository,
-        IArtistRepository artistRepository,
         ISongVideoGenerator songVideoGenerator,
         IMusicVideoCreditsGenerator musicVideoCreditsGenerator,
         IWatermarkSelector watermarkSelector,
         IGraphicsElementSelector graphicsElementSelector,
-        IDecoSelector decoSelector,
+        IDynamicPlayoutItemService dynamicPlayoutItemService,
         ILogger<GetPlayoutItemProcessByChannelNumberHandler> logger)
         : base(dbContextFactory)
     {
         _ffmpegProcessService = ffmpegProcessService;
-        _fileSystem = fileSystem;
         _externalJsonPlayoutItemProvider = externalJsonPlayoutItemProvider;
-        _plexPathReplacementService = plexPathReplacementService;
-        _jellyfinPathReplacementService = jellyfinPathReplacementService;
-        _embyPathReplacementService = embyPathReplacementService;
-        _mediaCollectionRepository = mediaCollectionRepository;
-        _televisionRepository = televisionRepository;
-        _artistRepository = artistRepository;
         _songVideoGenerator = songVideoGenerator;
         _musicVideoCreditsGenerator = musicVideoCreditsGenerator;
         _watermarkSelector = watermarkSelector;
         _graphicsElementSelector = graphicsElementSelector;
-        _decoSelector = decoSelector;
+        _dynamicPlayoutItemService = dynamicPlayoutItemService;
         _logger = logger;
 
 #if DEBUG_NO_SYNC
@@ -211,7 +181,7 @@ public class GetPlayoutItemProcessByChannelNumberHandler : FFmpegProcessHandler<
             .Include(i => i.Watermarks)
             .ForChannelAndTime(channel.MirrorSourceChannelId ?? channel.Id, now)
             .Map(o => o.ToEither<BaseError>(new UnableToLocatePlayoutItem()))
-            .BindT(item => ValidatePlayoutItemPath(dbContext, item, cancellationToken));
+            .BindT(item => _dynamicPlayoutItemService.ValidatePlayoutItemPath(dbContext, item, cancellationToken));
 
         if (maybePlayoutItem.LeftAsEnumerable().Any(e => e is UnableToLocatePlayoutItem))
         {
@@ -224,38 +194,11 @@ public class GetPlayoutItemProcessByChannelNumberHandler : FFmpegProcessHandler<
 
         if (maybePlayoutItem.LeftAsEnumerable().Any(e => e is UnableToLocatePlayoutItem))
         {
-            Option<Playout> maybePlayout = await dbContext.Playouts
-                .AsNoTracking()
-
-                // get playout deco
-                .Include(p => p.Deco)
-                .ThenInclude(d => d.DecoWatermarks)
-                .ThenInclude(d => d.Watermark)
-                .Include(p => p.Deco)
-                .ThenInclude(d => d.DecoGraphicsElements)
-                .ThenInclude(d => d.GraphicsElement)
-
-                // get playout templates (and deco templates/decos)
-                .Include(p => p.Templates)
-                .ThenInclude(t => t.DecoTemplate)
-                .ThenInclude(t => t.Items)
-                .ThenInclude(i => i.Deco)
-                .ThenInclude(d => d.DecoWatermarks)
-                .ThenInclude(d => d.Watermark)
-                .SelectOneAsync(
-                    p => p.ChannelId,
-                    p => p.ChannelId == (channel.MirrorSourceChannelId ?? channel.Id),
-                    cancellationToken);
-
-            foreach (Playout playout in maybePlayout)
-            {
-                maybePlayoutItem = await CheckForFallbackFiller(dbContext, channel, playout, now, cancellationToken);
-            }
-
-            if (maybePlayout.IsNone)
-            {
-                maybePlayoutItem = await CheckForFallbackFiller(dbContext, channel, null, now, cancellationToken);
-            }
+            maybePlayoutItem = await _dynamicPlayoutItemService.CheckForFallbackFiller(
+                dbContext,
+                channel,
+                now,
+                cancellationToken);
         }
 
         foreach (PlayoutItemWithPath playoutItemWithPath in maybePlayoutItem.RightToSeq())
@@ -679,280 +622,4 @@ public class GetPlayoutItemProcessByChannelNumberHandler : FFmpegProcessHandler<
 
         return subtitles;
     }
-
-    private async Task<Either<BaseError, PlayoutItemWithPath>> CheckForFallbackFiller(
-        TvContext dbContext,
-        Channel channel,
-        Playout playout,
-        DateTimeOffset now,
-        CancellationToken cancellationToken)
-    {
-        Option<FillerPreset> maybeFallback = Option<FillerPreset>.None;
-
-        DeadAirFallbackResult decoDeadAirFallback = GetDecoDeadAirFallback(playout, now);
-        switch (decoDeadAirFallback)
-        {
-            case CustomDeadAirFallback custom:
-                maybeFallback = new FillerPreset
-                {
-                    // always allow watermarks here
-                    // deco settings will disable watermarks if appropriate
-                    AllowWatermarks = true,
-
-                    CollectionType = custom.CollectionType,
-                    CollectionId = custom.CollectionId,
-                    MediaItemId = custom.MediaItemId,
-                    MultiCollectionId = custom.MultiCollectionId,
-                    SmartCollectionId = custom.SmartCollectionId
-                };
-                break;
-            case DisableDeadAirFallback:
-                // do nothing
-                break;
-            case InheritDeadAirFallback:
-                // check for channel fallback
-                maybeFallback = await dbContext.FillerPresets
-                    .SelectOneAsync(w => w.Id, w => w.Id == channel.FallbackFillerId, cancellationToken);
-
-                // then check for global fallback
-                if (maybeFallback.IsNone)
-                {
-                    maybeFallback = await dbContext.ConfigElements
-                        .GetValue<int>(ConfigElementKey.FFmpegGlobalFallbackFillerId, cancellationToken)
-                        .BindT(fillerId => dbContext.FillerPresets.SelectOneAsync(
-                            w => w.Id,
-                            w => w.Id == fillerId,
-                            cancellationToken));
-                }
-
-                break;
-        }
-
-
-        foreach (FillerPreset fallbackPreset in maybeFallback)
-        {
-            // turn this into a playout item
-
-            var collectionKey = CollectionKey.ForFillerPreset(fallbackPreset);
-            List<MediaItem> items = await MediaItemsForCollection.Collect(
-                _mediaCollectionRepository,
-                _televisionRepository,
-                _artistRepository,
-                collectionKey,
-                cancellationToken);
-
-            // ignore the fallback filler preset if it has no items
-            if (items.Count == 0)
-            {
-                break;
-            }
-
-            // get a random item
-            MediaItem item = items[FallbackRandom.Next(items.Count)];
-
-            Option<TimeSpan> maybeDuration = await dbContext.PlayoutItems
-                .Filter(pi => pi.Playout.ChannelId == (channel.MirrorSourceChannelId ?? channel.Id))
-                .Filter(pi => pi.Start > now.UtcDateTime)
-                .OrderBy(pi => pi.Start)
-                .FirstOrDefaultAsync(cancellationToken)
-                .Map(Optional)
-                .MapT(pi => pi.StartOffset - now);
-
-            MediaVersion version = item.GetHeadVersion();
-
-            version.MediaFiles = await dbContext.MediaFiles
-                .AsNoTracking()
-                .Filter(mf => mf.MediaVersionId == version.Id)
-                .ToListAsync(cancellationToken);
-
-            version.Streams = await dbContext.MediaStreams
-                .AsNoTracking()
-                .Filter(ms => ms.MediaVersionId == version.Id)
-                .ToListAsync(cancellationToken);
-
-            // always play min(duration to next item, version.Duration)
-            TimeSpan duration = await maybeDuration.IfNoneAsync(version.Duration);
-            if (version.Duration < duration)
-            {
-                duration = version.Duration;
-            }
-
-            DateTimeOffset finish = now.Add(duration);
-
-            var playoutItem = new PlayoutItem
-            {
-                MediaItem = item,
-                MediaItemId = item.Id,
-                Start = now.UtcDateTime,
-                Finish = finish.UtcDateTime,
-                FillerKind = FillerKind.Fallback,
-                InPoint = TimeSpan.Zero,
-                OutPoint = duration,
-                DisableWatermarks = !fallbackPreset.AllowWatermarks,
-                Watermarks = [],
-                PlayoutItemWatermarks = [],
-                GraphicsElements = [],
-                PlayoutItemGraphicsElements = []
-            };
-
-            return await ValidatePlayoutItemPath(dbContext, playoutItem, cancellationToken);
-        }
-
-        return new UnableToLocatePlayoutItem();
-    }
-
-    private async Task<Either<BaseError, PlayoutItemWithPath>> ValidatePlayoutItemPath(
-        TvContext dbContext,
-        PlayoutItem playoutItem,
-        CancellationToken cancellationToken)
-    {
-        string path = await playoutItem.MediaItem.GetLocalPath(
-            _plexPathReplacementService,
-            _jellyfinPathReplacementService,
-            _embyPathReplacementService,
-            cancellationToken);
-
-        if (_isDebugNoSync)
-        {
-            // pretend it exists so we get a nice error message
-            return new PlayoutItemWithPath(playoutItem, path);
-        }
-
-        // check filesystem first
-        if (_fileSystem.File.Exists(path))
-        {
-            if (playoutItem.MediaItem is RemoteStream remoteStream)
-            {
-                path = !string.IsNullOrWhiteSpace(remoteStream.Url)
-                    ? remoteStream.Url
-                    : $"http://localhost:{Settings.StreamingPort}/ffmpeg/remote-stream/{remoteStream.Id}";
-            }
-
-            return new PlayoutItemWithPath(playoutItem, path);
-        }
-
-        // attempt to remotely stream plex
-        MediaFile file = playoutItem.MediaItem.GetHeadVersion().MediaFiles.Head();
-        switch (file)
-        {
-            case PlexMediaFile pmf:
-                Option<int> maybeId = await dbContext.Connection.QuerySingleOrDefaultAsync<int>(
-                        @"SELECT PMS.Id FROM PlexMediaSource PMS
-                  INNER JOIN Library L on PMS.Id = L.MediaSourceId
-                  INNER JOIN LibraryPath LP on L.Id = LP.LibraryId
-                  WHERE LP.Id = @LibraryPathId",
-                        new { playoutItem.MediaItem.LibraryPathId })
-                    .Map(Optional);
-
-                foreach (int plexMediaSourceId in maybeId)
-                {
-                    _logger.LogDebug(
-                        "Attempting to stream Plex file {PlexFileName} using key {PlexKey}",
-                        pmf.Path,
-                        pmf.Key);
-
-                    return new PlayoutItemWithPath(
-                        playoutItem,
-                        $"http://localhost:{Settings.StreamingPort}/media/plex/{plexMediaSourceId}/{pmf.Key}");
-                }
-
-                break;
-        }
-
-        // attempt to remotely stream jellyfin
-        Option<string> jellyfinItemId = playoutItem.MediaItem switch
-        {
-            JellyfinEpisode e => e.ItemId,
-            JellyfinMovie m => m.ItemId,
-            _ => None
-        };
-
-        foreach (string itemId in jellyfinItemId)
-        {
-            return new PlayoutItemWithPath(
-                playoutItem,
-                $"http://localhost:{Settings.StreamingPort}/media/jellyfin/{itemId}");
-        }
-
-        // attempt to remotely stream emby
-        Option<string> embyItemId = playoutItem.MediaItem switch
-        {
-            EmbyEpisode e => e.ItemId,
-            EmbyMovie m => m.ItemId,
-            _ => None
-        };
-
-        foreach (string itemId in embyItemId)
-        {
-            return new PlayoutItemWithPath(
-                playoutItem,
-                $"http://localhost:{Settings.StreamingPort}/media/emby/{itemId}");
-        }
-
-        return new PlayoutItemDoesNotExistOnDisk(path);
-    }
-
-    private DeadAirFallbackResult GetDecoDeadAirFallback(Playout playout, DateTimeOffset now)
-    {
-        DecoEntries decoEntries = _decoSelector.GetDecoEntries(playout, now);
-
-        // first, check deco template / active deco
-        foreach (Deco templateDeco in decoEntries.TemplateDeco)
-        {
-            switch (templateDeco.DeadAirFallbackMode)
-            {
-                case DecoMode.Override:
-                    _logger.LogDebug("Dead air fallback will come from template deco (override)");
-                    return new CustomDeadAirFallback(
-                        templateDeco.DeadAirFallbackCollectionType,
-                        templateDeco.DeadAirFallbackCollectionId,
-                        templateDeco.DeadAirFallbackMediaItemId,
-                        templateDeco.DeadAirFallbackMultiCollectionId,
-                        templateDeco.DeadAirFallbackSmartCollectionId);
-                case DecoMode.Disable:
-                    _logger.LogDebug("Dead air fallback is disabled by template deco");
-                    return new DisableDeadAirFallback();
-                case DecoMode.Inherit:
-                    _logger.LogDebug("Dead air fallback will inherit from playout deco");
-                    break;
-            }
-        }
-
-        // second, check playout deco
-        foreach (Deco playoutDeco in decoEntries.PlayoutDeco)
-        {
-            switch (playoutDeco.DeadAirFallbackMode)
-            {
-                case DecoMode.Override:
-                    _logger.LogDebug("Dead air fallback will come from playout deco (override)");
-                    return new CustomDeadAirFallback(
-                        playoutDeco.DeadAirFallbackCollectionType,
-                        playoutDeco.DeadAirFallbackCollectionId,
-                        playoutDeco.DeadAirFallbackMediaItemId,
-                        playoutDeco.DeadAirFallbackMultiCollectionId,
-                        playoutDeco.DeadAirFallbackSmartCollectionId);
-                case DecoMode.Disable:
-                    _logger.LogDebug("Dead air fallback is disabled by playout deco");
-                    return new DisableDeadAirFallback();
-                case DecoMode.Inherit:
-                    _logger.LogDebug("Dead air fallback will inherit from channel and/or global setting");
-                    break;
-            }
-        }
-
-        return new InheritDeadAirFallback();
-    }
-
-    private abstract record DeadAirFallbackResult;
-
-    private sealed record InheritDeadAirFallback : DeadAirFallbackResult;
-
-    private sealed record DisableDeadAirFallback : DeadAirFallbackResult;
-
-    private sealed record CustomDeadAirFallback(
-        CollectionType CollectionType,
-        int? CollectionId,
-        int? MediaItemId,
-        int? MultiCollectionId,
-        int? SmartCollectionId) : DeadAirFallbackResult;
 }

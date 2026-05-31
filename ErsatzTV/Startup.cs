@@ -824,6 +824,8 @@ public class Startup
         services.AddScoped<IHlsInitSegmentCache, HlsInitSegmentCache>();
         services.AddScoped<IMpegTsScriptService, MpegTsScriptService>();
         services.AddScoped<ILanguageCodeService, LanguageCodeService>();
+        services.AddScoped<IPlayoutItemConverter, PlayoutItemConverter>();
+        services.AddScoped<IDynamicPlayoutItemService, DynamicPlayoutItemService>();
 
         services.AddScoped<IFFmpegProcessService, FFmpegLibraryProcessService>();
         services.AddScoped<IPipelineBuilderFactory, PipelineBuilderFactory>();
