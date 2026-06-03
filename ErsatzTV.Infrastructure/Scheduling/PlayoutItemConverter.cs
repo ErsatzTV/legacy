@@ -122,8 +122,43 @@ public class PlayoutItemConverter(
 
         if (playoutItem is not DynamicPlayoutItem)
         {
-            // if no audio streams, use lavfi to insert silence
             MediaVersion headVersion = playoutItem.MediaItem.GetHeadVersion();
+            var sourceVideoHints = headVersion.Streams
+                .Where(s => s.MediaStreamKind is MediaStreamKind.Video)
+                .Select(s => new Core.Next.VideoHint
+                {
+                    StreamIndex = s.Index,
+                    Codec = s.Codec,
+                    Height = headVersion.Height,
+                    Width = headVersion.Width,
+                    Profile = s.Profile,
+                    FieldOrder = headVersion.VideoScanKind is VideoScanKind.Interlaced ? "tt" : "progressive",
+                    PixFmt = string.IsNullOrWhiteSpace(s.PixelFormat) ? PixelFormatForBitDepth(s.BitsPerRawSample) : s.PixelFormat,
+                    FrameRate = headVersion.RFrameRate,
+                    SampleAspectRatio = headVersion.SampleAspectRatio,
+                    DisplayAspectRatio = headVersion.DisplayAspectRatio,
+                    ColorPrimaries = s.ColorPrimaries,
+                    ColorRange = s.ColorRange,
+                    ColorSpace = s.ColorSpace,
+                    ColorTransfer = s.ColorTransfer
+                }).ToList();
+            var sourceAudioHints = headVersion.Streams
+                .Where(s => s.MediaStreamKind is MediaStreamKind.Audio)
+                .Select(s => new Core.Next.AudioHint
+                {
+                    StreamIndex = s.Index,
+                    Codec = s.Codec,
+                    Channels = s.Channels
+                }).ToList();
+
+            nextPlayoutItem.Source.ProbeHint = new Core.Next.ProbeHint
+            {
+                Audio = sourceAudioHints,
+                Video = sourceVideoHints,
+                DurationMs = (long)headVersion.Duration.TotalMilliseconds
+            };
+
+            // if no audio streams, use lavfi to insert silence
             if (headVersion.Streams.All(s => s.MediaStreamKind is not MediaStreamKind.Audio))
             {
                 var videoSource = nextPlayoutItem.Source;
@@ -137,7 +172,18 @@ public class PlayoutItemConverter(
                             new Core.Next.Source
                             {
                                 SourceType = Core.Next.SourceType.Lavfi,
-                                Params = "anullsrc=channel_layout=stereo:sample_rate=48000"
+                                Params = "anullsrc=channel_layout=stereo:sample_rate=48000",
+                                ProbeHint = new Core.Next.ProbeHint
+                                {
+                                    Audio = [
+                                        new Core.Next.AudioHint
+                                        {
+                                            StreamIndex = 0,
+                                            Codec = "pcm_s16le",
+                                            Channels = 2
+                                        }
+                                    ]
+                                }
                             }
                     },
                     Video = new Core.Next.TrackSelection
@@ -169,6 +215,15 @@ public class PlayoutItemConverter(
         }
 
         return nextPlayoutItem;
+    }
+
+    private static string PixelFormatForBitDepth(int bitDepth)
+    {
+        return bitDepth switch
+        {
+            10 => "yuv420p10le",
+            _ => "yuv420p"
+        };
     }
 
     private async Task<Option<Core.Next.Source>> SourceForItem(

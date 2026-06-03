@@ -111,18 +111,19 @@ namespace ErsatzTV.Core.Next
     /// transcode position and its `finish` is clamped to the placeholder's `finish`. Because
     /// `start` advances each tick, the resolver is re-hit while the transcode position remains
     /// inside the placeholder window, allowing a sequence of distinct items to be returned for a
-    /// single placeholder. The resolved item's `source` may not itself be `dynamic`.
+    /// single placeholder. The resolved item's `source` may not itself be `dynamic`, but it may
+    /// carry its own `probe_hint`, which is honored exactly as for a directly-specified source.
     ///
     /// The channel automatically injects the following request headers (in addition to any
     /// configured via `headers`), all formatted per RFC 3339 for timestamps:
     ///
-    /// - `X-Etv-Channel` — the channel number this request is for.
-    /// - `X-Etv-Dynamic-Id` — a stable identifier for the placeholder; resolvers can use it to
+    /// - `x-etv-channel` — the channel number this request is for.
+    /// - `x-etv-dynamic-id` — a stable identifier for the placeholder; resolvers can use it to
     /// coalesce or cache decisions across the multiple calls that occur while transcoding stays
     /// inside one placeholder window.
-    /// - `X-Etv-Now` — the current transcode position; this is the `start` that will be forced
+    /// - `x-etv-now` — the current transcode position; this is the `start` that will be forced
     /// onto the resolved item.
-    /// - `X-Etv-Until` — the placeholder's `finish`; the resolver should not return an item that
+    /// - `x-etv-until` — the placeholder's `finish`; the resolver should not return an item that
     /// extends beyond this (it will be clamped if it does).
     /// </summary>
     public partial class Source
@@ -144,6 +145,17 @@ namespace ErsatzTV.Core.Next
         /// </summary>
         [JsonProperty("path", NullValueHandling = NullValueHandling.Ignore)]
         public string Path { get; set; }
+
+        /// <summary>
+        /// Optional pre-supplied probe metadata. When present, ffprobe is skipped and the source is
+        /// read only once (at playback). See `ProbeHint`.
+        ///
+        /// Optional pre-supplied probe metadata. When present, ffprobe is skipped and the source is
+        /// read only once (at playback). Especially useful here: a scripted source (e.g. a yt-dlp
+        /// pipeline) is otherwise opened twice, once to probe and once to play. See `ProbeHint`.
+        /// </summary>
+        [JsonProperty("probe_hint")]
+        public ProbeHint ProbeHint { get; set; }
 
         [JsonProperty("source_type")]
         public SourceType SourceType { get; set; }
@@ -226,6 +238,166 @@ namespace ErsatzTV.Core.Next
         /// </summary>
         [JsonProperty("is_live")]
         public bool? IsLive { get; set; }
+    }
+
+    /// <summary>
+    /// Pre-supplied probe metadata for a source. When present, the server trusts these values
+    /// and skips running ffprobe entirely, so the source is opened only once (at playback)
+    /// instead of twice. This matters most for slow or expensive inputs such as scripted yt-dlp
+    /// pipelines.
+    ///
+    /// The hint fully replaces probing: values are not validated up front, so incorrect metadata
+    /// surfaces as an ffmpeg error during playback rather than a probe failure. Provide an entry
+    /// for every stream the pipeline needs to select — typically one video and one audio.
+    /// </summary>
+    public partial class ProbeHint
+    {
+        /// <summary>
+        /// Audio streams in the source. Omit (or use `[]`) for video-only sources; defaults to empty.
+        /// </summary>
+        [JsonProperty("audio", NullValueHandling = NullValueHandling.Ignore)]
+        public List<AudioHint> Audio { get; set; }
+
+        /// <summary>
+        /// Source duration in milliseconds. Omit for live or unbounded sources.
+        /// </summary>
+        [JsonProperty("duration_ms")]
+        public long? DurationMs { get; set; }
+
+        /// <summary>
+        /// Container format name as reported by ffprobe's `format_name` (e.g. "mpegts", "image2",
+        /// "png_pipe"). Used to detect still images (a single video stream in an `image2` or
+        /// `*_pipe` container). Defaults to "mpegts" when omitted.
+        /// </summary>
+        [JsonProperty("format_name")]
+        public string FormatName { get; set; }
+
+        /// <summary>
+        /// Video (and still-image) streams in the source. Omit (or use `[]`) for audio-only sources;
+        /// defaults to empty.
+        /// </summary>
+        [JsonProperty("video", NullValueHandling = NullValueHandling.Ignore)]
+        public List<VideoHint> Video { get; set; }
+    }
+
+    /// <summary>
+    /// Probe metadata for a single audio stream.
+    /// </summary>
+    public partial class AudioHint
+    {
+        /// <summary>
+        /// Number of audio channels.
+        /// </summary>
+        [JsonProperty("channels")]
+        public long Channels { get; set; }
+
+        /// <summary>
+        /// Codec name as reported by ffprobe (e.g. "aac", "ac3", "mp2"). Compared case-insensitively.
+        /// </summary>
+        [JsonProperty("codec")]
+        public string Codec { get; set; }
+
+        /// <summary>
+        /// Zero-based index of this stream within the source.
+        /// </summary>
+        [JsonProperty("stream_index")]
+        public long StreamIndex { get; set; }
+    }
+
+    /// <summary>
+    /// Probe metadata for a single video (or still-image) stream. Optional fields left out
+    /// assume progressive, square-pixel, SDR content at 24 fps — the same fallbacks used when
+    /// ffprobe omits a field.
+    /// </summary>
+    public partial class VideoHint
+    {
+        /// <summary>
+        /// Codec name as reported by ffprobe (e.g. "h264", "hevc", "mpeg2video", "png"). Compared
+        /// case-insensitively.
+        /// </summary>
+        [JsonProperty("codec")]
+        public string Codec { get; set; }
+
+        /// <summary>
+        /// Color primaries (e.g. "bt709", "bt2020"). Omit if unknown.
+        /// </summary>
+        [JsonProperty("color_primaries")]
+        public string ColorPrimaries { get; set; }
+
+        /// <summary>
+        /// Color range (e.g. "tv", "pc"). Omit if unknown.
+        /// </summary>
+        [JsonProperty("color_range")]
+        public string ColorRange { get; set; }
+
+        /// <summary>
+        /// Color space / matrix coefficients (e.g. "bt709", "bt2020nc"). Omit if unknown.
+        /// </summary>
+        [JsonProperty("color_space")]
+        public string ColorSpace { get; set; }
+
+        /// <summary>
+        /// Color transfer characteristics (e.g. "bt709", "smpte2084", "arib-std-b67"). The values
+        /// "smpte2084" and "arib-std-b67" mark the stream as HDR. Omit for SDR.
+        /// </summary>
+        [JsonProperty("color_transfer")]
+        public string ColorTransfer { get; set; }
+
+        /// <summary>
+        /// Display aspect ratio, e.g. "16:9". Omit if unknown.
+        /// </summary>
+        [JsonProperty("display_aspect_ratio")]
+        public string DisplayAspectRatio { get; set; }
+
+        /// <summary>
+        /// Interlacing field order as reported by ffprobe ("progressive", "tt", "bb", "tb", "bt").
+        /// Omit for progressive.
+        /// </summary>
+        [JsonProperty("field_order")]
+        public string FieldOrder { get; set; }
+
+        /// <summary>
+        /// Frame rate as a number or rational string (e.g. "24", "30000/1001"). Defaults to 24 when
+        /// omitted.
+        /// </summary>
+        [JsonProperty("frame_rate")]
+        public string FrameRate { get; set; }
+
+        /// <summary>
+        /// Coded frame height in pixels.
+        /// </summary>
+        [JsonProperty("height")]
+        public long Height { get; set; }
+
+        /// <summary>
+        /// Pixel format (e.g. "yuv420p", "yuv420p10le").
+        /// </summary>
+        [JsonProperty("pix_fmt")]
+        public string PixFmt { get; set; }
+
+        /// <summary>
+        /// Codec profile (e.g. "high", "main 10"). Compared case-insensitively. Omit if unknown.
+        /// </summary>
+        [JsonProperty("profile")]
+        public string Profile { get; set; }
+
+        /// <summary>
+        /// Sample (pixel) aspect ratio, e.g. "1:1". Omit for square pixels.
+        /// </summary>
+        [JsonProperty("sample_aspect_ratio")]
+        public string SampleAspectRatio { get; set; }
+
+        /// <summary>
+        /// Zero-based index of this stream within the source.
+        /// </summary>
+        [JsonProperty("stream_index")]
+        public long StreamIndex { get; set; }
+
+        /// <summary>
+        /// Coded frame width in pixels.
+        /// </summary>
+        [JsonProperty("width")]
+        public long Width { get; set; }
     }
 
     /// <summary>
@@ -375,18 +547,19 @@ namespace ErsatzTV.Core.Next
     /// transcode position and its `finish` is clamped to the placeholder's `finish`. Because
     /// `start` advances each tick, the resolver is re-hit while the transcode position remains
     /// inside the placeholder window, allowing a sequence of distinct items to be returned for a
-    /// single placeholder. The resolved item's `source` may not itself be `dynamic`.
+    /// single placeholder. The resolved item's `source` may not itself be `dynamic`, but it may
+    /// carry its own `probe_hint`, which is honored exactly as for a directly-specified source.
     ///
     /// The channel automatically injects the following request headers (in addition to any
     /// configured via `headers`), all formatted per RFC 3339 for timestamps:
     ///
-    /// - `X-Etv-Channel` — the channel number this request is for.
-    /// - `X-Etv-Dynamic-Id` — a stable identifier for the placeholder; resolvers can use it to
+    /// - `x-etv-channel` — the channel number this request is for.
+    /// - `x-etv-dynamic-id` — a stable identifier for the placeholder; resolvers can use it to
     /// coalesce or cache decisions across the multiple calls that occur while transcoding stays
     /// inside one placeholder window.
-    /// - `X-Etv-Now` — the current transcode position; this is the `start` that will be forced
+    /// - `x-etv-now` — the current transcode position; this is the `start` that will be forced
     /// onto the resolved item.
-    /// - `X-Etv-Until` — the placeholder's `finish`; the resolver should not return an item that
+    /// - `x-etv-until` — the placeholder's `finish`; the resolver should not return an item that
     /// extends beyond this (it will be clamped if it does).
     /// </summary>
     public partial class PlayoutItemSource
@@ -408,6 +581,17 @@ namespace ErsatzTV.Core.Next
         /// </summary>
         [JsonProperty("path", NullValueHandling = NullValueHandling.Ignore)]
         public string Path { get; set; }
+
+        /// <summary>
+        /// Optional pre-supplied probe metadata. When present, ffprobe is skipped and the source is
+        /// read only once (at playback). See `ProbeHint`.
+        ///
+        /// Optional pre-supplied probe metadata. When present, ffprobe is skipped and the source is
+        /// read only once (at playback). Especially useful here: a scripted source (e.g. a yt-dlp
+        /// pipeline) is otherwise opened twice, once to probe and once to play. See `ProbeHint`.
+        /// </summary>
+        [JsonProperty("probe_hint")]
+        public ProbeHint ProbeHint { get; set; }
 
         [JsonProperty("source_type")]
         public SourceType SourceType { get; set; }

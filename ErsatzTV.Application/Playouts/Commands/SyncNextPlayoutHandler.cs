@@ -199,12 +199,12 @@ public partial class SyncNextPlayoutHandler(
         logger.LogDebug("Located {Count} local playout items", playoutItems.Count);
 
         // fill in all gaps
-        List<PlayoutItem> newPlayoutItems = [];
-        Option<DateTimeOffset> lastFinish = Option<DateTimeOffset>.None;
         playoutItems.Sort((a, b) => a.StartOffset.CompareTo(b.StartOffset));
-        foreach (var playoutItem in playoutItems)
+        if (playoutItems.Count > 0)
         {
-            foreach (var finish in lastFinish)
+            List<PlayoutItem> newPlayoutItems = [];
+            DateTimeOffset finish = DateTimeOffset.Now;
+            foreach (var playoutItem in playoutItems)
             {
                 if (finish < playoutItem.StartOffset)
                 {
@@ -215,12 +215,13 @@ public partial class SyncNextPlayoutHandler(
                             Finish = playoutItem.Start
                         });
                 }
+
+                finish = playoutItem.FinishOffset;
+                newPlayoutItems.Add(playoutItem);
             }
 
-            lastFinish = playoutItem.FinishOffset;
-            newPlayoutItems.Add(playoutItem);
+            playoutItems = newPlayoutItems;
         }
-        playoutItems = newPlayoutItems;
 
         Option<ChannelWatermark> maybeGlobalWatermark = await dbContext.ConfigElements
             .GetValue<int>(ConfigElementKey.FFmpegGlobalWatermarkId, cancellationToken)
@@ -244,7 +245,7 @@ public partial class SyncNextPlayoutHandler(
                 targetFolder,
                 $"{first.StartOffset.ToUnixTimeMilliseconds()}_{last.FinishOffset.ToUnixTimeMilliseconds()}.json");
 
-            var playout = new Core.Next.Playout { Version = "https://ersatztv.org/playout/version/0.0.1", Items = [] };
+            var playout = new Core.Next.Playout { Version = "https://ersatztv.org/playout/version/0.0.2", Items = [] };
             foreach (PlayoutItem playoutItem in group)
             {
                 Option<Core.Next.PlayoutItem> maybeNextPlayoutItem = await playoutItemConverter.ToNext(
