@@ -30,9 +30,9 @@
         </PackageReference>
         <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="9.0.15" />
         <PackageReference Include="Newtonsoft.Json.Schema" Version="4.0.1" />
-        <PackageReference Include="Refit" Version="10.1.6" />
-        <PackageReference Include="Refit.Newtonsoft.Json" Version="10.1.6" />
-        <PackageReference Include="Refit.Xml" Version="10.1.6" />
+        <PackageReference Include="Refit" Version="10.2.0" />
+        <PackageReference Include="Refit.Newtonsoft.Json" Version="10.2.0" />
+        <PackageReference Include="Refit.Xml" Version="10.2.0" />
         <PackageReference Include="RichTextKit.Stbear" Version="0.4.167.3" />
         <PackageReference Include="Scriban.Signed" Version="7.2.1" />
         <PackageReference Include="SixLabors.ImageSharp" Version="[3.1.12, 4)" />

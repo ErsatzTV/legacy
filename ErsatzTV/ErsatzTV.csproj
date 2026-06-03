@@ -54,7 +54,7 @@
         </PackageReference>
         <PackageReference Include="MudBlazor" Version="9.4.0" />
         <PackageReference Include="NaturalSort.Extension" Version="4.4.1" />
-        <PackageReference Include="Refit.HttpClientFactory" Version="10.1.6" />
+        <PackageReference Include="Refit.HttpClientFactory" Version="10.2.0" />
         <PackageReference Include="Scalar.AspNetCore" Version="2.14.14" />
         <PackageReference Include="Serilog" Version="4.3.1" />
         <PackageReference Include="Serilog.AspNetCore" Version="10.0.0" />
