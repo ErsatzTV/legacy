@@ -45,7 +45,7 @@ public class GraphicsEngine(
 
                     break;
 
-                case ImageElementContext imageElementContext:
+                case ImageElementDataContext imageElementContext:
                     elements.Add(new ImageElement(imageElementContext.ImageElement, logger));
                     break;
 

@@ -76,7 +76,10 @@ public partial class GraphicsElementLoader(
                                 reference.GraphicsElement.Path);
                         }
 
-                        context.Elements.AddRange(maybeElement.Select(element => new ImageElementContext(element)));
+                        foreach (ImageGraphicsElement element in maybeElement)
+                        {
+                            context.Elements.Add(new ImageElementDataContext(element));
+                        }
 
                         break;
                     }
@@ -203,19 +206,29 @@ public partial class GraphicsElementLoader(
 
         IEnumerable<PlayoutItemGraphicsElement> elementsWithEpg = elements.Where(e =>
             e.GraphicsElement.Kind is GraphicsElementKind.Text or GraphicsElementKind.Subtitle
-                or GraphicsElementKind.Motion or GraphicsElementKind.Script);
+                or GraphicsElementKind.Motion or GraphicsElementKind.Script or GraphicsElementKind.Image);
 
         foreach (var reference in elementsWithEpg)
         {
-            foreach (string line in await fileSystem.File.ReadAllLinesAsync(reference.GraphicsElement.Path))
+            try
             {
-                Match match = EpgEntriesRegex().Match(line);
-                if (!match.Success || !int.TryParse(match.Groups[1].Value, out int value))
+                foreach (string line in await fileSystem.File.ReadAllLinesAsync(reference.GraphicsElement.Path))
                 {
-                    continue;
-                }
+                    Match match = EpgEntriesRegex().Match(line);
+                    if (!match.Success || !int.TryParse(match.Groups[1].Value, out int value))
+                    {
+                        continue;
+                    }
 
-                epgEntries = Math.Max(epgEntries, value);
+                    epgEntries = Math.Max(epgEntries, value);
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(
+                    ex,
+                    "Failed to read graphics element at {Path} for EPG entries",
+                    reference.GraphicsElement.Path);
             }
         }
 

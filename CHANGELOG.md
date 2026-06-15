@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
     - A config file named `default.json` will apply to all channels using the Next engine
     - A config file named `{channel_number}.json` (e.g. `1.json`) will apply to the channel with that number
   - Channel overlays will override values from the default overlay which will override values from the FFmpeg Profile
+- Add `epg_entries` support to image graphics elements
 
 ### Fixed
 - Fix HLS Direct playback when JWT auth is also used

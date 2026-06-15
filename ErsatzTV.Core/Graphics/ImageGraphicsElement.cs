@@ -30,6 +30,9 @@ public class ImageGraphicsElement : BaseGraphicsElement
     [YamlMember(Alias = "z_index", ApplyNamingConventions = false)]
     public int? ZIndex { get; set; }
 
+    [YamlMember(Alias = "epg_entries", ApplyNamingConventions = false)]
+    public int EpgEntries { get; set; }
+
     public bool Scale { get; set; }
 
     [YamlMember(Alias = "scale_width_percent", ApplyNamingConventions = false)]
