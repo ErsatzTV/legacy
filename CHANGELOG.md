@@ -19,6 +19,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Previously, these elements required ffmpeg to be on PATH
 - Fix erroneous warning `Unable to locate MPEG-TS Script in folder Default` on installations with case-sensitive file systems
 - Improve speed of motion graphics element compositing
+- Fix multiple issues with subtitle handling in local libraries which impacted stream selection
+  - Content with multiple sidecar subtitles would incorrectly have the subtitle metadata merged (like language)
+  - More rarely, content with an embedded subtitle that has stream index zero would create invalid subtitle records
+  - Both cases will automatically be cleaned up during the next local library scan
 
 ## [26.5.1] - 2026-05-08
 ### Fixed
