@@ -23,6 +23,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Content with multiple sidecar subtitles would incorrectly have the subtitle metadata merged (like language)
   - More rarely, content with an embedded subtitle that has stream index zero would create invalid subtitle records
   - Both cases will automatically be cleaned up during the next local library scan
+- Use `und` language tag with sidecar subtitles that have no language in the file name
 
 ## [26.5.1] - 2026-05-08
 ### Fixed

@@ -138,32 +138,35 @@ public class LocalSubtitlesProvider : ILocalSubtitlesProvider
                 continue;
             }
 
-            string language = _fileSystem.Path.GetFileName(lowerFile);
+            string fileNameWithoutExtension = _fileSystem.Path.GetFileNameWithoutExtension(lowerFile);
+            string suffix = fileNameWithoutExtension[withoutExtension.Length..].ToLowerInvariant();
             var forced = false;
             var sdh = false;
 
-            if (lowerFile.Contains(".forced."))
+            if (suffix.Contains(".forced"))
             {
                 forced = true;
-                language = language.Replace(".forced", string.Empty);
+                suffix = suffix.Replace(".forced", string.Empty);
             }
 
-            if (lowerFile.Contains(".sdh"))
+            if (suffix.Contains(".sdh"))
             {
                 sdh = true;
-                language = language.Replace(".sdh", string.Empty);
+                suffix = suffix.Replace(".sdh", string.Empty);
             }
 
 
-            if (lowerFile.Contains(".cc."))
+            if (suffix.Contains(".cc"))
             {
                 sdh = true;
-                language = language.Replace(".cc", string.Empty);
+                suffix = suffix.Replace(".cc", string.Empty);
             }
 
-            language = language
-                .Replace($"{withoutExtension.ToLowerInvariant()}.", string.Empty)[..3]
-                .Replace(".", string.Empty);
+            // use und when no language is present
+            string language = suffix.Replace(".", string.Empty);
+            language = string.IsNullOrWhiteSpace(language)
+                ? "und"
+                : language[..Math.Min(3, language.Length)];
 
             Option<CultureInfo> maybeCulture = languageCodes.Find(ci =>
                 ci.TwoLetterISOLanguageName == language || ci.ThreeLetterISOLanguageName == language);
