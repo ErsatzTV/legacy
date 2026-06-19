@@ -6,37 +6,37 @@ namespace ErsatzTV.Infrastructure.Streaming.Graphics;
 
 public static class OpacityExpressionHelper
 {
-    public static void EvaluateFunction(string name, FunctionArgs args)
+    public static void EvaluateFunction(string name, FunctionEventArgs args)
     {
         switch (name)
         {
             case "LinearFadePoints":
             {
-                if (args.Parameters.Length != 5)
+                if (args.Parameters.Count != 5)
                 {
                     throw new ArgumentException("LinearFadePoints() requires 5 arguments.");
                 }
 
-                var time = Convert.ToDouble(args.Parameters[0].Evaluate(), CultureInfo.CurrentCulture);
-                var start = Convert.ToDouble(args.Parameters[1].Evaluate(), CultureInfo.CurrentCulture);
-                var peakStart = Convert.ToDouble(args.Parameters[2].Evaluate(), CultureInfo.CurrentCulture);
-                var peakEnd = Convert.ToDouble(args.Parameters[3].Evaluate(), CultureInfo.CurrentCulture);
-                var end = Convert.ToDouble(args.Parameters[4].Evaluate(), CultureInfo.CurrentCulture);
+                var time = Convert.ToDouble(args.Parameters.Evaluate(0), CultureInfo.CurrentCulture);
+                var start = Convert.ToDouble(args.Parameters.Evaluate(1), CultureInfo.CurrentCulture);
+                var peakStart = Convert.ToDouble(args.Parameters.Evaluate(2), CultureInfo.CurrentCulture);
+                var peakEnd = Convert.ToDouble(args.Parameters.Evaluate(3), CultureInfo.CurrentCulture);
+                var end = Convert.ToDouble(args.Parameters.Evaluate(4), CultureInfo.CurrentCulture);
 
                 args.Result = LinearFadePoints(time, start, peakStart, peakEnd, end);
                 break;
             }
             case "LinearFadeDuration":
             {
-                if (args.Parameters.Length != 4)
+                if (args.Parameters.Count != 4)
                 {
                     throw new ArgumentException("LinearFadeDuration() requires 4 arguments.");
                 }
 
-                var time = Convert.ToDouble(args.Parameters[0].Evaluate(), CultureInfo.CurrentCulture);
-                var start = Convert.ToDouble(args.Parameters[1].Evaluate(), CultureInfo.CurrentCulture);
-                var fadeSeconds = Convert.ToDouble(args.Parameters[2].Evaluate(), CultureInfo.CurrentCulture);
-                var peakSeconds = Convert.ToDouble(args.Parameters[3].Evaluate(), CultureInfo.CurrentCulture);
+                var time = Convert.ToDouble(args.Parameters.Evaluate(0), CultureInfo.CurrentCulture);
+                var start = Convert.ToDouble(args.Parameters.Evaluate(1), CultureInfo.CurrentCulture);
+                var fadeSeconds = Convert.ToDouble(args.Parameters.Evaluate(2), CultureInfo.CurrentCulture);
+                var peakSeconds = Convert.ToDouble(args.Parameters.Evaluate(3), CultureInfo.CurrentCulture);
 
                 args.Result = LinearFadeDuration(time, start, fadeSeconds, peakSeconds);
                 break;

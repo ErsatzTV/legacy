@@ -13,13 +13,13 @@
 
     <ItemGroup>
         <PackageReference Include="Blurhash.SkiaSharp" Version="2.0.0" />
-        <PackageReference Include="CliWrap" Version="3.10.1" />
+        <PackageReference Include="CliWrap" Version="3.10.2" />
         <PackageReference Include="Dapper" Version="2.1.79" />
         <PackageReference Include="EFCore.BulkExtensions" Version="[9.0.2,10)" />
-        <PackageReference Include="Elastic.Clients.Elasticsearch" Version="9.4.1" />
+        <PackageReference Include="Elastic.Clients.Elasticsearch" Version="9.4.2" />
         <PackageReference Include="Humanizer.Core" Version="3.0.10" />
-        <PackageReference Include="Jint" Version="4.9.2" />
-        <PackageReference Include="JsonSchema.Net" Version="9.2.1" />
+        <PackageReference Include="Jint" Version="4.10.0" />
+        <PackageReference Include="JsonSchema.Net" Version="9.2.2" />
         <PackageReference Include="Lucene.Net" Version="4.8.0-beta00017" />
         <PackageReference Include="Lucene.Net.Analysis.Common" Version="4.8.0-beta00017" />
         <PackageReference Include="Lucene.Net.QueryParser" Version="4.8.0-beta00017" />
@@ -30,12 +30,12 @@
         </PackageReference>
         <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="9.0.15" />
         <PackageReference Include="Newtonsoft.Json.Schema" Version="4.0.1" />
-        <PackageReference Include="Refit" Version="10.2.0" />
-        <PackageReference Include="Refit.Newtonsoft.Json" Version="10.2.0" />
-        <PackageReference Include="Refit.Xml" Version="10.2.0" />
+        <PackageReference Include="Refit" Version="11.2.0" />
+        <PackageReference Include="Refit.Newtonsoft.Json" Version="11.2.0" />
+        <PackageReference Include="Refit.Xml" Version="11.2.0" />
         <PackageReference Include="RichTextKit.Stbear" Version="0.4.167.3" />
-        <PackageReference Include="Scriban.Signed" Version="7.2.1" />
-        <PackageReference Include="SixLabors.ImageSharp" Version="[3.1.12, 4)" />
+        <PackageReference Include="Scriban.Signed" Version="7.2.4" />
+        <PackageReference Include="SixLabors.ImageSharp" Version="3.1.12" />
         <PackageReference Include="SkiaSharp" Version="3.119.4" />
         <PackageReference Include="TagLibSharp" Version="2.3.0" />
         <PackageReference Include="TimeZoneConverter" Version="7.2.0" />
