@@ -25,6 +25,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Both cases will automatically be cleaned up during the next local library scan
 - Use `und` language tag with sidecar subtitles that have no language in the file name
 
+### Changed
+- Upgrade Intel driver in docker containers to support latest Battlemage devices (e.g. B70)
+
 ## [26.5.1] - 2026-05-08
 ### Fixed
 - Fix NVIDIA playback on Linux using legacy streaming engine
