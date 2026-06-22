@@ -23,7 +23,7 @@
         <PackageReference Include="Lucene.Net" Version="4.8.0-beta00017" />
         <PackageReference Include="Lucene.Net.Analysis.Common" Version="4.8.0-beta00017" />
         <PackageReference Include="Lucene.Net.QueryParser" Version="4.8.0-beta00017" />
-        <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.15" />
+        <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.9" />
         <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.15">
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
