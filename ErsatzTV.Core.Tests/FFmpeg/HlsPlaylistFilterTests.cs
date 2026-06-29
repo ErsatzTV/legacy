@@ -996,6 +996,46 @@ live_1760874038_000056.m4s
         result.Playlist.ShouldBe(expectedPlaylist);
     }
 
+    [Test]
+    public void HlsPlaylistFilter_ShouldKeepSegments_WhenNoneAreNewerThanFilterBefore()
+    {
+        // long session: the transcode has fallen behind and every segment is now older
+        // than filterBefore. trimming used to remove all of them and emit a header-only
+        // playlist with no segments, which leaves the channel unplayable.
+        var start = new DateTimeOffset(2021, 10, 9, 8, 0, 0, TimeSpan.FromHours(-5));
+        string[] input = NormalizeLineEndings(
+            @"#EXTM3U
+#EXT-X-VERSION:7
+#EXT-X-TARGETDURATION:4
+#EXT-X-MEDIA-SEQUENCE:1137
+#EXT-X-INDEPENDENT-SEGMENTS
+#EXT-X-DISCONTINUITY
+#EXT-X-MAP:URI=""1760874038_init.mp4""
+#EXTINF:4.000000,
+#EXT-X-PROGRAM-DATE-TIME:2021-10-08T08:34:49.320-0500
+live_1760874038_001137.m4s
+#EXTINF:4.000000,
+#EXT-X-PROGRAM-DATE-TIME:2021-10-08T08:34:53.320-0500
+live_1760874038_001138.m4s
+#EXTINF:4.000000,
+#EXT-X-PROGRAM-DATE-TIME:2021-10-08T08:34:57.320-0500
+live_1760874038_001139.m4s").Split(Environment.NewLine);
+
+        TrimPlaylistResult result = _hlsPlaylistFilter.TrimPlaylistWithDiscontinuity(
+            new Dictionary<long, int>
+            {
+                [1760874038] = 1
+            },
+            OutputFormatKind.HlsMp4,
+            start,
+            start.AddSeconds(60),
+            new FakeHlsInitSegmentCache(),
+            input);
+
+        result.SegmentCount.ShouldBeGreaterThan(0);
+        result.Playlist.ShouldContain("#EXTINF");
+    }
+
     private static string NormalizeLineEndings(string str) =>
         str
             .Replace("\r\n", "\n")

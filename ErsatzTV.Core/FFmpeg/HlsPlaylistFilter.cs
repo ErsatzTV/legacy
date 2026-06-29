@@ -148,8 +148,10 @@ public class HlsPlaylistFilter(ITempFilePool tempFilePool, ILogger<HlsPlaylistFi
 
         var allSegments = items.OfType<PlaylistSegment>().ToList();
 
-        // still need to filter old content
-        if (maybeMaxSegments.IsNone)
+        // still need to filter old content, but never down to an empty playlist:
+        // if nothing is newer than filterBefore, keep the existing segments
+        // (the maxSegments branch below keeps a non-empty tail the same way)
+        if (maybeMaxSegments.IsNone && allSegments.Any(s => s.StartTime >= filterBefore))
         {
             allSegments.RemoveAll(s => s.StartTime < filterBefore);
         }
@@ -268,7 +270,7 @@ public class HlsPlaylistFilter(ITempFilePool tempFilePool, ILogger<HlsPlaylistFi
             playlist,
             nextPlaylistStart,
             startSequence,
-            items.OfType<PlaylistSegment>().Min(s => s.GeneratedAt),
+            items.OfType<PlaylistSegment>().Select(s => s.GeneratedAt).DefaultIfEmpty(generatedAt).Min(),
             allSegments.Count);
     }
 
