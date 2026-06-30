@@ -108,6 +108,12 @@ public class ScriptedPlayoutBuilder(
 
             playout.Anchor = schedulingEngine.GetAnchor();
 
+            // on-demand channels will trim already-played items in time shifter
+            if (referenceData.Channel.PlayoutMode != ChannelPlayoutMode.OnDemand)
+            {
+                schedulingEngine.RemoveBefore(start.AddHours(-4));
+            }
+
             result = MergeResult(result, schedulingEngine.GetState());
         }
         catch (OperationCanceledException)

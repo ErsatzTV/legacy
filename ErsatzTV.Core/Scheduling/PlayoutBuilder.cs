@@ -301,6 +301,7 @@ public class PlayoutBuilder : IPlayoutBuilder
         playout.Seed = new Random().Next();
 
         // don't trim start for on demand channels, we want to time shift it all forward
+        // on-demand channels will trim already-played items in time shifter
         if (referenceData.Channel.PlayoutMode is ChannelPlayoutMode.OnDemand)
         {
             TrimStart = false;

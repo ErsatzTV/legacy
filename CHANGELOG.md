@@ -24,6 +24,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - More rarely, content with an embedded subtitle that has stream index zero would create invalid subtitle records
   - Both cases will automatically be cleaned up during the next local library scan
 - Use `und` language tag with sidecar subtitles that have no language in the file name
+- Automatically remove already-played playout items from all on demand channels
+- Automatically remove already-played playout items from (continuous) scripted schedules
 
 ### Changed
 - Upgrade Intel driver in docker containers to support latest Battlemage devices (e.g. B70)

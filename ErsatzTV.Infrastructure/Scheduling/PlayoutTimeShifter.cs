@@ -72,6 +72,21 @@ public class PlayoutTimeShifter(
                     playout.OnDemandCheckpoint = playout.Items.Min(p => p.StartOffset);
                 }
 
+                // remove items that have finished before the checkpoint
+                foreach (DateTimeOffset checkpoint in Optional(playout.OnDemandCheckpoint))
+                {
+                    DateTime checkpointUtc = checkpoint.UtcDateTime;
+                    int removed = playout.Items.RemoveAll(i => i.Finish < checkpointUtc);
+                    if (removed > 0)
+                    {
+                        logger.LogDebug(
+                            "Removing {Count} played items before shifting playout for channel {Number} - {Name}",
+                            removed,
+                            playout.Channel.Number,
+                            playout.Channel.Name);
+                    }
+                }
+
                 TimeSpan toOffset = now - playout.OnDemandCheckpoint.IfNone(now);
 
                 logger.LogDebug(
