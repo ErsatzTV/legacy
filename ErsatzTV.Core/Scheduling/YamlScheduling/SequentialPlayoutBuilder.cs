@@ -278,7 +278,7 @@ public class SequentialPlayoutBuilder(
             // select the active schedule (if any) for the current time; a null name means the default playout
             string activeScheduleName = null;
             foreach (YamlPlayoutScheduleItem activeSchedule in
-                     SequentialScheduleSelector.GetActiveSchedule(context.Definition.Schedules, context.CurrentTime))
+                     AlternateScheduleSelector.GetScheduleForDate(context.Definition.Schedules, context.CurrentTime))
             {
                 activeScheduleName = activeSchedule.Name;
             }
