@@ -249,20 +249,62 @@ public class SequentialPlayoutBuilder(
                 break;
             }
 
-            FlattenSequences(context);
+            FlattenSequences(context, context.Definition.Playout);
             flattenCount++;
+        }
+
+        // flatten each schedule's playout the same way as the default playout
+        foreach (YamlPlayoutScheduleItem schedule in context.Definition.Schedules)
+        {
+            var scheduleFlattenCount = 0;
+            while (schedule.Playout.Any(x => x is YamlPlayoutSequenceInstruction))
+            {
+                if (scheduleFlattenCount > 100)
+                {
+                    logger.LogError(
+                        "YAML schedule '{Schedule}' contains sequence nesting that is too deep; this introduces undefined behavior",
+                        schedule.Name);
+                    break;
+                }
+
+                FlattenSequences(context, schedule.Playout);
+                scheduleFlattenCount++;
+            }
         }
 
         // handle all playout instructions
         while (context.CurrentTime < finish)
         {
-            if (context.InstructionIndex >= playoutDefinition.Playout.Count)
+            // select the active schedule (if any) for the current time; a null name means the default playout
+            string activeScheduleName = null;
+            foreach (YamlPlayoutScheduleItem activeSchedule in
+                     SequentialScheduleSelector.GetActiveSchedule(context.Definition.Schedules, context.CurrentTime))
+            {
+                activeScheduleName = activeSchedule.Name;
+            }
+
+            if (!string.Equals(activeScheduleName, context.ActiveSchedule, StringComparison.Ordinal))
+            {
+                logger.LogDebug(
+                    "Switching sequential playout to schedule {Schedule} at {Time}",
+                    activeScheduleName ?? "(default)",
+                    context.CurrentTime);
+
+                context.SwitchToSchedule(activeScheduleName);
+
+                // split the EPG guide group at the schedule boundary
+                context.AdvanceGuideGroup();
+            }
+
+            List<YamlPlayoutInstruction> instructions = context.CurrentInstructions;
+
+            if (context.InstructionIndex >= instructions.Count)
             {
                 logger.LogInformation("Reached the end of the YAML playout definition; stopping");
                 break;
             }
 
-            YamlPlayoutInstruction instruction = playoutDefinition.Playout[context.InstructionIndex];
+            YamlPlayoutInstruction instruction = instructions[context.InstructionIndex];
             //logger.LogDebug("Current playout instruction: {Instruction}", instruction.GetType().Name);
 
             Option<IYamlPlayoutHandler> maybeHandler = GetHandlerForInstruction(handlers, enumeratorCache, instruction);
@@ -382,10 +424,10 @@ public class SequentialPlayoutBuilder(
             .GetValue<int>(ConfigElementKey.PlayoutDaysToBuild, cancellationToken)
             .IfNoneAsync(2);
 
-    private static void FlattenSequences(YamlPlayoutContext context)
+    private static void FlattenSequences(YamlPlayoutContext context, List<YamlPlayoutInstruction> playout)
     {
-        var rawInstructions = context.Definition.Playout.ToImmutableList();
-        context.Definition.Playout.Clear();
+        var rawInstructions = playout.ToImmutableList();
+        playout.Clear();
 
         foreach (YamlPlayoutInstruction instruction in rawInstructions)
         {
@@ -417,13 +459,13 @@ public class SequentialPlayoutBuilder(
                                 i.CustomTitle = sequenceInstruction.CustomTitle;
                             }
 
-                            context.Definition.Playout.Add(i);
+                            playout.Add(i);
                         }
                     }
 
                     break;
                 default:
-                    context.Definition.Playout.Add(instruction);
+                    playout.Add(instruction);
                     break;
             }
         }

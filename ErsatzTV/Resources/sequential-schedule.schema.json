@@ -104,6 +104,54 @@
         ]
       },
       "minItems": 1
+    },
+    "schedules": {
+      "description": "Date-based schedule overrides",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "start_date": {
+            "type": "string",
+            "pattern": "^(\\d{4}-)?\\d{2}-\\d{2}$"
+          },
+          "end_date": {
+            "type": "string",
+            "pattern": "^(\\d{4}-)?\\d{2}-\\d{2}$"
+          },
+          "priority": { "type": "integer" },
+          "playout": {
+            "description": "Playout instructions",
+            "type": "array",
+            "items": {
+              "oneOf": [
+                { "$ref": "#/$defs/scheduling/allInstruction" },
+                { "$ref": "#/$defs/scheduling/countInstruction" },
+                { "$ref": "#/$defs/scheduling/durationInstruction" },
+                { "$ref": "#/$defs/scheduling/padToNextInstruction" },
+                { "$ref": "#/$defs/scheduling/padUntilInstruction" },
+                { "$ref": "#/$defs/scheduling/sequenceInstruction" },
+                { "$ref": "#/$defs/control/epgGroupInstruction" },
+                { "$ref": "#/$defs/control/graphicsOnInstruction" },
+                { "$ref": "#/$defs/control/graphicsOffInstruction" },
+                { "$ref": "#/$defs/control/preRollInstruction"},
+                { "$ref": "#/$defs/control/postRollInstruction"},
+                { "$ref": "#/$defs/control/midRollInstruction"},
+                { "$ref": "#/$defs/control/repeatInstruction" },
+                { "$ref": "#/$defs/control/shuffleSequenceInstruction" },
+                { "$ref": "#/$defs/control/skipItemsInstruction" },
+                { "$ref": "#/$defs/control/skipToItemInstruction" },
+                { "$ref": "#/$defs/control/waitUntilInstruction" },
+                { "$ref": "#/$defs/control/watermarkInstruction" }
+              ]
+            },
+            "minItems": 1
+          }
+        },
+        "required": [ "name", "start_date", "end_date", "playout" ],
+        "additionalProperties": false
+      }
     }
   },
   "allOf": [

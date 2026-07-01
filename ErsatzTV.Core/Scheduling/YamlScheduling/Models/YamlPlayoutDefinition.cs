@@ -11,4 +11,6 @@ public class YamlPlayoutDefinition
     public List<YamlPlayoutInstruction> Reset { get; set; } = [];
 
     public List<YamlPlayoutInstruction> Playout { get; set; } = [];
+
+    public List<YamlPlayoutScheduleItem> Schedules { get; set; } = [];
 }

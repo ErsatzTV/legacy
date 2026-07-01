@@ -17,13 +17,21 @@ public class YamlPlayoutContext(Playout playout, YamlPlayoutDefinition definitio
     private readonly Stack<FillerKind> _fillerKind = new();
     private readonly Dictionary<int, string> _graphicsElements = [];
 
-    private readonly System.Collections.Generic.HashSet<int> _visitedInstructions = [];
+    private System.Collections.Generic.HashSet<int> _visitedInstructions = [];
     private int _guideGroup = guideGroup;
     private bool _guideGroupLocked;
     private int _instructionIndex;
     private Option<MidRollSequence> _midRollSequence;
     private Option<string> _postRollSequence;
     private Option<string> _preRollSequence;
+
+    // null active schedule => default playout
+    private string _activeSchedule;
+    private List<YamlPlayoutInstruction> _currentInstructions;
+
+    // saved state for each playout list (default keyed by empty string) so switching
+    // between schedules resumes each list's position and ambient modifiers cleanly
+    private readonly Dictionary<string, ListState> _listStates = [];
 
     public Playout Playout { get; } = playout;
 
@@ -45,7 +53,95 @@ public class YamlPlayoutContext(Playout playout, YamlPlayoutDefinition definitio
         }
     }
 
-    public bool VisitedAll => _visitedInstructions.Count >= Definition.Playout.Count;
+    public bool VisitedAll => _visitedInstructions.Count >= CurrentInstructions.Count;
+
+    // the instruction list currently being executed (default playout or an active schedule)
+    public List<YamlPlayoutInstruction> CurrentInstructions => _currentInstructions ?? Definition.Playout;
+
+    public string ActiveSchedule => _activeSchedule;
+
+    // switch to the playout list for the given schedule (null => default playout)
+    public void SwitchToSchedule(string scheduleName)
+    {
+        // snapshot the state (position + ambient modifiers) of the list we're leaving
+        string currentKey = _activeSchedule ?? string.Empty;
+        _listStates[currentKey] = CaptureState();
+
+        _activeSchedule = scheduleName;
+
+        if (scheduleName is null)
+        {
+            _currentInstructions = null;
+        }
+        else
+        {
+            _currentInstructions = Definition.Schedules
+                .Filter(s => string.Equals(s.Name, scheduleName, StringComparison.Ordinal))
+                .Map(s => s.Playout)
+                .HeadOrNone()
+                .IfNone(Definition.Playout);
+        }
+
+        string targetKey = scheduleName ?? string.Empty;
+        if (_listStates.TryGetValue(targetKey, out ListState savedState))
+        {
+            // resume where this list left off, including its ambient modifiers
+            RestoreState(savedState);
+        }
+        else
+        {
+            // first time entering this list; start fresh with no ambient modifiers
+            _instructionIndex = 0;
+            _visitedInstructions = [];
+            _channelWatermarkIds.Clear();
+            _graphicsElements.Clear();
+            _fillerKind.Clear();
+            _preRollSequence = Option<string>.None;
+            _postRollSequence = Option<string>.None;
+            _midRollSequence = Option<MidRollSequence>.None;
+        }
+    }
+
+    private ListState CaptureState() =>
+        new(
+            _instructionIndex,
+            [.._visitedInstructions],
+            [.._channelWatermarkIds],
+            new Dictionary<int, string>(_graphicsElements),
+            [.._fillerKind],
+            _preRollSequence,
+            _postRollSequence,
+            _midRollSequence);
+
+    private void RestoreState(ListState state)
+    {
+        _instructionIndex = state.InstructionIndex;
+
+        _visitedInstructions = [..state.VisitedInstructions];
+
+        _channelWatermarkIds.Clear();
+        foreach (int id in state.ChannelWatermarkIds)
+        {
+            _channelWatermarkIds.Add(id);
+        }
+
+        _graphicsElements.Clear();
+        foreach ((int id, string variables) in state.GraphicsElements)
+        {
+            _graphicsElements[id] = variables;
+        }
+
+        _fillerKind.Clear();
+        // stack was captured top-first; push in reverse to preserve order
+        for (int i = state.FillerKind.Count - 1; i >= 0; i--)
+        {
+            _fillerKind.Push(state.FillerKind[i]);
+        }
+
+        _preRollSequence = state.PreRollSequence;
+        _postRollSequence = state.PostRollSequence;
+        _midRollSequence = state.MidRollSequence;
+    }
 
     public int PeekNextGuideGroup()
     {
@@ -94,7 +190,7 @@ public class YamlPlayoutContext(Playout playout, YamlPlayoutDefinition definitio
     public void ClearChannelWatermarkIds() => _channelWatermarkIds.Clear();
     public List<int> GetChannelWatermarkIds() => _channelWatermarkIds.ToList();
 
-    public void SetGraphicsElement(int id, string variablesJson) => _graphicsElements.Add(id, variablesJson);
+    public void SetGraphicsElement(int id, string variablesJson) => _graphicsElements[id] = variablesJson;
     public void RemoveGraphicsElement(int id) => _graphicsElements.Remove(id);
     public void ClearGraphicsElements() => _graphicsElements.Clear();
     public IReadOnlyDictionary<int, string> GetGraphicsElements() => _graphicsElements;
@@ -125,12 +221,18 @@ public class YamlPlayoutContext(Playout playout, YamlPlayoutDefinition definitio
             preRollSequence = sequence;
         }
 
+        // capture the current active list index alongside the other saved list indices
+        var scheduleIndices = _listStates.ToDictionary(kvp => kvp.Key, kvp => kvp.Value.InstructionIndex);
+        scheduleIndices[_activeSchedule ?? string.Empty] = _instructionIndex;
+
         var state = new State(
             _instructionIndex,
             _guideGroup,
             _guideGroupLocked,
             _channelWatermarkIds.ToList(),
-            preRollSequence);
+            preRollSequence,
+            _activeSchedule,
+            scheduleIndices);
 
         return JsonConvert.SerializeObject(state, Formatting.None, JsonSettings);
     }
@@ -174,6 +276,34 @@ public class YamlPlayoutContext(Playout playout, YamlPlayoutDefinition definitio
         {
             _preRollSequence = preRollSequence;
         }
+
+        // restore saved instruction indices for each playout list
+        if (state.ScheduleIndices is not null)
+        {
+            foreach ((string key, int index) in state.ScheduleIndices)
+            {
+                _listStates[key] = new ListState(
+                    index,
+                    [],
+                    [],
+                    new Dictionary<int, string>(),
+                    [],
+                    Option<string>.None,
+                    Option<string>.None,
+                    Option<MidRollSequence>.None);
+            }
+        }
+
+        // restore the active schedule and point the current instruction list at it
+        _activeSchedule = state.ActiveSchedule;
+        if (_activeSchedule is not null)
+        {
+            _currentInstructions = Definition.Schedules
+                .Filter(s => string.Equals(s.Name, _activeSchedule, StringComparison.Ordinal))
+                .Map(s => s.Playout)
+                .HeadOrNone()
+                .IfNone(Definition.Playout);
+        }
     }
 
     public record State(
@@ -181,7 +311,21 @@ public class YamlPlayoutContext(Playout playout, YamlPlayoutDefinition definitio
         int? GuideGroup,
         bool? GuideGroupLocked,
         List<int> ChannelWatermarkIds,
-        string PreRollSequence);
+        string PreRollSequence,
+        string ActiveSchedule = null,
+        Dictionary<string, int> ScheduleIndices = null);
 
     public record MidRollSequence(string Sequence, string Expression);
+
+    // in-memory snapshot of a playout list's position and ambient modifier state,
+    // used to resume each list cleanly when switching between schedules during a build
+    private sealed record ListState(
+        int InstructionIndex,
+        System.Collections.Generic.HashSet<int> VisitedInstructions,
+        System.Collections.Generic.HashSet<int> ChannelWatermarkIds,
+        Dictionary<int, string> GraphicsElements,
+        List<FillerKind> FillerKind,
+        Option<string> PreRollSequence,
+        Option<string> PostRollSequence,
+        Option<MidRollSequence> MidRollSequence);
 }
