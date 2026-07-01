@@ -26,6 +26,12 @@ public static class AlternateScheduleSelector
         {
             if (item.LimitToDateRange)
             {
+                if (item.StartMonth is < 1 or > 12 || item.EndMonth is < 1 or > 12 || item.StartDay < 1 ||
+                    item.EndDay < 1)
+                {
+                    continue;
+                }
+
                 bool reverse = item.StartMonth * 100 + item.StartDay >
                                item.EndMonth * 100 + item.EndDay;
 

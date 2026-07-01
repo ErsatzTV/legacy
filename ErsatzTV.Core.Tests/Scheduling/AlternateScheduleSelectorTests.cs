@@ -863,5 +863,53 @@ public static class AlternateScheduleSelectorTests
 
             result.IsNone.ShouldBeFalse();
         }
+
+        [Test]
+        public void LimitToDateRange_13th_Month_Should_Not_Crash()
+        {
+            var template = new PlayoutTemplate
+            {
+                DaysOfWeek = AlternateScheduleSelector.AllDaysOfWeek(),
+                DaysOfMonth = AlternateScheduleSelector.AllDaysOfMonth(),
+                MonthsOfYear = AlternateScheduleSelector.AllMonthsOfYear(),
+                LimitToDateRange = true,
+                StartMonth = 13,
+                StartDay = 30,
+                StartYear = 2022,
+                EndMonth = 13,
+                EndDay = 30,
+                EndYear = 2023
+            };
+
+            Option<PlayoutTemplate> result = AlternateScheduleSelector.GetScheduleForDate(
+                new List<PlayoutTemplate> { template },
+                new DateTimeOffset(2023, 3, 1, 0, 0, 0, Offset));
+
+            result.IsNone.ShouldBeTrue();
+        }
+
+        [Test]
+        public void LimitToDateRange_0th_Day_Should_Not_Crash()
+        {
+            var template = new PlayoutTemplate
+            {
+                DaysOfWeek = AlternateScheduleSelector.AllDaysOfWeek(),
+                DaysOfMonth = AlternateScheduleSelector.AllDaysOfMonth(),
+                MonthsOfYear = AlternateScheduleSelector.AllMonthsOfYear(),
+                LimitToDateRange = true,
+                StartMonth = 12,
+                StartDay = 0,
+                StartYear = 2022,
+                EndMonth = 12,
+                EndDay = 0,
+                EndYear = 2023
+            };
+
+            Option<PlayoutTemplate> result = AlternateScheduleSelector.GetScheduleForDate(
+                new List<PlayoutTemplate> { template },
+                new DateTimeOffset(2023, 3, 1, 0, 0, 0, Offset));
+
+            result.IsNone.ShouldBeTrue();
+        }
     }
 }

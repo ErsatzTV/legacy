@@ -23,13 +23,13 @@ public class YamlPlayoutScheduleItem : IAlternateScheduleItem
 
     // schedules are purely date-range based, so every day/month is eligible
     [YamlIgnore]
-    public ICollection<DayOfWeek> DaysOfWeek => Enum.GetValues<DayOfWeek>();
+    public ICollection<DayOfWeek> DaysOfWeek => AlternateScheduleSelector.AllDaysOfWeek();
 
     [YamlIgnore]
-    public ICollection<int> DaysOfMonth => Enumerable.Range(1, 31).ToList();
+    public ICollection<int> DaysOfMonth => AlternateScheduleSelector.AllDaysOfMonth();
 
     [YamlIgnore]
-    public ICollection<int> MonthsOfYear => Enumerable.Range(1, 12).ToList();
+    public ICollection<int> MonthsOfYear => AlternateScheduleSelector.AllMonthsOfYear();
 
     [YamlIgnore]
     public bool LimitToDateRange => true;
