@@ -28,7 +28,9 @@ public class YamlPlayoutShuffleSequenceHandler : IYamlPlayoutHandler
 
         string sequenceKey = shuffleSequenceInstruction.ShuffleSequence;
 
-        var groupedSequenceItems = context.Definition.Playout
+        List<YamlPlayoutInstruction> playout = context.CurrentInstructions;
+
+        var groupedSequenceItems = playout
             .Where(i => i.SequenceKey == sequenceKey)
             .GroupBy(i => i.SequenceGuid)
             .ToList();
@@ -43,9 +45,9 @@ public class YamlPlayoutShuffleSequenceHandler : IYamlPlayoutHandler
                 shuffledGroup = grouping.OrderBy(_ => Guid.NewGuid()).ToList();
             }
 
-            int firstIndex = context.Definition.Playout.FindIndex(i => i.SequenceGuid == grouping.Key);
-            context.Definition.Playout.RemoveRange(firstIndex, shuffledGroup.Count);
-            context.Definition.Playout.InsertRange(firstIndex, shuffledGroup);
+            int firstIndex = playout.FindIndex(i => i.SequenceGuid == grouping.Key);
+            playout.RemoveRange(firstIndex, shuffledGroup.Count);
+            playout.InsertRange(firstIndex, shuffledGroup);
         }
 
         return Task.FromResult(true);
