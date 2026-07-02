@@ -91,7 +91,8 @@ public class ExtractEmbeddedSubtitlesHandler : ExtractEmbeddedSubtitlesHandlerBa
                 .AsNoTracking()
                 .Filter(p => p.Channel.SubtitleMode != ChannelSubtitleMode.None ||
                              p.ProgramSchedule.Items.Any(psi =>
-                                 psi.SubtitleMode != null && psi.SubtitleMode != ChannelSubtitleMode.None))
+                                 psi.SubtitleMode != null && psi.SubtitleMode != ChannelSubtitleMode.None)
+                             || p.Channel.StreamSelectorMode == ChannelStreamSelectorMode.Custom)
                 .SelectOneAsync(p => p.Id, p => p.Id == request.PlayoutId.IfNone(-1), cancellationToken);
 
             playoutIdsToCheck.AddRange(requestedPlayout.Map(p => p.Id));
@@ -103,7 +104,8 @@ public class ExtractEmbeddedSubtitlesHandler : ExtractEmbeddedSubtitlesHandlerBa
                     .AsNoTracking()
                     .Filter(p => p.Channel.SubtitleMode != ChannelSubtitleMode.None ||
                                  p.ProgramSchedule.Items.Any(psi =>
-                                     psi.SubtitleMode != null && psi.SubtitleMode != ChannelSubtitleMode.None))
+                                     psi.SubtitleMode != null && psi.SubtitleMode != ChannelSubtitleMode.None)
+                                 || p.Channel.StreamSelectorMode == ChannelStreamSelectorMode.Custom)
                     .Map(p => p.Id)
                     .ToList();
             }

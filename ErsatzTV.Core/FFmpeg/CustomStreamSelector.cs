@@ -5,6 +5,7 @@ using ErsatzTV.Core.Domain;
 using ErsatzTV.Core.FFmpeg.Selector;
 using ErsatzTV.Core.Interfaces.FFmpeg;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using NCalc;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
@@ -18,8 +19,11 @@ public class CustomStreamSelector(IFileSystem fileSystem, ILogger<CustomStreamSe
         Channel channel,
         DateTimeOffset contentStartTime,
         MediaItemAudioVersion audioVersion,
-        List<Subtitle> allSubtitles)
+        List<Subtitle> allSubtitles,
+        bool shouldLogMessages)
     {
+        ILogger<CustomStreamSelector> log = shouldLogMessages ? logger : NullLogger<CustomStreamSelector>.Instance;
+
         try
         {
             string streamSelectorFile = Path.Combine(
@@ -28,11 +32,11 @@ public class CustomStreamSelector(IFileSystem fileSystem, ILogger<CustomStreamSe
 
             if (!fileSystem.File.Exists(streamSelectorFile))
             {
-                logger.LogWarning("YAML stream selector file {File} does not exist; aborting.", channel.StreamSelector);
+                log.LogWarning("YAML stream selector file {File} does not exist; aborting.", channel.StreamSelector);
                 return StreamSelectorResult.None;
             }
 
-            StreamSelector streamSelector = await LoadStreamSelector(streamSelectorFile);
+            StreamSelector streamSelector = await LoadStreamSelector(streamSelectorFile, log);
 
             var audioStreams = audioVersion.MediaVersion.Streams
                 .Where(s => s.MediaStreamKind == MediaStreamKind.Audio)
@@ -44,7 +48,7 @@ public class CustomStreamSelector(IFileSystem fileSystem, ILogger<CustomStreamSe
                 {
                     if (!ContentMatchesCondition(channel, contentStartTime, streamSelectorItem.ContentCondition))
                     {
-                        logger.LogDebug(
+                        log.LogDebug(
                             "Content does not match selector item {@SelectorItem}",
                             streamSelectorItem);
                         continue;
@@ -122,7 +126,7 @@ public class CustomStreamSelector(IFileSystem fileSystem, ILogger<CustomStreamSe
                     {
                         candidateAudioStreams.Remove(audioStream);
 
-                        logger.LogDebug(
+                        log.LogDebug(
                             "Audio stream {@Stream} does not match selector item {@SelectorItem}",
                             new { Language = safeLanguage, Title = safeTitle },
                             streamSelectorItem);
@@ -131,7 +135,7 @@ public class CustomStreamSelector(IFileSystem fileSystem, ILogger<CustomStreamSe
                     {
                         passesAudio = true;
 
-                        logger.LogDebug(
+                        log.LogDebug(
                             "Audio stream {@Stream} matches selector item {@SelectorItem}",
                             new { Language = safeLanguage, Title = safeTitle },
                             streamSelectorItem);
@@ -206,13 +210,15 @@ public class CustomStreamSelector(IFileSystem fileSystem, ILogger<CustomStreamSe
                             }
                         }
 
+                        // HLS Direct doesn't need to extract; Next streaming engine doesn't need to extract
                         if (channel.StreamingMode != StreamingMode.HttpLiveStreamingDirect &&
+                            channel.StreamingEngine != StreamingEngine.Next &&
                             subtitle.SubtitleKind is SubtitleKind.Embedded && !subtitle.IsImage &&
                             !subtitle.IsExtracted)
                         {
                             candidateSubtitles.Remove(subtitle);
 
-                            logger.LogDebug(
+                            log.LogDebug(
                                 "Subtitle {@Subtitle} is embedded text subtitle and NOT extracted; ignoring",
                                 new { Language = safeLanguage, Title = safeTitle });
                         }
@@ -220,7 +226,7 @@ public class CustomStreamSelector(IFileSystem fileSystem, ILogger<CustomStreamSe
                         {
                             candidateSubtitles.Remove(subtitle);
 
-                            logger.LogDebug(
+                            log.LogDebug(
                                 "Subtitle {@Subtitle} does not match selector item {@SelectorItem}",
                                 new { Language = safeLanguage, Title = safeTitle },
                                 streamSelectorItem);
@@ -229,7 +235,7 @@ public class CustomStreamSelector(IFileSystem fileSystem, ILogger<CustomStreamSe
                         {
                             passesSubtitles = true;
 
-                            logger.LogDebug(
+                            log.LogDebug(
                                 "Subtitle {@Subtitle} matches selector item {@SelectorItem}",
                                 new { Language = safeLanguage, Title = safeTitle },
                                 streamSelectorItem);
@@ -255,7 +261,7 @@ public class CustomStreamSelector(IFileSystem fileSystem, ILogger<CustomStreamSe
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Unexpected error selecting streams");
+            log.LogError(ex, "Unexpected error selecting streams");
         }
 
         return StreamSelectorResult.None;
@@ -325,7 +331,7 @@ public class CustomStreamSelector(IFileSystem fileSystem, ILogger<CustomStreamSe
         return expression.Evaluate() as bool? == true;
     }
 
-    private async Task<StreamSelector> LoadStreamSelector(string streamSelectorFile)
+    private async Task<StreamSelector> LoadStreamSelector(string streamSelectorFile, ILogger<CustomStreamSelector> log)
     {
         try
         {
@@ -339,7 +345,7 @@ public class CustomStreamSelector(IFileSystem fileSystem, ILogger<CustomStreamSe
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "Error loading YAML stream selector");
+            log.LogWarning(ex, "Error loading YAML stream selector");
             throw;
         }
     }

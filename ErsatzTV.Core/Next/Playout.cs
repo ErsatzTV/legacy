@@ -248,7 +248,8 @@ namespace ErsatzTV.Core.Next
     ///
     /// The hint fully replaces probing: values are not validated up front, so incorrect metadata
     /// surfaces as an ffmpeg error during playback rather than a probe failure. Provide an entry
-    /// for every stream the pipeline needs to select — typically one video and one audio.
+    /// for every stream the pipeline needs to select — typically one video and one audio, plus
+    /// any subtitle stream a track selects.
     /// </summary>
     public partial class ProbeHint
     {
@@ -273,6 +274,14 @@ namespace ErsatzTV.Core.Next
         public string FormatName { get; set; }
 
         /// <summary>
+        /// Subtitle streams in the source. Omit (or use `[]`) for sources without subtitles;
+        /// defaults to empty. Provide an entry for any subtitle stream a track selects, otherwise
+        /// the requested subtitle stream cannot be located and subtitles are dropped.
+        /// </summary>
+        [JsonProperty("subtitle", NullValueHandling = NullValueHandling.Ignore)]
+        public List<SubtitleHint> Subtitle { get; set; }
+
+        /// <summary>
         /// Video (and still-image) streams in the source. Omit (or use `[]`) for audio-only sources;
         /// defaults to empty.
         /// </summary>
@@ -293,6 +302,26 @@ namespace ErsatzTV.Core.Next
 
         /// <summary>
         /// Codec name as reported by ffprobe (e.g. "aac", "ac3", "mp2"). Compared case-insensitively.
+        /// </summary>
+        [JsonProperty("codec")]
+        public string Codec { get; set; }
+
+        /// <summary>
+        /// Zero-based index of this stream within the source.
+        /// </summary>
+        [JsonProperty("stream_index")]
+        public long StreamIndex { get; set; }
+    }
+
+    /// <summary>
+    /// Probe metadata for a single subtitle stream.
+    /// </summary>
+    public partial class SubtitleHint
+    {
+        /// <summary>
+        /// Codec name as reported by ffprobe (e.g. "subrip", "ass", "hdmv_pgs_subtitle",
+        /// "dvd_subtitle"). Compared case-insensitively; image-based codecs are handled differently
+        /// from text-based ones.
         /// </summary>
         [JsonProperty("codec")]
         public string Codec { get; set; }

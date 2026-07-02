@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
     - A config file named `{channel_number}.json` (e.g. `1.json`) will apply to the channel with that number
   - Channel overlays will override values from the default overlay which will override values from the FFmpeg Profile
 - Add `epg_entries` support to image graphics elements
+- Add (date-range based) alternate schedule system for sequential schedules
 
 ### Fixed
 - Fix HLS Direct playback when JWT auth is also used
@@ -26,6 +27,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Use `und` language tag with sidecar subtitles that have no language in the file name
 - Automatically remove already-played playout items from all on demand channels
 - Automatically remove already-played playout items from (continuous) scripted schedules
+- Extract embedded text subtitles (when enabled in settings) on channels that use custom stream selectors
+- Fix subtitle playback using Next streaming engine
 
 ### Changed
 - Upgrade Intel driver in docker containers to support latest Battlemage devices (e.g. B70)

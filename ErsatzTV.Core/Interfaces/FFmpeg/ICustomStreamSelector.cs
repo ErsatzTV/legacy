@@ -9,5 +9,6 @@ public interface ICustomStreamSelector
         Channel channel,
         DateTimeOffset contentStartTime,
         MediaItemAudioVersion audioVersion,
-        List<Subtitle> allSubtitles);
+        List<Subtitle> allSubtitles,
+        bool shouldLogMessages);
 }

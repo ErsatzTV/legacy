@@ -150,11 +150,19 @@ public class PlayoutItemConverter(
                     Codec = s.Codec,
                     Channels = s.Channels
                 }).ToList();
+            var sourceSubtitleHints = headVersion.Streams
+                .Where(s => s.MediaStreamKind is MediaStreamKind.Subtitle)
+                .Select(s => new Core.Next.SubtitleHint
+                {
+                    StreamIndex = s.Index,
+                    Codec = s.Codec
+                }).ToList();
 
             nextPlayoutItem.Source.ProbeHint = new Core.Next.ProbeHint
             {
                 Audio = sourceAudioHints,
                 Video = sourceVideoHints,
+                Subtitle = sourceSubtitleHints,
                 DurationMs = (long)headVersion.Duration.TotalMilliseconds
             };
 
@@ -378,7 +386,8 @@ public class PlayoutItemConverter(
                 channel,
                 nextPlayoutItem.Start,
                 audioVersion,
-                allSubtitles);
+                allSubtitles,
+                shouldLogMessages: false);
             maybeAudioStream = result.AudioStream;
             maybeSubtitle = result.Subtitle;
         }

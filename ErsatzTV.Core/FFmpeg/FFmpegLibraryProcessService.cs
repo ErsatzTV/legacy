@@ -132,7 +132,8 @@ public class FFmpegLibraryProcessService : IFFmpegProcessService
                 channel,
                 start,
                 audioVersion,
-                allSubtitles);
+                allSubtitles,
+                shouldLogMessages: true);
             maybeAudioStream = result.AudioStream;
             maybeSubtitle = result.Subtitle;
 
