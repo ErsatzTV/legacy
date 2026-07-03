@@ -29,6 +29,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Automatically remove already-played playout items from (continuous) scripted schedules
 - Extract embedded text subtitles (when enabled in settings) on channels that use custom stream selectors
 - Fix subtitle playback using Next streaming engine
+- Fix bug where search results for deleted manual collections would continue to appear
 
 ### Changed
 - Upgrade Intel driver in docker containers to support latest Battlemage devices (e.g. B70)
