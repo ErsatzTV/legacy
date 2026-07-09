@@ -34,6 +34,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 - Upgrade Intel driver in docker containers to support latest Battlemage devices (e.g. B70)
+- Restore release notes section on home page, since bugs continue to be fixed
 
 ## [26.5.1] - 2026-05-08
 ### Fixed

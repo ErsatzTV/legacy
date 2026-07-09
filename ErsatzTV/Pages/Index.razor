@@ -1,8 +1,13 @@
-﻿@page "/"
+@page "/"
 @page "/system/health"
 @using ErsatzTV.Application.Health
 @using ErsatzTV.Core.Health
+@using System.Reflection
+@using ErsatzTV.Core.Interfaces.GitHub
+@using Microsoft.Extensions.Caching.Memory
 @implements IDisposable
+@inject IGitHubApiClient GitHubApiClient
+@inject IMemoryCache MemoryCache
 @inject IMediator Mediator
 @inject SystemStartup SystemStartup;
 
@@ -124,12 +129,24 @@
                         </MudTd>
                     </RowTemplate>
                 </MudTable>
+                <MudCard Class="mt-6">
+                    <MudCardHeader>
+                        <MudText Class="mt-6">Full changelog is available on <MudLink Href="https://github.com/ErsatzTV/legacy/blob/main/CHANGELOG.md" Target="_blank">GitHub</MudLink></MudText>
+                    </MudCardHeader>
+                    <MudCardContent Class="release-notes mud-typography mud-typography-body1">
+                        <MarkdownView Content="@_releaseNotes"/>
+                    </MudCardContent>
+                </MudCard>
             }
         </MudContainer>
     </div>
 </MudForm>
 
 @code {
+    private CancellationTokenSource _cts;
+
+    private string _releaseNotes;
+
     protected override void OnInitialized()
     {
         SystemStartup.OnDatabaseReady += OnStartupProgress;
@@ -140,6 +157,9 @@
     {
         SystemStartup.OnDatabaseReady -= OnStartupProgress;
         SystemStartup.OnSearchIndexReady -= OnStartupProgress;
+
+        _cts?.Cancel();
+        _cts?.Dispose();
     }
 
     private async void OnStartupProgress(object sender, EventArgs e)
@@ -151,6 +171,66 @@
         catch (Exception)
         {
             // do nothing
+        }
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _cts?.Cancel();
+        _cts?.Dispose();
+        _cts = new CancellationTokenSource();
+        var token = _cts.Token;
+
+        try
+        {
+            if (MemoryCache.TryGetValue("Index.ReleaseNotesHtml", out string releaseNotesHtml))
+            {
+                _releaseNotes = releaseNotesHtml;
+            }
+            else
+            {
+                var assembly = Assembly.GetEntryAssembly();
+                if (assembly != null)
+                {
+                    string version = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
+                    if (version != null)
+                    {
+                        Either<BaseError, string> maybeNotes;
+
+                        if (version != "develop")
+                        {
+                            string gitHubVersion = version.Split("-").Head();
+                            if (!gitHubVersion.StartsWith("v"))
+                            {
+                                gitHubVersion = $"v{gitHubVersion}";
+                            }
+
+                            maybeNotes = await GitHubApiClient.GetReleaseNotes(gitHubVersion, token);
+                            foreach (string notes in maybeNotes.RightToSeq())
+                            {
+                                _releaseNotes = notes;
+                            }
+                        }
+                        else
+                        {
+                            maybeNotes = await GitHubApiClient.GetLatestReleaseNotes(token);
+                            foreach (string notes in maybeNotes.RightToSeq())
+                            {
+                                _releaseNotes = notes;
+                            }
+                        }
+                    }
+                }
+
+                if (_releaseNotes != null)
+                {
+                    MemoryCache.Set("Index.ReleaseNotesHtml", _releaseNotes);
+                }
+            }
+        }
+        catch (Exception)
+        {
+            // ignore
         }
     }
 
