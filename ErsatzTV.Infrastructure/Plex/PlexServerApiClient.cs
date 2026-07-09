@@ -839,7 +839,8 @@ public class PlexServerApiClient(PlexEtag plexEtag, ILogger<PlexServerApiClient>
                     Codec = subtitleStream.Codec,
                     Default = subtitleStream.Default,
                     Forced = subtitleStream.Forced,
-                    Language = subtitleStream.LanguageCode
+                    Language = subtitleStream.LanguageCode,
+                    Title = subtitleStream.Title
                 };
 
                 version.Streams.Add(stream);
@@ -861,7 +862,9 @@ public class PlexServerApiClient(PlexEtag plexEtag, ILogger<PlexServerApiClient>
                     Codec = subtitleStream.Codec,
                     Default = subtitleStream.Default,
                     Forced = subtitleStream.Forced,
-                    Language = subtitleStream.LanguageCode
+                    Language = subtitleStream.LanguageCode,
+
+                    Title = subtitleStream.Title
                 };
 
                 version.Streams.Add(stream);
