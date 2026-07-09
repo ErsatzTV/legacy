@@ -31,7 +31,7 @@ public class ChannelLogoGenerator : IChannelLogoGenerator
             //etv logo
             string overlayImagePath = Path.Combine("wwwroot", "images", "ersatztv-500.png");
             using var overlayImage = SKBitmap.Decode(overlayImagePath);
-            canvas.DrawBitmap(overlayImage, new SKRect(155, 60, 205, 110));
+            canvas.DrawBitmap(overlayImage, new SKRect(155, 60, 205, 110), SKSamplingOptions.Default);
 
             //Custom Font
             string fontPath = Path.Combine(FileSystemLayout.ResourcesCacheFolder, "Sen.ttf");

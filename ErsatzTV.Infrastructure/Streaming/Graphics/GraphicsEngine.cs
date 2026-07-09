@@ -190,12 +190,20 @@ public class GraphicsEngine(
                                             SKColors.White.WithAlpha((byte)(preparedImage.Opacity * 255)),
                                             SKBlendMode.Modulate);
                                         paint.ColorFilter = colorFilter;
-                                        canvas.DrawBitmap(preparedImage.Image, preparedImage.Point, paint);
+                                        canvas.DrawBitmap(
+                                            preparedImage.Image,
+                                            preparedImage.Point,
+                                            SKSamplingOptions.Default,
+                                            paint);
                                     }
                                     else
                                     {
                                         paint.ColorFilter = null;
-                                        canvas.DrawBitmap(preparedImage.Image, preparedImage.Point, paint);
+                                        canvas.DrawBitmap(
+                                            preparedImage.Image,
+                                            preparedImage.Point,
+                                            SKSamplingOptions.Default,
+                                            paint);
                                     }
 
                                     if (preparedImage.Dispose)
