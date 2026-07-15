@@ -27,6 +27,10 @@ public class PlexEtag
         // video updated at
         bw.Write(response.UpdatedAt);
 
+        // video title
+        bw.Write((byte)FieldKey.Title);
+        bw.Write(response.Title ?? string.Empty);
+
         foreach (PlexMediaResponse<PlexPartResponse> media in response.Media)
         {
             // media id
@@ -330,6 +334,7 @@ public class PlexEtag
 
         Thumb = 20,
         Art = 21,
+        Title = 22,
 
         File = 30,
         Key = 31,

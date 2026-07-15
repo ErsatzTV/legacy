@@ -175,6 +175,14 @@ public class OtherVideoRepository : IOtherVideoRepository
             new { writer.Name, MetadataId = metadata.Id }).Map(result => result > 0);
     }
 
+    public async Task<bool> UpdateTitles(OtherVideoMetadata metadata, string title, string sortTitle)
+    {
+        await using TvContext dbContext = await _dbContextFactory.CreateDbContextAsync();
+        return await dbContext.Connection.ExecuteAsync(
+            "UPDATE OtherVideoMetadata SET Title = @Title, SortTitle = @SortTitle WHERE Id = @Id",
+            new { Title = title, SortTitle = sortTitle, metadata.Id }).Map(result => result > 0);
+    }
+
     private async Task<Either<BaseError, MediaItemScanResult<OtherVideo>>> AddOtherVideo(
         TvContext dbContext,
         int libraryPathId,

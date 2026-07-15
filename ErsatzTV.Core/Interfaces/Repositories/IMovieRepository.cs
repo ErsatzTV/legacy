@@ -20,7 +20,7 @@ public interface IMovieRepository
     Task<bool> AddTag(MovieMetadata metadata, Tag tag);
     Task<bool> AddStudio(MovieMetadata metadata, Studio studio);
     Task<bool> AddActor(MovieMetadata metadata, Actor actor);
-    Task<bool> UpdateSortTitle(MovieMetadata movieMetadata);
+    Task<bool> UpdateTitles(MovieMetadata movieMetadata, string title, string sortTitle);
     Task<bool> AddDirector(MovieMetadata metadata, Director director);
     Task<bool> AddWriter(MovieMetadata metadata, Writer writer);
 }

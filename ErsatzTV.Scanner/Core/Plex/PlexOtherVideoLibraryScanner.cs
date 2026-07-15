@@ -352,17 +352,15 @@ public class PlexOtherVideoLibraryScanner :
             result.IsUpdated = true;
         }
 
-        /*
-        if (fullMetadata.SortTitle != existingMetadata.SortTitle)
+        if (fullMetadata.SortTitle != existingMetadata.SortTitle || fullMetadata.Title != existingMetadata.Title)
         {
+            existingMetadata.Title = fullMetadata.Title;
             existingMetadata.SortTitle = fullMetadata.SortTitle;
-            // Not existing on IOtherVideoRepository
-            if (await _otherVideoRepository.UpdateSortTitle(existingMetadata))
+            if (await _otherVideoRepository.UpdateTitles(existingMetadata, fullMetadata.Title, fullMetadata.SortTitle))
             {
                 result.IsUpdated = true;
             }
         }
-        */
 
         bool poster = await UpdateArtworkIfNeeded(existingMetadata, fullMetadata, ArtworkKind.Poster);
         bool fanArt = await UpdateArtworkIfNeeded(existingMetadata, fullMetadata, ArtworkKind.FanArt);
