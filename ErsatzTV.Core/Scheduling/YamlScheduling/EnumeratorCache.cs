@@ -175,6 +175,7 @@ public class EnumeratorCache(IMediaCollectionRepository mediaCollectionRepositor
                 state,
                 shufflePlaylistItems: false,
                 batchSize: Option<int>.None,
+                randomStartPoint: false,
                 cancellationToken);
         }
 

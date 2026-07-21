@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Update Plex movie and other video titles when changed from Plex
   - The first library scan after updating will act like a deep scan due to adding title to the Plex etag calculation
   - Future periodic scans will update titles in ETV automatically (deep scans will not be required to update titles)
+- Randomize start points on playlist items in classic schedules when setting is enabled
+  - Playlists ignored this setting in earlier builds
 
 ## [26.6.0] - 2026-07-09
 ### Added

@@ -62,6 +62,7 @@ public class PlaylistEnumeratorTests
             new CollectionEnumeratorState(),
             shufflePlaylistItems: false,
             batchSize: Option<int>.None,
+            randomStartPoint: false,
             CancellationToken.None);
 
         var items = new List<int>();
@@ -130,6 +131,7 @@ public class PlaylistEnumeratorTests
             new CollectionEnumeratorState(),
             shufflePlaylistItems: false,
             batchSize: Option<int>.None,
+            randomStartPoint: false,
             CancellationToken.None);
 
         var items = new List<int>();
@@ -200,6 +202,7 @@ public class PlaylistEnumeratorTests
             state,
             shufflePlaylistItems: true,
             batchSize: Option<int>.None,
+            randomStartPoint: false,
             CancellationToken.None);
 
         var items = new List<int>();
@@ -270,6 +273,7 @@ public class PlaylistEnumeratorTests
             state,
             shufflePlaylistItems: true,
             batchSize: Option<int>.None,
+            randomStartPoint: false,
             CancellationToken.None);
 
         var items = new List<int>();
@@ -352,6 +356,7 @@ public class PlaylistEnumeratorTests
             state,
             shufflePlaylistItems: true,
             batchSize: Option<int>.None,
+            randomStartPoint: false,
             CancellationToken.None);
 
         enumerator.CountForFiller.ShouldBe(7);

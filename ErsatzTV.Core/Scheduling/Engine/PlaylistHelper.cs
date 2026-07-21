@@ -58,6 +58,7 @@ public class PlaylistHelper(IMediaCollectionRepository mediaCollectionRepository
             state,
             shufflePlaylistItems: false,
             batchSize: Option<int>.None,
+            randomStartPoint: false,
             cancellationToken);
 
         return new PlaylistContentResult(

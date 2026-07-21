@@ -121,6 +121,7 @@ public class PlaylistEnumerator : IMediaCollectionEnumerator
         CollectionEnumeratorState state,
         bool shufflePlaylistItems,
         Option<int> batchSize,
+        bool randomStartPoint,
         CancellationToken cancellationToken)
     {
         var result = new PlaylistEnumerator
@@ -130,6 +131,10 @@ public class PlaylistEnumerator : IMediaCollectionEnumerator
             _shufflePlaylistItems = shufflePlaylistItems,
             _batchSize = batchSize
         };
+
+        // random start points only apply to a fresh build with no saved state
+        var random = new Random(state.Seed);
+        randomStartPoint = randomStartPoint && state.Index == 0;
 
         // collections should share enumerators
         var enumeratorMap = new Dictionary<CollectionKey, IMediaCollectionEnumerator>();
@@ -166,6 +171,11 @@ public class PlaylistEnumerator : IMediaCollectionEnumerator
                 switch (playlistItem.PlaybackOrder)
                 {
                     case PlaybackOrder.Chronological:
+                        if (randomStartPoint)
+                        {
+                            initState.Index = random.Next(0, items.Count - 1);
+                        }
+
                         enumerator = new ChronologicalMediaCollectionEnumerator(items, initState);
                         break;
                     // TODO: fix multi episode shuffle?
@@ -187,18 +197,22 @@ public class PlaylistEnumerator : IMediaCollectionEnumerator
                                 CollectionKey.ForPlaylistItem(playlistItem),
                                 cancellationToken),
                             initState,
-                            // TODO: fix this
-                            false,
+                            randomStartPoint,
                             cancellationToken);
                         break;
                     case PlaybackOrder.SeasonEpisode:
-                        // TODO: check random start point?
+                        if (randomStartPoint)
+                        {
+                            initState.Index = random.Next(0, items.Count - 1);
+                        }
+
                         enumerator = new SeasonEpisodeMediaCollectionEnumerator(items, initState);
                         // season, episode will filter out season 0, so we may get an empty enumerator back
                         if (enumerator.Count == 0)
                         {
                             enumerator = null;
                         }
+
                         break;
                     case PlaybackOrder.Random:
                         enumerator = new RandomizedMediaCollectionEnumerator(items, initState);

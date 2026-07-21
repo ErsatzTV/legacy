@@ -168,6 +168,7 @@ public static class BlockPlayoutEnumerator
             state,
             shufflePlaylistItems: false,
             batchSize: Option<int>.None,
+            randomStartPoint: false,
             cancellationToken);
 
         DateTime historyTime = currentTime.UtcDateTime;

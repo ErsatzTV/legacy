@@ -1325,6 +1325,7 @@ public class PlayoutBuilder : IPlayoutBuilder
                     state,
                     marathonShuffleGroups,
                     batchSize: Option<int>.None,
+                    randomStartPoint,
                     cancellationToken);
             }
         }
