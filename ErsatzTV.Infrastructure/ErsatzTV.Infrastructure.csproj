@@ -18,8 +18,8 @@
         <PackageReference Include="EFCore.BulkExtensions" Version="[9.0.2,10)" />
         <PackageReference Include="Elastic.Clients.Elasticsearch" Version="9.4.2" />
         <PackageReference Include="Humanizer.Core" Version="3.0.10" />
-        <PackageReference Include="Jint" Version="4.11.0" />
-        <PackageReference Include="JsonSchema.Net" Version="9.2.2" />
+        <PackageReference Include="Jint" Version="4.13.0" />
+        <PackageReference Include="JsonSchema.Net" Version="9.3.0" />
         <PackageReference Include="Lucene.Net" Version="4.8.0-beta00018" />
         <PackageReference Include="Lucene.Net.Analysis.Common" Version="4.8.0-beta00018" />
         <PackageReference Include="Lucene.Net.QueryParser" Version="4.8.0-beta00018" />
@@ -36,7 +36,7 @@
         <PackageReference Include="RichTextKit.Stbear" Version="0.4.167.3" />
         <PackageReference Include="Scriban.Signed" Version="7.2.5" />
         <PackageReference Include="SixLabors.ImageSharp" Version="[3.1.12,4)" />
-        <PackageReference Include="SkiaSharp" Version="4.150.0" />
+        <PackageReference Include="SkiaSharp" Version="4.150.1" />
         <PackageReference Include="TagLibSharp" Version="2.3.0" />
         <PackageReference Include="TimeZoneConverter" Version="7.2.0" />
     </ItemGroup>

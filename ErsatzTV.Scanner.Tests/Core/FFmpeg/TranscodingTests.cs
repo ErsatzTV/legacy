@@ -348,13 +348,13 @@ public class TranscodingTests
         metadataRepository.When(x => x.UpdateStatistics(Arg.Any<MediaItem>(), Arg.Any<MediaVersion>(), Arg.Any<bool>()))
             .Do(x =>
             {
-                MediaVersion version = x.Arg<MediaVersion>();
-                if (version.Streams.Any(s => s.MediaStreamKind == MediaStreamKind.Video && !s.AttachedPic))
+                MediaVersion? version = x.Arg<MediaVersion>();
+                if (version != null && version.Streams.Any(s => s.MediaStreamKind == MediaStreamKind.Video && !s.AttachedPic))
                 {
                     version.MediaFiles = videoVersion.MediaFiles;
                     videoVersion = version;
                 }
-                else
+                else if (version != null)
                 {
                     version.MediaFiles = songVersion.MediaFiles;
                     songVersion = version;
@@ -520,8 +520,11 @@ public class TranscodingTests
             .Do(args =>
             {
                 MediaVersion? version = args.Arg<MediaVersion>();
-                version.MediaFiles = v.MediaFiles;
-                v = version;
+                if (version != null)
+                {
+                    version.MediaFiles = v.MediaFiles;
+                    v = version;
+                }
             });
 
         var localStatisticsProvider = new LocalStatisticsProvider(

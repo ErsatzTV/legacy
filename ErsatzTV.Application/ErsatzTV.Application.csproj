@@ -14,8 +14,8 @@
         <PackageReference Include="CliWrap" Version="3.10.2" />
         <PackageReference Include="Humanizer.Core" Version="3.0.10" />
         <PackageReference Include="MediatR" Version="[12.5.0]" />
-        <PackageReference Include="Microsoft.Extensions.Caching.Abstractions" Version="10.0.9" />
-        <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.9" />
+        <PackageReference Include="Microsoft.Extensions.Caching.Abstractions" Version="10.0.10" />
+        <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.10" />
         <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
         <PackageReference Include="Serilog.Formatting.Compact.Reader" Version="4.0.0" />
         <PackageReference Include="WebMarkupMin.Core" Version="2.21.0" />

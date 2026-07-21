@@ -17,7 +17,7 @@
         <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="9.0.15" />
         <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="9.0.15" />
         <!-- Force fixed native SQLite to resolve NU1903 (GHSA-2m69-gcr7-jv3q) from the transitive 2.1.10 -->
-        <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.3" />
+        <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.4" />
     </ItemGroup>
 
 
