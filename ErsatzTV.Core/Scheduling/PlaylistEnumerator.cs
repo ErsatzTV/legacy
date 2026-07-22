@@ -31,9 +31,12 @@ public class PlaylistEnumerator : IMediaCollectionEnumerator
 
     public int EnumeratorIndex { get; private set; }
 
-    public void ResetState(CollectionEnumeratorState state) =>
+    public void ResetState(CollectionEnumeratorState state)
+    {
         // seed doesn't matter here
         State.Index = state.Index;
+        State.Started = state.Started;
+    }
 
     public string SchedulingContextName => "Playlist";
 
@@ -111,6 +114,8 @@ public class PlaylistEnumerator : IMediaCollectionEnumerator
                 _sortedEnumerators = ShufflePlaylistItems();
             }
         }
+
+        State.Started = true;
     }
 
     public void SetEnumeratorIndex(int enumeratorIndex) => EnumeratorIndex = enumeratorIndex % _sortedEnumerators.Count;
@@ -134,7 +139,7 @@ public class PlaylistEnumerator : IMediaCollectionEnumerator
 
         // random start points only apply to a fresh build with no saved state
         var random = new Random(state.Seed);
-        randomStartPoint = randomStartPoint && state.Index == 0;
+        randomStartPoint = randomStartPoint && !state.Started;
 
         // collections should share enumerators
         var enumeratorMap = new Dictionary<CollectionKey, IMediaCollectionEnumerator>();

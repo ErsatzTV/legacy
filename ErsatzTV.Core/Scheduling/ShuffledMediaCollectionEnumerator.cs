@@ -92,6 +92,8 @@ public class ShuffledMediaCollectionEnumerator : IMediaCollectionEnumerator
         {
             State.Index %= _mediaItemCount;
         }
+
+        State.Started = true;
     }
 
     public Option<TimeSpan> MinimumDuration => _lazyMinimumDuration.Value;

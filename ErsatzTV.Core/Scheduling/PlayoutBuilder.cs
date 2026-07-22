@@ -276,7 +276,6 @@ public class PlayoutBuilder : IPlayoutBuilder
             parameters.Start,
             parameters.Finish,
             parameters.CollectionMediaItems,
-            false,
             cancellationToken);
     }
 
@@ -314,7 +313,6 @@ public class PlayoutBuilder : IPlayoutBuilder
             parameters.Start,
             parameters.Finish,
             parameters.CollectionMediaItems,
-            true,
             cancellationToken);
 
         foreach (BaseError error in maybeResult.LeftToSeq())
@@ -362,7 +360,6 @@ public class PlayoutBuilder : IPlayoutBuilder
             parameters.Start,
             parameters.Finish,
             parameters.CollectionMediaItems,
-            false,
             cancellationToken);
     }
 
@@ -437,7 +434,6 @@ public class PlayoutBuilder : IPlayoutBuilder
         DateTimeOffset playoutStart,
         DateTimeOffset playoutFinish,
         Map<CollectionKey, List<MediaItem>> collectionMediaItems,
-        bool randomStartPoint,
         CancellationToken cancellationToken)
     {
         DateTimeOffset trimBefore = playoutStart.AddHours(-4);
@@ -476,7 +472,6 @@ public class PlayoutBuilder : IPlayoutBuilder
                 finish,
                 collectionMediaItems,
                 true,
-                randomStartPoint,
                 cancellationToken);
 
             foreach (BaseError error in buildResult.LeftToSeq())
@@ -488,9 +483,6 @@ public class PlayoutBuilder : IPlayoutBuilder
             {
                 result = r;
             }
-
-            // only randomize once (at the start of the playout)
-            randomStartPoint = false;
 
             start = playout.Anchor?.NextStartOffset ?? start;
             finish = finish.AddDays(1);
@@ -513,7 +505,6 @@ public class PlayoutBuilder : IPlayoutBuilder
                 playoutFinish,
                 collectionMediaItems,
                 false,
-                randomStartPoint,
                 cancellationToken);
 
             foreach (BaseError error in buildResult.LeftToSeq())
@@ -565,7 +556,6 @@ public class PlayoutBuilder : IPlayoutBuilder
         DateTimeOffset playoutFinish,
         Map<CollectionKey, List<MediaItem>> collectionMediaItems,
         bool saveAnchorDate,
-        bool randomStartPoint,
         CancellationToken cancellationToken)
     {
         var random = new Random(playout.Seed);
@@ -588,9 +578,6 @@ public class PlayoutBuilder : IPlayoutBuilder
         }
 
         // _logger.LogDebug("Active schedule is: {Schedule}", activeSchedule.Name);
-
-        // random start points are disabled in some scenarios, so ensure it's enabled and active
-        randomStartPoint = randomStartPoint && activeSchedule.RandomStartPoint;
 
         var sortedScheduleItems = activeSchedule.Items.OrderBy(i => i.Index).ToList();
         CollectionEnumeratorState scheduleItemsEnumeratorState =
@@ -619,7 +606,7 @@ public class PlayoutBuilder : IPlayoutBuilder
                         scheduleItem.MarathonShuffleGroups,
                         scheduleItem.MarathonShuffleItems,
                         scheduleItem.MarathonBatchSize,
-                        randomStartPoint,
+                        activeSchedule.RandomStartPoint,
                         random,
                         cancellationToken);
 
@@ -640,7 +627,7 @@ public class PlayoutBuilder : IPlayoutBuilder
                         marathonShuffleGroups: false,
                         marathonShuffleItems: false,
                         marathonBatchSize: null,
-                        randomStartPoint,
+                        activeSchedule.RandomStartPoint,
                         random,
                         cancellationToken);
 
@@ -718,7 +705,7 @@ public class PlayoutBuilder : IPlayoutBuilder
                     scheduleItem.MarathonShuffleGroups,
                     scheduleItem.MarathonShuffleItems,
                     scheduleItem.MarathonBatchSize,
-                    randomStartPoint,
+                    activeSchedule.RandomStartPoint,
                     random,
                     cancellationToken);
 
@@ -1347,8 +1334,7 @@ public class PlayoutBuilder : IPlayoutBuilder
             }
         }
 
-        // index shouldn't ever be greater than zero with randomStartPoint since anchors shouldn't exist, but
-        randomStartPoint = randomStartPoint && state.Index == 0;
+        randomStartPoint = randomStartPoint && !state.Started;
 
         switch (playbackOrder)
         {

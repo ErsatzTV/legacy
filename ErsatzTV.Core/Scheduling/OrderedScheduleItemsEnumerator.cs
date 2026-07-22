@@ -31,7 +31,11 @@ public class OrderedScheduleItemsEnumerator : IScheduleItemsEnumerator
 
     public ProgramScheduleItem Current => _sortedScheduleItems[State.Index];
 
-    public void MoveNext() => State.Index = (State.Index + 1) % _sortedScheduleItems.Count;
+    public void MoveNext()
+    {
+        State.Index = (State.Index + 1) % _sortedScheduleItems.Count;
+        State.Started = true;
+    }
 
     public ProgramScheduleItem Peek(int offset) =>
         _sortedScheduleItems[(State.Index + offset) % _sortedScheduleItems.Count];

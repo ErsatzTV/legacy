@@ -35,6 +35,7 @@ public class BlockPlayoutShuffledMediaCollectionEnumerator : IMediaCollectionEnu
         {
             State.Seed = state.Seed;
             State.Index = state.Index;
+            State.Started = state.Started;
 
             _shuffled = Shuffle(_mediaItems);
         }
@@ -54,6 +55,8 @@ public class BlockPlayoutShuffledMediaCollectionEnumerator : IMediaCollectionEnu
         {
             _shuffled = Shuffle(_mediaItems);
         }
+
+        State.Started = true;
     }
 
     public Option<TimeSpan> MinimumDuration => _lazyMinimumDuration.Value;

@@ -10,6 +10,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Future periodic scans will update titles in ETV automatically (deep scans will not be required to update titles)
 - Randomize start points on playlist items in classic schedules when setting is enabled
   - Playlists ignored this setting in earlier builds
+- Always randomize start points for all collections the first time they are used
+  - Previously, only collections scheduled during the first day of a playout build had their start points randomized
 
 ## [26.6.0] - 2026-07-09
 ### Added

@@ -57,6 +57,7 @@ public class ShuffledScheduleItemsEnumerator : IScheduleItemsEnumerator
         }
 
         State.Index %= _scheduleItemsCount;
+        State.Started = true;
     }
 
     public ProgramScheduleItem Peek(int offset)

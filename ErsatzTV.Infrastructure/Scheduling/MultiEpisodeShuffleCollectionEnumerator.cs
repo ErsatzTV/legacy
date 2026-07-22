@@ -100,6 +100,7 @@ public class MultiEpisodeShuffleCollectionEnumerator : IMediaCollectionEnumerato
         }
 
         State.Index = state.Index;
+        State.Started = state.Started;
     }
 
     public string SchedulingContextName => "Multi-Episode Shuffle";

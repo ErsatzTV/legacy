@@ -35,9 +35,12 @@ public sealed class SeasonEpisodeMediaCollectionEnumerator : IMediaCollectionEnu
         }
     }
 
-    public void ResetState(CollectionEnumeratorState state) =>
+    public void ResetState(CollectionEnumeratorState state)
+    {
         // seed doesn't matter here
         State.Index = state.Index;
+        State.Started = state.Started;
+    }
 
     public string SchedulingContextName => "Season, Episode";
 
@@ -54,6 +57,7 @@ public sealed class SeasonEpisodeMediaCollectionEnumerator : IMediaCollectionEnu
         }
 
         State.Index = (State.Index + 1) % _sortedMediaItems.Count;
+        State.Started = true;
     }
 
     public Option<TimeSpan> MinimumDuration => _lazyMinimumDuration.Value;

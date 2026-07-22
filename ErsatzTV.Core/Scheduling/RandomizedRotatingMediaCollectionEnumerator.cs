@@ -61,9 +61,12 @@ public class RandomizedRotatingMediaCollectionEnumerator : IMediaCollectionEnume
         }
     }
 
-    public void ResetState(CollectionEnumeratorState state) =>
+    public void ResetState(CollectionEnumeratorState state)
+    {
         // seed never changes here, no need to reset
         State.Index = state.Index;
+        State.Started = state.Started;
+    }
 
     public string SchedulingContextName => "Random Rotating";
 
@@ -102,6 +105,7 @@ public class RandomizedRotatingMediaCollectionEnumerator : IMediaCollectionEnume
         int itemNumber = nextRandom % _groupMedia[groups[_groupNumber]].Count;
         _index = _groupMedia[groups[_groupNumber]][itemNumber];
         State.Index++;
+        State.Started = true;
     }
 
     public Option<TimeSpan> MinimumDuration => _lazyMinimumDuration.Value;
