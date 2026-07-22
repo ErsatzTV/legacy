@@ -36,7 +36,7 @@ public class ShuffledMediaCollectionEnumerator : IMediaCollectionEnumerator
             new Lazy<Option<TimeSpan>>(() =>
                 _shuffled.Bind(i => i.GetNonZeroDuration()).OrderBy(identity).HeadOrNone());
 
-        State = new CollectionEnumeratorState { Seed = state.Seed };
+        State = new CollectionEnumeratorState { Seed = state.Seed, Started = state.Started };
         while (State.Index < state.Index)
         {
             MoveNext(Option<DateTimeOffset>.None);
@@ -54,6 +54,7 @@ public class ShuffledMediaCollectionEnumerator : IMediaCollectionEnumerator
 
         State.Seed = state.Seed;
         State.Index = state.Index;
+        State.Started = state.Started;
     }
 
     public string SchedulingContextName => "Shuffle";

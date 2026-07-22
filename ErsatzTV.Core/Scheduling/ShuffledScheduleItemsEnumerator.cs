@@ -26,7 +26,7 @@ public class ShuffledScheduleItemsEnumerator : IScheduleItemsEnumerator
         _random = new CloneableRandom(state.Seed);
         _shuffled = Shuffle(_scheduleItems, _random);
 
-        State = new CollectionEnumeratorState { Seed = state.Seed };
+        State = new CollectionEnumeratorState { Seed = state.Seed, Started = state.Started };
         while (State.Index < state.Index)
         {
             MoveNext();

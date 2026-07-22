@@ -178,7 +178,7 @@ public class PlaylistEnumerator : IMediaCollectionEnumerator
                     case PlaybackOrder.Chronological:
                         if (randomStartPoint)
                         {
-                            initState.Index = random.Next(0, items.Count - 1);
+                            initState.Index = items.Count > 0 ? random.Next(0, items.Count) : 0;
                         }
 
                         enumerator = new ChronologicalMediaCollectionEnumerator(items, initState);
@@ -208,7 +208,7 @@ public class PlaylistEnumerator : IMediaCollectionEnumerator
                     case PlaybackOrder.SeasonEpisode:
                         if (randomStartPoint)
                         {
-                            initState.Index = random.Next(0, items.Count - 1);
+                            initState.Index = items.Count > 0 ? random.Next(0, items.Count) : 0;
                         }
 
                         enumerator = new SeasonEpisodeMediaCollectionEnumerator(items, initState);
@@ -248,7 +248,7 @@ public class PlaylistEnumerator : IMediaCollectionEnumerator
             result._sortedEnumerators = result.ShufflePlaylistItems();
         }
 
-        result.State = new CollectionEnumeratorState { Seed = state.Seed };
+        result.State = new CollectionEnumeratorState { Seed = state.Seed, Started = state.Started };
         result.EnumeratorIndex = 0;
 
         // this was a bug when playlist enumerators were first added; shouldn't happen anymore

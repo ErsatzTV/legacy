@@ -1344,7 +1344,7 @@ public class PlayoutBuilder : IPlayoutBuilder
                     state = new CollectionEnumeratorState
                     {
                         Seed = state.Seed,
-                        Index = random.Next(0, mediaItems.Count - 1)
+                        Index = mediaItems.Count > 0 ? random.Next(0, mediaItems.Count) : 0
                     };
                 }
 
@@ -1355,7 +1355,7 @@ public class PlayoutBuilder : IPlayoutBuilder
                     state = new CollectionEnumeratorState
                     {
                         Seed = state.Seed,
-                        Index = random.Next(0, mediaItems.Count - 1)
+                        Index = mediaItems.Count > 0 ? random.Next(0, mediaItems.Count) : 0
                     };
                 }
 
@@ -1369,7 +1369,7 @@ public class PlayoutBuilder : IPlayoutBuilder
                         collectionKey,
                         cancellationToken),
                     state,
-                    activeSchedule.RandomStartPoint,
+                    randomStartPoint,
                     cancellationToken);
             case PlaybackOrder.MultiEpisodeShuffle when
                 collectionKey.CollectionType == CollectionType.TelevisionShow &&

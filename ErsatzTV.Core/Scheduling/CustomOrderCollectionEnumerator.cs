@@ -25,7 +25,7 @@ public class CustomOrderCollectionEnumerator : IMediaCollectionEnumerator
         _lazyMinimumDuration = new Lazy<Option<TimeSpan>>(() =>
             _sortedMediaItems.Bind(i => i.GetNonZeroDuration()).OrderBy(identity).HeadOrNone());
 
-        State = new CollectionEnumeratorState { Seed = state.Seed };
+        State = new CollectionEnumeratorState { Seed = state.Seed, Started = state.Started };
         while (State.Index < state.Index)
         {
             MoveNext(Option<DateTimeOffset>.None);

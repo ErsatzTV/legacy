@@ -22,7 +22,7 @@ public sealed class ChronologicalMediaCollectionEnumerator : IMediaCollectionEnu
 
         _lazyMediaItemGroupSize = new Lazy<Dictionary<int, int>>(CalculateMediaItemGroupSizes);
 
-        State = new CollectionEnumeratorState { Seed = state.Seed };
+        State = new CollectionEnumeratorState { Seed = state.Seed, Started = state.Started };
 
         if (state.Index >= _sortedMediaItems.Count)
         {

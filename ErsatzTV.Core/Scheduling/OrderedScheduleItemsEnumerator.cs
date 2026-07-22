@@ -13,7 +13,7 @@ public class OrderedScheduleItemsEnumerator : IScheduleItemsEnumerator
     {
         _sortedScheduleItems = scheduleItems.OrderBy(i => i.Index).ToList();
 
-        State = new CollectionEnumeratorState { Seed = state.Seed };
+        State = new CollectionEnumeratorState { Seed = state.Seed, Started = state.Started };
 
         if (state.Index >= _sortedScheduleItems.Count)
         {
