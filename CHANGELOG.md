@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
+### Changed
+- Upgrade all bundled versions of ffmpeg from 7.1 to 8.1.2
+  - Other versions (`linux64` and `linuxarm64`) are available at https://github.com/ErsatzTV/ErsatzTV-ffmpeg/releases/tag/8.1.2
+
 ### Fixed
 - Update Plex movie and other video titles when changed from Plex
   - The first library scan after updating will act like a deep scan due to adding title to the Plex etag calculation

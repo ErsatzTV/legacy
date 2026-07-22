@@ -1,6 +1,6 @@
 ﻿FROM mcr.microsoft.com/dotnet/aspnet:10.0-noble-arm32v7 AS dotnet-runtime
 
-FROM --platform=linux/arm/v7 ghcr.io/ersatztv/ersatztv-ffmpeg:7.1.1 AS runtime-base
+FROM --platform=linux/arm/v7 ghcr.io/ersatztv/ersatztv-ffmpeg:8.1.2 AS runtime-base
 COPY --from=dotnet-runtime /usr/share/dotnet /usr/share/dotnet
 
 # https://hub.docker.com/_/microsoft-dotnet
