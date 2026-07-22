@@ -362,6 +362,101 @@ public class PlaylistEnumeratorTests
         enumerator.CountForFiller.ShouldBe(7);
     }
 
+    [Test]
+    public async Task RandomStartPoint_Should_Continue_After_Rebuild()
+    {
+        IMediaCollectionRepository repo = Substitute.For<IMediaCollectionRepository>();
+
+        Dictionary<PlaylistItem, List<MediaItem>> BuildMap() => new()
+        {
+            {
+                new PlaylistItem
+                {
+                    Id = 1,
+                    Index = 0,
+                    PlaybackOrder = PlaybackOrder.Chronological,
+                    PlayAll = false,
+                    CollectionType = CollectionType.Collection,
+                    CollectionId = 1
+                },
+                [FakeMovie(10), FakeMovie(11), FakeMovie(12), FakeMovie(13), FakeMovie(14)]
+            },
+            {
+                new PlaylistItem
+                {
+                    Id = 2,
+                    Index = 1,
+                    PlaybackOrder = PlaybackOrder.Chronological,
+                    PlayAll = false,
+                    CollectionType = CollectionType.Collection,
+                    CollectionId = 2
+                },
+                [FakeMovie(15), FakeMovie(16), FakeMovie(17), FakeMovie(18), FakeMovie(19)]
+            },
+            {
+                new PlaylistItem
+                {
+                    Id = 3,
+                    Index = 2,
+                    PlaybackOrder = PlaybackOrder.Chronological,
+                    PlayAll = false,
+                    CollectionType = CollectionType.Collection,
+                    CollectionId = 3
+                },
+                [FakeMovie(20), FakeMovie(21), FakeMovie(22), FakeMovie(23), FakeMovie(24)]
+            }
+        };
+
+        const int SEED = 987654321;
+
+        // day 1: fresh build with a random start point
+        PlaylistEnumerator day1 = await PlaylistEnumerator.Create(
+            repo,
+            BuildMap(),
+            new CollectionEnumeratorState { Seed = SEED, Index = 0 },
+            shufflePlaylistItems: false,
+            batchSize: Option<int>.None,
+            randomStartPoint: true,
+            CancellationToken.None);
+
+        // capture a reference sequence and the state we would persist halfway through
+        var reference = new List<int>();
+        CollectionEnumeratorState persistedState = null;
+        for (var i = 0; i < 12; i++)
+        {
+            reference.AddRange(day1.Current.Map(mi => mi.Id));
+            day1.MoveNext(Option<DateTimeOffset>.None);
+            if (i == 5)
+            {
+                persistedState = day1.State.Clone();
+            }
+        }
+
+        // sanity: the random start point actually moved us off the natural start
+        reference.First().ShouldNotBe(10);
+        persistedState.Started.ShouldBeTrue();
+
+        // day 2: rebuild from the persisted state; the offsets must be reproduced so we continue
+        PlaylistEnumerator day2 = await PlaylistEnumerator.Create(
+            repo,
+            BuildMap(),
+            persistedState,
+            shufflePlaylistItems: false,
+            batchSize: Option<int>.None,
+            randomStartPoint: true,
+            CancellationToken.None);
+
+        var continued = new List<int>();
+        for (var i = 0; i < 6; i++)
+        {
+            continued.AddRange(day2.Current.Map(mi => mi.Id));
+            day2.MoveNext(Option<DateTimeOffset>.None);
+        }
+
+        // day 2 must pick up exactly where day 1 left off, not reset toward the start
+        continued.ShouldBe(reference.Skip(6).Take(6));
+    }
+
     private static Movie FakeMovie(int id) => new()
     {
         Id = id,

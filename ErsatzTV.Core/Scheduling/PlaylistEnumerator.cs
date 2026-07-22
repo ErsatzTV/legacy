@@ -137,9 +137,8 @@ public class PlaylistEnumerator : IMediaCollectionEnumerator
             _batchSize = batchSize
         };
 
-        // random start points only apply to a fresh build with no saved state
+        // random start points must be applied on every build, not just the first
         var random = new Random(state.Seed);
-        randomStartPoint = randomStartPoint && !state.Started;
 
         // collections should share enumerators
         var enumeratorMap = new Dictionary<CollectionKey, IMediaCollectionEnumerator>();

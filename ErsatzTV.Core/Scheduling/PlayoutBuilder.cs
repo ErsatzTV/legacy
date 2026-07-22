@@ -1369,7 +1369,7 @@ public class PlayoutBuilder : IPlayoutBuilder
                         collectionKey,
                         cancellationToken),
                     state,
-                    randomStartPoint,
+                    activeSchedule.RandomStartPoint,
                     cancellationToken);
             case PlaybackOrder.MultiEpisodeShuffle when
                 collectionKey.CollectionType == CollectionType.TelevisionShow &&
