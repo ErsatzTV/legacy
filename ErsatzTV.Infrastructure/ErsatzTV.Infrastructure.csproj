@@ -18,7 +18,7 @@
         <PackageReference Include="EFCore.BulkExtensions" Version="[9.0.2,10)" />
         <PackageReference Include="Elastic.Clients.Elasticsearch" Version="9.4.2" />
         <PackageReference Include="Humanizer.Core" Version="3.0.10" />
-        <PackageReference Include="Jint" Version="4.13.0" />
+        <PackageReference Include="Jint" Version="4.14.0" />
         <PackageReference Include="JsonSchema.Net" Version="9.3.0" />
         <PackageReference Include="Lucene.Net" Version="4.8.0-beta00018" />
         <PackageReference Include="Lucene.Net.Analysis.Common" Version="4.8.0-beta00018" />
