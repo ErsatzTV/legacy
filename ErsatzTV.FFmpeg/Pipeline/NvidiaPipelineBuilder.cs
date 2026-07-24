@@ -353,17 +353,6 @@ public class NvidiaPipelineBuilder : SoftwarePipelineBuilder
             context,
             pipelineSteps);
 
-        if (ffmpegState.DecoderHardwareAccelerationMode is HardwareAccelerationMode.Nvenc &&
-            ffmpegState.EncoderHardwareAccelerationMode is HardwareAccelerationMode.Nvenc &&
-            (videoStream.FrameSize == desiredState.ScaledSize || (context is { HasSubtitleOverlay: true, HasGraphicsEngine: true } && desiredState.PaddedSize == desiredState.ScaledSize)) &&
-            (context.HasSubtitleOverlay || context.HasGraphicsEngine || context.HasWatermark))
-        {
-            pipelineSteps.Add(
-                new NvidiaGreenLineWorkaroundFilter(
-                    desiredState.VideoFormat,
-                    desiredState.CroppedSize.IfNone(desiredState.PaddedSize)));
-        }
-
         // unknown color params can *change* during transcoding,
         // which can cause ffmpeg to insert an autoscale filter that
         // cannot accept hardware frames.

@@ -291,15 +291,6 @@ public class VaapiPipelineBuilder : SoftwarePipelineBuilder
             currentState,
             pipelineSteps);
 
-        if (ffmpegState.VaapiDriver == "radeonsi" &&
-            ffmpegState.EncoderHardwareAccelerationMode is HardwareAccelerationMode.Vaapi)
-        {
-            pipelineSteps.Add(
-                new AmdCropMetadataWorkaroundFilter(
-                    desiredState.VideoFormat,
-                    desiredState.CroppedSize.IfNone(desiredState.PaddedSize)));
-        }
-
         return new FilterChain(
             videoInputFile.FilterSteps,
             watermarkInputFile.Map(wm => wm.FilterSteps).IfNone([]),
