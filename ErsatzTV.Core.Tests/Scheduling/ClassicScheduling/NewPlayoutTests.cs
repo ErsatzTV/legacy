@@ -2119,9 +2119,15 @@ public class NewPlayoutTests : PlayoutBuilderTestBase
             result.AddedItems[7].FinishOffset.ShouldBe(start + TimeSpan.FromHours(48));
         }
 
-        playout.ProgramScheduleAnchors.Count.ShouldBe(2);
-        playout.ProgramScheduleAnchors.Count(a => a.EnumeratorState.Index == 4 % 3).ShouldBe(1);
-        playout.ProgramScheduleAnchors.Count(a => a.EnumeratorState.Index == 8 % 3).ShouldBe(1);
+        // a checkpoint for each midnight the two day build crossed, plus the continue anchor
+        var checkpoints = playout.ProgramScheduleAnchors.Filter(a => a.AnchorDate is not null).ToList();
+        checkpoints.Count.ShouldBe(2);
+        checkpoints.Count(a => a.EnumeratorState.Index == 4 % 3).ShouldBe(1);
+        checkpoints.Count(a => a.EnumeratorState.Index == 8 % 3).ShouldBe(1);
+
+        PlayoutProgramScheduleAnchor continueAnchor =
+            playout.ProgramScheduleAnchors.Single(a => a.AnchorDate is null);
+        continueAnchor.EnumeratorState.Index.ShouldBe(8 % 3);
 
         int seed = playout.ProgramScheduleAnchors[0].EnumeratorState.Seed;
         playout.ProgramScheduleAnchors.All(a => a.EnumeratorState.Seed == seed).ShouldBeTrue();

@@ -20,6 +20,7 @@ namespace ErsatzTV.Core.Tests.Scheduling.ClassicScheduling;
 public class MultiDayBuildTests : PlayoutBuilderTestBase
 {
     private const int DaysToBuild = 2;
+    private const int WeekOfDaysToBuild = 7;
 
     [Test]
     public async Task Continue_Should_Keep_A_Checkpoint_For_The_Current_Day()
@@ -115,6 +116,58 @@ public class MultiDayBuildTests : PlayoutBuilderTestBase
             $"[tz {TimeZoneInfo.Local.Id}] refresh reset collection progress (was {before}, now {after})");
     }
 
+    [Test]
+    public async Task Continue_Should_Keep_A_Checkpoint_For_Every_Day_In_The_Build_Window()
+    {
+        // shaped like the playouts that were missing checkpoints in a real user database: a week
+        // long build window, shuffled schedule items, and blocks of five ~100 minute items
+        (PlayoutBuilder builder, Playout playout, PlayoutReferenceData referenceData) = MultipleTestData(
+            TimeSpan.FromMinutes(100),
+            multipleCount: "5",
+            itemCount: 300,
+            daysToBuild: WeekOfDaysToBuild,
+            shuffleScheduleItems: true,
+            scheduleItemCount: 3);
+
+        DateTimeOffset start = LocalTime(20);
+        var missing = new List<string>();
+
+        for (var hour = 0; hour < 24 * 21; hour++)
+        {
+            DateTimeOffset now = start.AddHours(hour);
+
+            Either<BaseError, PlayoutBuildResult> result = await builder.Build(
+                now,
+                playout,
+                referenceData,
+                PlayoutBuildMode.Continue,
+                CancellationToken);
+
+            result.IsRight.ShouldBeTrue($"build failed at {now:yyyy-MM-dd HH:mm}");
+
+            // every day the playout covers needs a checkpoint, so that a refresh on any of them has
+            // somewhere to rewind to. the build's own first day is the one exception, and days
+            // already in the past are pruned
+            DateTime firstExpected = now.Date > start.Date ? now.Date : start.Date.AddDays(1);
+            DateTime lastExpected = now.AddDays(WeekOfDaysToBuild).Date;
+
+            for (DateTime date = firstExpected; date <= lastExpected; date = date.AddDays(1))
+            {
+                bool hasCheckpoint = playout.ProgramScheduleAnchors.Any(a =>
+                    a.AnchorDateOffset.HasValue && a.AnchorDateOffset.Value.Date == date);
+
+                if (!hasCheckpoint)
+                {
+                    missing.Add($"{date:yyyy-MM-dd} (at {now:MM-dd HH:mm})");
+                }
+            }
+        }
+
+        missing.ShouldBeEmpty(
+            $"[tz {TimeZoneInfo.Local.Id}] {missing.Count} day(s) in the build window had no checkpoint, "
+            + $"first: {missing.FirstOrDefault()}");
+    }
+
     private static int HeadIndex(Playout playout) =>
         playout.ProgramScheduleAnchors
             .Filter(a => a.AnchorDate is null)
@@ -125,7 +178,10 @@ public class MultiDayBuildTests : PlayoutBuilderTestBase
     private (PlayoutBuilder, Playout, PlayoutReferenceData) MultipleTestData(
         TimeSpan itemDuration,
         string multipleCount,
-        int itemCount = 5)
+        int itemCount = 5,
+        int daysToBuild = DaysToBuild,
+        bool shuffleScheduleItems = false,
+        int scheduleItemCount = 1)
     {
         var collection = new Collection
         {
@@ -139,9 +195,14 @@ public class MultiDayBuildTests : PlayoutBuilderTestBase
         var collectionRepo = new FakeMediaCollectionRepository(Map((collection.Id, collection.MediaItems.ToList())));
 
         IConfigElementRepository configRepo = Substitute.For<IConfigElementRepository>();
+
+        // ConfigElementKey has no value equality and hands out a new instance on every access, so
+        // the key has to be matched on its string, not with Arg.Is(theKey)
         configRepo
-            .GetValue<int>(Arg.Is(ConfigElementKey.PlayoutDaysToBuild), Arg.Any<CancellationToken>())
-            .Returns(Some(DaysToBuild));
+            .GetValue<int>(
+                Arg.Is<ConfigElementKey>(k => k.Key == ConfigElementKey.PlayoutDaysToBuild.Key),
+                Arg.Any<CancellationToken>())
+            .Returns(Some(daysToBuild));
 
         var televisionRepo = new FakeTelevisionRepository();
         IArtistRepository artistRepo = Substitute.For<IArtistRepository>();
@@ -159,26 +220,29 @@ public class MultiDayBuildTests : PlayoutBuilderTestBase
             rerunHelper,
             Logger);
 
-        var items = new List<ProgramScheduleItem>
-        {
-            new ProgramScheduleItemMultiple
+        var items = Enumerable.Range(1, scheduleItemCount)
+            .Map(i => (ProgramScheduleItem)new ProgramScheduleItemMultiple
             {
-                Id = 1,
-                Index = 1,
+                Id = i,
+                Index = i,
                 CollectionType = CollectionType.Collection,
                 Collection = collection,
                 CollectionId = collection.Id,
                 StartTime = null,
                 PlaybackOrder = PlaybackOrder.Chronological,
                 Count = multipleCount
-            }
-        };
+            })
+            .ToList();
 
         var playout = new Playout
         {
             Id = 1,
             ScheduleKind = PlayoutScheduleKind.Classic,
-            ProgramSchedule = new ProgramSchedule { Items = items },
+            ProgramSchedule = new ProgramSchedule
+            {
+                Items = items,
+                ShuffleScheduleItems = shuffleScheduleItems
+            },
             Channel = new Channel(Guid.Empty) { Id = 1, Name = "Test Channel" },
             Items = [],
             ProgramScheduleAnchors = [],

@@ -166,7 +166,9 @@ public class ContinuePlayoutTests : PlayoutBuilderTestBase
         }
 
         playout.Anchor.NextStartOffset.ShouldBe(finish);
-        playout.ProgramScheduleAnchors.Count.ShouldBe(1);
+
+        // the continue anchor, plus a checkpoint for the midnight this build ended on
+        playout.ProgramScheduleAnchors.Count.ShouldBe(2);
         playout.ProgramScheduleAnchors.Head().EnumeratorState.Index.ShouldBe(0);
 
         PlayoutProgramScheduleAnchor headAnchor = playout.ProgramScheduleAnchors.Head();
@@ -216,7 +218,8 @@ public class ContinuePlayoutTests : PlayoutBuilderTestBase
 
         playout.Anchor.NextStartOffset.ShouldBe(start + TimeSpan.FromHours(30));
 
-        playout.ProgramScheduleAnchors.Count.ShouldBe(2);
+        // continue anchor, detractor checkpoint, and the checkpoint for the midnight the first build crossed
+        playout.ProgramScheduleAnchors.Count.ShouldBe(3);
         playout.ProgramScheduleAnchors.Head().EnumeratorState.Index.ShouldBe(1);
 
         // continue 1h later
@@ -240,7 +243,8 @@ public class ContinuePlayoutTests : PlayoutBuilderTestBase
 
         playout.Anchor.NextStartOffset.ShouldBe(start + TimeSpan.FromHours(30));
 
-        playout.ProgramScheduleAnchors.Count.ShouldBe(2);
+        // continue anchor, detractor checkpoint, and the checkpoint for the midnight the first build crossed
+        playout.ProgramScheduleAnchors.Count.ShouldBe(3);
         playout.ProgramScheduleAnchors.Head().EnumeratorState.Index.ShouldBe(1);
     }
 
@@ -329,9 +333,10 @@ public class ContinuePlayoutTests : PlayoutBuilderTestBase
             result.AddedItems.Count.ShouldBe(53);
         }
 
-        playout.ProgramScheduleAnchors.Count.ShouldBe(2);
+        // a checkpoint for each of the two midnights the build crossed, plus the continue anchor
+        playout.ProgramScheduleAnchors.Count.ShouldBe(3);
+        playout.ProgramScheduleAnchors.Count(x => x.AnchorDate is not null).ShouldBe(2);
 
-        playout.ProgramScheduleAnchors.All(x => x.AnchorDate is not null).ShouldBeTrue();
         PlayoutProgramScheduleAnchor lastCheckpoint = playout.ProgramScheduleAnchors
             .OrderByDescending(a => a.AnchorDate ?? DateTime.MinValue)
             .First();
@@ -339,11 +344,14 @@ public class ContinuePlayoutTests : PlayoutBuilderTestBase
         lastCheckpoint.EnumeratorState.Index.ShouldBe(3);
 
         // we need to mess up the ordering to trigger the problematic behavior
-        // this simulates the way the rows are loaded with EF
-        PlayoutProgramScheduleAnchor oldest = playout.ProgramScheduleAnchors.OrderByDescending(a => a.AnchorDate)
-            .Last();
-        PlayoutProgramScheduleAnchor newest = playout.ProgramScheduleAnchors.OrderByDescending(a => a.AnchorDate)
-            .First();
+        // this simulates the way the rows are loaded with EF, with only the checkpoints kept
+        var checkpoints = playout.ProgramScheduleAnchors
+            .Filter(a => a.AnchorDate is not null)
+            .OrderBy(a => a.AnchorDate)
+            .ToList();
+
+        PlayoutProgramScheduleAnchor oldest = checkpoints.Head();
+        PlayoutProgramScheduleAnchor newest = checkpoints.Last();
 
         playout.ProgramScheduleAnchors =
         [
@@ -460,9 +468,10 @@ public class ContinuePlayoutTests : PlayoutBuilderTestBase
             result.AddedItems.Count.ShouldBe(53);
         }
 
-        playout.ProgramScheduleAnchors.Count.ShouldBe(4);
-
-        playout.ProgramScheduleAnchors.All(x => x.AnchorDate is not null).ShouldBeTrue();
+        // two collections, each with a checkpoint for the two midnights the build crossed
+        // plus a continue anchor
+        playout.ProgramScheduleAnchors.Count.ShouldBe(6);
+        playout.ProgramScheduleAnchors.Count(x => x.AnchorDate is not null).ShouldBe(4);
         PlayoutProgramScheduleAnchor lastCheckpoint = playout.ProgramScheduleAnchors
             .Filter(psa => psa.SmartCollectionId == 1)
             .OrderByDescending(a => a.AnchorDate ?? DateTime.MinValue)

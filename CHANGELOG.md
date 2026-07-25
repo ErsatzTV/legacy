@@ -17,6 +17,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Always randomize start points for all collections the first time they are used
   - Previously, only collections scheduled during the first day of a playout build had their start points randomized
 - Allow multiple ETV instances when multiple config folders are used
+- Maintain collection progress when refreshing a classic playout
+  - Classic playouts save a checkpoint for each day they build, and refresh rewinds to the checkpoint for the current day
+  - Checkpoints were only saved when a build happened to stop on a day boundary, so playouts with long items (movies, long blocks) were often missing the checkpoint for the current day, and refreshing those restarted every collection from the beginning
+  - Checkpoints are now saved whenever a build crosses midnight
 - Fix green line sometimes seen with NVIDIA and AMD/VAAPI encoding
   - Both bugs were in ffmpeg, and ETV's patched ffmpeg 8.1.2 is required for the fixes
 
