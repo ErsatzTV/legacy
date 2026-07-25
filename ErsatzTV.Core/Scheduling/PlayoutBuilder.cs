@@ -169,7 +169,9 @@ public class PlayoutBuilder : IPlayoutBuilder
 
         // _logger.LogDebug("All anchors: {@Anchors}", playout.ProgramScheduleAnchors);
 
-        // remove null anchor date ("continue" anchors)
+        // remove the "continue" anchors (null anchor date), which hold the state at the head of
+        // the playout; they have to go rather than just be ignored, because GetMediaCollectionEnumerator
+        // ranks a null anchor date above every checkpoint and we want to rewind to today's checkpoint
         playout.ProgramScheduleAnchors.RemoveAll(a => a.AnchorDate is null);
 
         // _logger.LogDebug("Checkpoint anchors: {@Anchors}", playout.ProgramScheduleAnchors);
@@ -455,7 +457,7 @@ public class PlayoutBuilder : IPlayoutBuilder
             return result;
         }
 
-        // build each day with "continue" anchors
+        // build one whole day at a time, saving a checkpoint anchor at each day boundary
         while (finish < playoutFinish)
         {
             if (cancellationToken.IsCancellationRequested)
@@ -495,7 +497,8 @@ public class PlayoutBuilder : IPlayoutBuilder
 
         if (start < playoutFinish)
         {
-            // build one final time without continue anchors
+            // build the remaining partial day; this writes "continue" anchors (null anchor date)
+            // instead of a checkpoint, since we aren't stopping on a day boundary
             _logger.LogDebug("Building final playout from {Start} to {Finish}", start, playoutFinish);
             Either<BaseError, PlayoutBuildResult> buildResult = await BuildPlayoutItems(
                 playout,
