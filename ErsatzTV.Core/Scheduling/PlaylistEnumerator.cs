@@ -14,6 +14,12 @@ public class PlaylistEnumerator : IMediaCollectionEnumerator
     private CloneableRandom _random;
     private bool _shufflePlaylistItems;
     private List<EnumeratorPlayAllCount> _sortedEnumerators;
+
+    // a cycle start is the only position this enumerator can be put back to directly; every other
+    // position is reached by replaying from one. see RewindToCycleStart
+    private List<EnumeratorPlayAllCount> _enumeratorsInPlaylistOrder;
+    private Dictionary<IMediaCollectionEnumerator, CollectionEnumeratorState> _childStatesAtCycleStart;
+
     private int _itemsTakenFromCurrent;
     private Option<int> _batchSize = Option<int>.None;
 
@@ -31,10 +37,20 @@ public class PlaylistEnumerator : IMediaCollectionEnumerator
 
     public int EnumeratorIndex { get; private set; }
 
+    /// <summary>
+    ///     A playlist position isn't described by index and seed alone - it also lives in
+    ///     <see cref="EnumeratorIndex" />, the batch progress, the ids the cycle still owes and the state of
+    ///     every child enumerator - so the only way back to a position is to replay to it.
+    /// </summary>
     public void ResetState(CollectionEnumeratorState state)
     {
-        // seed doesn't matter here
-        State.Index = state.Index;
+        // nothing has moved since this state was handed out, so there is nothing to rewind
+        if (State.Index != state.Index || State.Seed != state.Seed)
+        {
+            RewindToCycleStart(state.Seed);
+            ReplayTo(state.Index);
+        }
+
         State.Started = state.Started;
     }
 
@@ -147,14 +163,12 @@ public class PlaylistEnumerator : IMediaCollectionEnumerator
         foreach (PlaylistItem playlistItem in playlistItemMap.Keys.OrderBy(i => i.Index))
         {
             List<MediaItem> items = playlistItemMap[playlistItem];
-            foreach (MediaItem mediaItem in items)
-            {
-                result._allMediaItemIds.Add(mediaItem.Id);
 
-                if (playlistItem.IncludeInProgramGuide)
-                {
-                    result._idsToIncludeInEPG.Add(mediaItem.Id);
-                }
+            // a cycle ends when every item has been played, so an item that can never be played would
+            // leave the cycle permanently incomplete; season, episode order won't play season 0
+            if (playlistItem.PlaybackOrder is PlaybackOrder.SeasonEpisode)
+            {
+                items = SeasonEpisodeMediaCollectionEnumerator.Playable(items);
             }
 
             var collectionKey = CollectionKey.ForPlaylistItem(playlistItem);
@@ -162,6 +176,7 @@ public class PlaylistEnumerator : IMediaCollectionEnumerator
             {
                 result._sortedEnumerators.Add(
                     new EnumeratorPlayAllCount(enumerator, playlistItem.PlayAll, playlistItem.Count));
+                result.TrackMediaItemIds(items, playlistItem.IncludeInProgramGuide);
                 continue;
             }
 
@@ -211,7 +226,8 @@ public class PlaylistEnumerator : IMediaCollectionEnumerator
                         }
 
                         enumerator = new SeasonEpisodeMediaCollectionEnumerator(items, initState);
-                        // season, episode will filter out season 0, so we may get an empty enumerator back
+                        // every season 0 episode was already removed above, so this is a playlist item
+                        // that had nothing else in it
                         if (enumerator.Count == 0)
                         {
                             enumerator = null;
@@ -229,6 +245,7 @@ public class PlaylistEnumerator : IMediaCollectionEnumerator
                 enumeratorMap.Add(collectionKey, enumerator);
                 result._sortedEnumerators.Add(
                     new EnumeratorPlayAllCount(enumerator, playlistItem.PlayAll, playlistItem.Count));
+                result.TrackMediaItemIds(items, playlistItem.IncludeInProgramGuide);
             }
         }
 
@@ -239,6 +256,13 @@ public class PlaylistEnumerator : IMediaCollectionEnumerator
             .Bind(i => i.GetNonZeroDuration())
             .OrderBy(identity)
             .HeadOrNone();
+
+        // captured before anything moves, so RewindToCycleStart can put the children back
+        result._enumeratorsInPlaylistOrder = [.. result._sortedEnumerators];
+        result._childStatesAtCycleStart = result._sortedEnumerators
+            .Map(e => e.Enumerator)
+            .Distinct()
+            .ToDictionary(e => e, e => e.State.Clone());
 
         result._random = new CloneableRandom(state.Seed);
 
@@ -256,16 +280,7 @@ public class PlaylistEnumerator : IMediaCollectionEnumerator
             state.Index = 0;
         }
 
-        while (result.State.Index < state.Index)
-        {
-            result.MoveNext(Option<DateTimeOffset>.None);
-
-            // previous state is no longer valid; playlist now has fewer items
-            if (result.State.Index == 0)
-            {
-                break;
-            }
-        }
+        result.ReplayTo(state.Index);
 
         var childEnumerators = new List<PlaylistEnumeratorCollectionKey>();
         foreach ((IMediaCollectionEnumerator enumerator, _, _) in result._sortedEnumerators)
@@ -281,15 +296,82 @@ public class PlaylistEnumerator : IMediaCollectionEnumerator
         return result;
     }
 
-    private List<EnumeratorPlayAllCount> ShufflePlaylistItems()
+    private void TrackMediaItemIds(List<MediaItem> items, bool includeInProgramGuide)
     {
-        if (_sortedEnumerators.Count < 3)
+        foreach (MediaItem mediaItem in items)
         {
-            return _sortedEnumerators;
+            _allMediaItemIds.Add(mediaItem.Id);
+
+            if (includeInProgramGuide)
+            {
+                _idsToIncludeInEPG.Add(mediaItem.Id);
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Puts everything back the way <see cref="Create" /> leaves it for the given seed: children at their
+    ///     starting positions, the playlist items back in seed order, and the cycle owing every item again.
+    /// </summary>
+    private void RewindToCycleStart(int seed)
+    {
+        foreach ((IMediaCollectionEnumerator enumerator, CollectionEnumeratorState childState) in
+                 _childStatesAtCycleStart)
+        {
+            enumerator.ResetState(childState.Clone());
         }
 
-        EnumeratorPlayAllCount[] copy = _sortedEnumerators.ToArray();
-        EnumeratorPlayAllCount last = _sortedEnumerators.Last();
+        _sortedEnumerators = [.. _enumeratorsInPlaylistOrder];
+        _random = new CloneableRandom(seed);
+
+        if (_shufflePlaylistItems)
+        {
+            _sortedEnumerators = ShufflePlaylistItems();
+        }
+
+        _remainingMediaItemIds.Clear();
+        _remainingMediaItemIds.UnionWith(_allMediaItemIds);
+
+        EnumeratorIndex = 0;
+        _itemsTakenFromCurrent = 0;
+
+        State.Seed = seed;
+        State.Index = 0;
+    }
+
+    private void ReplayTo(int index)
+    {
+        if (_sortedEnumerators.Count == 0)
+        {
+            return;
+        }
+
+        while (State.Index < index)
+        {
+            MoveNext(Option<DateTimeOffset>.None);
+
+            // previous state is no longer valid; playlist now has fewer items
+            if (State.Index == 0)
+            {
+                break;
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Always shuffles the playlist order rather than the current order, so that the result is a function
+    ///     of that order and the seed - which is all the persisted state gives a rebuild to work from. Cycles
+    ///     reshuffle from the same starting point rather than from wherever the last shuffle landed.
+    /// </summary>
+    private List<EnumeratorPlayAllCount> ShufflePlaylistItems()
+    {
+        if (_enumeratorsInPlaylistOrder.Count < 3)
+        {
+            return [.. _enumeratorsInPlaylistOrder];
+        }
+
+        EnumeratorPlayAllCount[] copy = _enumeratorsInPlaylistOrder.ToArray();
+        EnumeratorPlayAllCount last = _enumeratorsInPlaylistOrder.Last();
 
         do
         {

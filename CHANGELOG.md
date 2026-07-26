@@ -24,6 +24,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Fix case where shuffled collection progress would reset early
   - This only happened when also grouping episodes (e.g. `Keep Multi-Part Episodes Together`)
   - More groups made it more likely to happen
+- Fix marathons and playlists that would never pick a new order
+  - `Marathon Shuffle Groups` and `Shuffle Playlist Items` choose a new order every time everything has played once
+  - Content that can never play was still counted as waiting to play, so that never happened and the order stayed the same forever
+  - This was caused by specials (season 0), which are skipped by `Season, Episode` order; marathons grouped by show or season use that order unless `Marathon Shuffle Items` is enabled
+  - Affected playouts also became slower to build the longer they ran
+- Fix shuffled playlists and marathon groups changing order when a playout is rebuilt
+  - Existing playlists and marathons will change order once after updating
+- Fix playlists used as filler skipping content
+  - When something doesn't fit, ETV puts the filler back where it was and tries again, but playlists were only partly put back
+  - This could skip playlist content, and could cause the next playout build to resume in the wrong place
 - Fix green line sometimes seen with NVIDIA and AMD/VAAPI encoding
   - Both bugs were in ffmpeg, and ETV's patched ffmpeg 8.1.2 is required for the fixes
 

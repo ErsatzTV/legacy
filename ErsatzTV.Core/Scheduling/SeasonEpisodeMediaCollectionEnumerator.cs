@@ -15,8 +15,7 @@ public sealed class SeasonEpisodeMediaCollectionEnumerator : IMediaCollectionEnu
     {
         CurrentIncludeInProgramGuide = Option<bool>.None;
 
-        _sortedMediaItems = mediaItems
-            .Filter(mi => (mi is not Episode episode) || (episode.Season?.SeasonNumber ?? 0) > 0)
+        _sortedMediaItems = Playable(mediaItems)
             .OrderBy(identity, new SeasonEpisodeMediaComparer()).ToList();
         _lazyMinimumDuration = new Lazy<Option<TimeSpan>>(() =>
             _sortedMediaItems.Bind(i => i.GetNonZeroDuration()).OrderBy(identity).HeadOrNone());
@@ -34,6 +33,13 @@ public sealed class SeasonEpisodeMediaCollectionEnumerator : IMediaCollectionEnu
             MoveNext(Option<DateTimeOffset>.None);
         }
     }
+
+    /// <summary>
+    ///     Season 0 is never played in season, episode order. Callers that need to know which items this
+    ///     enumerator will actually play - rather than which items they handed it - share the rule here.
+    /// </summary>
+    public static List<MediaItem> Playable(IEnumerable<MediaItem> mediaItems) =>
+        mediaItems.Filter(mi => (mi is not Episode episode) || (episode.Season?.SeasonNumber ?? 0) > 0).ToList();
 
     public void ResetState(CollectionEnumeratorState state)
     {

@@ -457,6 +457,77 @@ public class PlaylistEnumeratorTests
         continued.ShouldBe(reference.Skip(6).Take(6));
     }
 
+    /// <summary>
+    ///     Completing a cycle reshuffles the playlist items, and the state persisted at that point is only a
+    ///     seed and an index. Rebuilding starts from the playlist order and applies the seed, so the shuffle
+    ///     has to be a function of those two things - otherwise the rebuilt playout diverges from the one
+    ///     the previous build was part way through.
+    /// </summary>
+    [Test]
+    public async Task Shuffled_Playlist_Should_Resume_The_Same_Way_After_A_Cycle()
+    {
+        IMediaCollectionRepository repo = Substitute.For<IMediaCollectionRepository>();
+
+        // four single-item entries, so a cycle is four moves and each move names its own playlist item
+        Dictionary<PlaylistItem, List<MediaItem>> BuildMap() =>
+            Range(1, 4).ToDictionary(
+                i => new PlaylistItem
+                {
+                    Id = i,
+                    Index = i - 1,
+                    PlaybackOrder = PlaybackOrder.Chronological,
+                    PlayAll = false,
+                    CollectionType = CollectionType.Collection,
+                    CollectionId = i
+                },
+                i => new List<MediaItem> { FakeMovie(i) });
+
+        const int SEED = 12345;
+
+        PlaylistEnumerator live = await PlaylistEnumerator.Create(
+            repo,
+            BuildMap(),
+            new CollectionEnumeratorState { Seed = SEED, Index = 0 },
+            shufflePlaylistItems: true,
+            batchSize: Option<int>.None,
+            randomStartPoint: false,
+            CancellationToken.None);
+
+        // play past the end of the first cycle, which reseeds and reshuffles
+        for (var i = 0; i < 6; i++)
+        {
+            live.MoveNext(Option<DateTimeOffset>.None);
+        }
+
+        CollectionEnumeratorState persisted = live.State.Clone();
+        persisted.Seed.ShouldNotBe(SEED, "the cycle should have completed and reseeded");
+
+        var expected = new List<int>();
+        for (var i = 0; i < 4; i++)
+        {
+            expected.AddRange(live.Current.Map(mi => mi.Id));
+            live.MoveNext(Option<DateTimeOffset>.None);
+        }
+
+        PlaylistEnumerator rebuilt = await PlaylistEnumerator.Create(
+            repo,
+            BuildMap(),
+            persisted.Clone(),
+            shufflePlaylistItems: true,
+            batchSize: Option<int>.None,
+            randomStartPoint: false,
+            CancellationToken.None);
+
+        var continued = new List<int>();
+        for (var i = 0; i < 4; i++)
+        {
+            continued.AddRange(rebuilt.Current.Map(mi => mi.Id));
+            rebuilt.MoveNext(Option<DateTimeOffset>.None);
+        }
+
+        continued.ShouldBe(expected);
+    }
+
     private static Movie FakeMovie(int id) => new()
     {
         Id = id,
