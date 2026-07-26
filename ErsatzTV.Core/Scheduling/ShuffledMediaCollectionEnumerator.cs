@@ -24,7 +24,7 @@ public class ShuffledMediaCollectionEnumerator : IMediaCollectionEnumerator
         _mediaItems = mediaItems;
         _cancellationToken = cancellationToken;
 
-        if (state.Index >= _mediaItems.Count)
+        if (state.Index >= _mediaItemCount)
         {
             state.Index = 0;
             state.Seed = new Random(state.Seed).Next();

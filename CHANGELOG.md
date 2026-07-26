@@ -21,6 +21,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Classic playouts save a checkpoint for each day they build, and refresh rewinds to the checkpoint for the current day
   - Checkpoints were only saved when a build happened to stop on a day boundary, so playouts with long items (movies, long blocks) were often missing the checkpoint for the current day, and refreshing those restarted every collection from the beginning
   - Checkpoints are now saved whenever a build crosses midnight
+- Fix case where shuffled collection progress would reset early
+  - This only happened when also grouping episodes (e.g. `Keep Multi-Part Episodes Together`)
+  - More groups made it more likely to happen
 - Fix green line sometimes seen with NVIDIA and AMD/VAAPI encoding
   - Both bugs were in ffmpeg, and ETV's patched ffmpeg 8.1.2 is required for the fixes
 

@@ -134,6 +134,28 @@ public class ShuffledContentTests
         shuffledContent.State.Seed.ShouldNotBe(MagicSeed);
     }
 
+    /// <summary>
+    ///     MoveNext walks (and wraps at) the flattened item count, so an index up to one less than
+    ///     that is valid state. The constructor validates against the group count instead, so any
+    ///     index at or above it is thrown away even though the enumerator itself produced it.
+    /// </summary>
+    [Test]
+    public void State_Should_Not_Reset_When_Valid_For_Grouped_Items()
+    {
+        List<MediaItem> contents = Episodes(10);
+
+        // 9 groups covering 10 items, so MoveNext wraps at 10 while the group count is 9
+        var groupedMediaItems = contents.Take(8).Map(mi => new GroupedMediaItem(mi, null)).ToList();
+        groupedMediaItems.Add(new GroupedMediaItem(contents[8], [contents[9]]));
+
+        var state = new CollectionEnumeratorState { Index = 9, Seed = MagicSeed };
+
+        var shuffledContent = new ShuffledMediaCollectionEnumerator(groupedMediaItems, state, _cancellationToken);
+
+        shuffledContent.State.Index.ShouldBe(9);
+        shuffledContent.State.Seed.ShouldBe(MagicSeed);
+    }
+
     private static List<MediaItem> Episodes(int count) =>
         Range(1, count).Map(i => (MediaItem)new Episode
             {
