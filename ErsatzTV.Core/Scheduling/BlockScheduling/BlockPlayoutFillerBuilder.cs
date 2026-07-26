@@ -34,13 +34,19 @@ public class BlockPlayoutFillerBuilder(
         var allItems = result.AddedItems.ToList();
         var removeBefore = await result.RemoveBefore.IfNoneAsync(DateTimeOffset.MaxValue);
 
+        // existing items that finish before this are deleted from the database by this build,
+        // so they must not be treated as existing items here
+        DateTimeOffset deletedBefore = await result.RemoveBefore
+            .Map(rb => rb - referenceData.MaxPlayoutOffset)
+            .IfNoneAsync(DateTimeOffset.MinValue);
+
         if (mode is PlayoutBuildMode.Reset)
         {
             // remove all playout items with type filler
             // except block items that are hidden from the guide (guide mode)
             foreach (PlayoutItem item in filteredExistingItems)
             {
-                if (item.Finish < removeBefore)
+                if (item.FinishOffset < removeBefore)
                 {
                     continue;
                 }
@@ -90,6 +96,7 @@ public class BlockPlayoutFillerBuilder(
 
         allItems = referenceData.ExistingItems
             .Where(i => !result.ItemsToRemove.Contains(i.Id))
+            .Where(i => i.FinishOffset >= deletedBefore)
             .ToList();
         allItems.AddRange(result.AddedItems);
 
@@ -348,11 +355,23 @@ public class BlockPlayoutFillerBuilder(
 
                 DateTimeOffset current = start;
                 var pastTime = false;
-                while (current < finish)
+                while (current < finish && !cancellationToken.IsCancellationRequested)
                 {
                     foreach (MediaItem mediaItem in enumerator.Current)
                     {
                         TimeSpan itemDuration = mediaItem.GetDurationForPlayout();
+
+                        // without a duration this loop can never reach the end of the gap
+                        if (itemDuration <= TimeSpan.Zero)
+                        {
+                            logger.LogWarning(
+                                "Default filler item {Item} has no duration; will stop filling gap at {Time}",
+                                mediaItem.Id,
+                                current);
+
+                            pastTime = true;
+                            break;
+                        }
 
                         // add filler from deco to unscheduled period
                         var filler = new PlayoutItem

@@ -217,21 +217,21 @@ public class BlockPlayoutBuilder(
                         if (effectiveBlock.Block.StopScheduling is BlockStopScheduling.BeforeDurationEnd &&
                             itemDuration > blockDuration)
                         {
-                            foreach (TimeSpan minimumDuration in enumerator.MinimumDuration)
-                            {
-                                if (minimumDuration > blockDuration)
-                                {
-                                    Logger.LogError(
-                                        "Collection with minimum duration {Duration:hh\\:mm\\:ss} will never fit in block with duration {BlockDuration:hh\\:mm\\:ss}; skipping this block item!",
-                                        minimumDuration,
-                                        blockDuration);
+                            // enumerator.MinimumDuration is none for images and remote streams, which
+                            // would skip forever, so use the same duration source as the check above
+                            TimeSpan minimumDuration = collectionMediaItems[CollectionKey.ForBlockItem(blockItem)]
+                                .Map(i => i.GetDurationForPlayout())
+                                .OrderBy(identity)
+                                .Head();
 
-                                    done = true;
-                                }
-                            }
-
-                            if (done)
+                            if (minimumDuration > blockDuration)
                             {
+                                Logger.LogError(
+                                    "Collection with minimum duration {Duration:hh\\:mm\\:ss} will never fit in block with duration {BlockDuration:hh\\:mm\\:ss}; skipping this block item!",
+                                    minimumDuration,
+                                    blockDuration);
+
+                                done = true;
                                 break;
                             }
 
