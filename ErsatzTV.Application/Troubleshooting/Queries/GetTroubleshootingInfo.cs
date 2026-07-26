@@ -1,3 +1,3 @@
 namespace ErsatzTV.Application.Troubleshooting.Queries;
 
-public record GetTroubleshootingInfo : IRequest<TroubleshootingInfo>;
+public record GetTroubleshootingInfo(string NextVersion) : IRequest<TroubleshootingInfo>;

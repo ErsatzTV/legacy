@@ -6,6 +6,8 @@ namespace ErsatzTV.Application.Troubleshooting;
 
 public record TroubleshootingInfo(
     string Version,
+    string NextVersion,
+    string FFmpegVersion,
     Dictionary<string, string> Environment,
     List<CpuModel> Cpus,
     List<VideoControllerModel> VideoControllers,

@@ -51,6 +51,8 @@ public class GetTroubleshootingInfoHandler : IRequestHandler<GetTroubleshootingI
             .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
             .InformationalVersion ?? "unknown";
 
+        string ffmpegVersion = "unknown";
+
         var healthCheckSummaries = healthCheckResults
             .Filter(r => r.Status is HealthCheckStatus.Warning or HealthCheckStatus.Fail)
             .Map(r => new HealthCheckResultSummary(r.Title, r.Message))
@@ -90,6 +92,9 @@ public class GetTroubleshootingInfoHandler : IRequestHandler<GetTroubleshootingI
         {
             foreach (ConfigElement ffmpegPath in maybeFFmpegPath)
             {
+                ffmpegVersion =
+                    await _hardwareCapabilitiesFactory.GetFFmpegVersion(ffmpegPath.Value, cancellationToken);
+
                 nvidiaCapabilities = await _hardwareCapabilitiesFactory.GetNvidiaOutput(ffmpegPath.Value);
 
                 if (!_memoryCache.TryGetValue("ffmpeg.render_devices", out List<string> vaapiDevices))
@@ -189,6 +194,8 @@ public class GetTroubleshootingInfoHandler : IRequestHandler<GetTroubleshootingI
 
         return new TroubleshootingInfo(
             version,
+            request.NextVersion,
+            ffmpegVersion,
             environment,
             cpuList,
             videoControllerList,

@@ -85,7 +85,7 @@ public class TroubleshootController(
                 try
                 {
                     TroubleshootingInfo troubleshootingInfo = await mediator.Send(
-                        new GetTroubleshootingInfo(),
+                        new GetTroubleshootingInfo(NextVersion.Version),
                         cancellationToken);
 
                     // filter ffmpeg profiles

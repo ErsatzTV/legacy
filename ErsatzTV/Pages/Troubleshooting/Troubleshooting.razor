@@ -149,12 +149,14 @@
 
         try
         {
-            TroubleshootingInfo info = await Mediator.Send(new GetTroubleshootingInfo(), token);
+            TroubleshootingInfo info = await Mediator.Send(new GetTroubleshootingInfo(NextVersion.Version), token);
 
             _troubleshootingInfo = JsonSerializer.Serialize(
                 new
                 {
-                    info.Version,
+                    LegacyVersion = info.Version,
+                    info.NextVersion,
+                    info.FFmpegVersion,
                     Environment = info.Environment.OrderBy(x => x.Key).ToDictionary(x => x.Key, x => x.Value),
                     info.Cpus,
                     info.VideoControllers,
