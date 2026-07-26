@@ -11,11 +11,8 @@ using Testably.Abstractions.Testing;
 
 namespace ErsatzTV.Core.Tests.Scheduling.ClassicScheduling;
 
-/// <summary>
-///     Unit-test version of the "fast forward a playout" debugging endpoint that used to live in
-///     ChannelController: run hourly continue builds across several days and assert invariants at
-///     every step.
-/// </summary>
+// unit-test version of the "fast forward a playout" debugging endpoint that used to live in
+// ChannelController
 [TestFixture]
 public class MultiDayBuildTests : PlayoutBuilderTestBase
 {
@@ -25,13 +22,11 @@ public class MultiDayBuildTests : PlayoutBuilderTestBase
     [Test]
     public async Task Continue_Should_Keep_A_Checkpoint_For_The_Current_Day()
     {
-        // 6 hour movies scheduled 3 at a time, so a block spans 18 hours and regularly
-        // crosses midnight - which is expected and intended
+        // 6 hour movies 3 at a time, so an 18 hour block regularly crosses midnight
         (PlayoutBuilder builder, Playout playout, PlayoutReferenceData referenceData) = MultipleTestData(
             TimeSpan.FromHours(6),
             multipleCount: "3");
 
-        // a playout created at 20:00, then built every hour for a week
         DateTimeOffset start = LocalTime(20);
         var missing = new List<string>();
 
@@ -48,15 +43,13 @@ public class MultiDayBuildTests : PlayoutBuilderTestBase
 
             result.IsRight.ShouldBeTrue($"build failed at {now:yyyy-MM-dd HH:mm}");
 
-            // a build never writes a checkpoint for its own first day, and doesn't need to:
-            // there is no earlier state to restore, so refreshing starts from index 0 and
-            // reproduces the same schedule
+            // no checkpoint is written for a build's own first day, and none is needed: there is no
+            // earlier state, so refreshing from index 0 reproduces the same schedule
             if (now.Date == start.Date)
             {
                 continue;
             }
 
-            // from here on, a refresh has to have somewhere to rewind to
             bool hasCheckpointForToday = playout.ProgramScheduleAnchors.Any(a =>
                 a.AnchorDateOffset.HasValue && a.AnchorDateOffset.Value.Date == now.Date);
 
@@ -74,8 +67,7 @@ public class MultiDayBuildTests : PlayoutBuilderTestBase
     [Test]
     public async Task Refresh_Should_Not_Reset_Collection_Progress()
     {
-        // a collection large enough that the index can't wrap over the whole run, so the
-        // index is a straightforward measure of how much progress has been made
+        // large enough that the index can't wrap, so it measures progress directly
         (PlayoutBuilder builder, Playout playout, PlayoutReferenceData referenceData) = MultipleTestData(
             TimeSpan.FromHours(6),
             multipleCount: "3",
@@ -83,8 +75,7 @@ public class MultiDayBuildTests : PlayoutBuilderTestBase
 
         DateTimeOffset start = LocalTime(20);
 
-        // three weeks of hourly builds, so that progress is far enough along to be clearly
-        // distinguishable from a playout that restarted at the beginning
+        // long enough that progress is clearly distinguishable from a playout that restarted
         for (var hour = 0; hour < 24 * 21; hour++)
         {
             await builder.Build(
@@ -107,9 +98,8 @@ public class MultiDayBuildTests : PlayoutBuilderTestBase
 
         result.IsRight.ShouldBeTrue();
 
-        // a refresh rewinds to the start of today, so the index legitimately moves back by
-        // up to a day. a refresh that lost its checkpoints restarts at 0 and only advances
-        // through the build window, landing an order of magnitude lower
+        // rewinding to the start of today legitimately moves the index back by up to a day; a refresh
+        // that lost its checkpoints lands an order of magnitude lower
         int after = HeadIndex(playout);
         after.ShouldBeGreaterThan(
             before / 2,
@@ -119,8 +109,7 @@ public class MultiDayBuildTests : PlayoutBuilderTestBase
     [Test]
     public async Task Continue_Should_Keep_A_Checkpoint_For_Every_Day_In_The_Build_Window()
     {
-        // shaped like the playouts that were missing checkpoints in a real user database: a week
-        // long build window, shuffled schedule items, and blocks of five ~100 minute items
+        // shaped like the playouts that were missing checkpoints in a real user database
         (PlayoutBuilder builder, Playout playout, PlayoutReferenceData referenceData) = MultipleTestData(
             TimeSpan.FromMinutes(100),
             multipleCount: "5",
@@ -145,9 +134,7 @@ public class MultiDayBuildTests : PlayoutBuilderTestBase
 
             result.IsRight.ShouldBeTrue($"build failed at {now:yyyy-MM-dd HH:mm}");
 
-            // every day the playout covers needs a checkpoint, so that a refresh on any of them has
-            // somewhere to rewind to. the build's own first day is the one exception, and days
-            // already in the past are pruned
+            // every day covered needs a checkpoint, except the build's own first day; past days are pruned
             DateTime firstExpected = now.Date > start.Date ? now.Date : start.Date.AddDays(1);
             DateTime lastExpected = now.AddDays(WeekOfDaysToBuild).Date;
 
@@ -263,14 +250,9 @@ public class MultiDayBuildTests : PlayoutBuilderTestBase
         return (builder, playout, referenceData);
     }
 
-    /// <summary>
-    ///     Anchor dates are compared in machine-local time
-    ///     (<see cref="PlayoutProgramScheduleAnchor.AnchorDateOffset" />), so the test clock has to be local
-    ///     too, or day boundaries won't line up. That means these tests run in whatever zone the machine is
-    ///     in - UTC on CI, something else locally - so the window below is deliberately placed in mid-June,
-    ///     where no zone has a DST transition. Day-boundary behaviour across a DST change is a separate
-    ///     concern and wants its own test.
-    /// </summary>
+    // anchor dates are compared in machine-local time, so the test clock has to be local too or day
+    // boundaries won't line up. that means running in whatever zone the machine is in, hence mid-June,
+    // where no zone has a DST transition
     private static DateTimeOffset LocalTime(int hour)
     {
         var date = new DateTime(2025, 6, 10, 0, 0, 0, DateTimeKind.Unspecified);

@@ -468,8 +468,7 @@ public class ContinuePlayoutTests : PlayoutBuilderTestBase
             result.AddedItems.Count.ShouldBe(53);
         }
 
-        // two collections, each with a checkpoint for the two midnights the build crossed
-        // plus a continue anchor
+        // two collections, each with a continue anchor and a checkpoint per midnight crossed
         playout.ProgramScheduleAnchors.Count.ShouldBe(6);
         playout.ProgramScheduleAnchors.Count(x => x.AnchorDate is not null).ShouldBe(4);
         PlayoutProgramScheduleAnchor lastCheckpoint = playout.ProgramScheduleAnchors

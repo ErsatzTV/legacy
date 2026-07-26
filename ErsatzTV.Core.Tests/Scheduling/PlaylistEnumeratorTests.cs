@@ -457,18 +457,14 @@ public class PlaylistEnumeratorTests
         continued.ShouldBe(reference.Skip(6).Take(6));
     }
 
-    /// <summary>
-    ///     Completing a cycle reshuffles the playlist items, and the state persisted at that point is only a
-    ///     seed and an index. Rebuilding starts from the playlist order and applies the seed, so the shuffle
-    ///     has to be a function of those two things - otherwise the rebuilt playout diverges from the one
-    ///     the previous build was part way through.
-    /// </summary>
+    // a rebuild only has the persisted seed and index, so a shuffle that depends on anything else
+    // diverges from the playout the previous build was part way through
     [Test]
     public async Task Shuffled_Playlist_Should_Resume_The_Same_Way_After_A_Cycle()
     {
         IMediaCollectionRepository repo = Substitute.For<IMediaCollectionRepository>();
 
-        // four single-item entries, so a cycle is four moves and each move names its own playlist item
+        // single-item entries, so each move names its own playlist item
         Dictionary<PlaylistItem, List<MediaItem>> BuildMap() =>
             Range(1, 4).ToDictionary(
                 i => new PlaylistItem
@@ -493,7 +489,7 @@ public class PlaylistEnumeratorTests
             randomStartPoint: false,
             CancellationToken.None);
 
-        // play past the end of the first cycle, which reseeds and reshuffles
+        // past the end of the first cycle, which reseeds and reshuffles
         for (var i = 0; i < 6; i++)
         {
             live.MoveNext(Option<DateTimeOffset>.None);

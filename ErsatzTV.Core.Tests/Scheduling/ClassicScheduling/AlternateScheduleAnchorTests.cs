@@ -11,24 +11,16 @@ using Testably.Abstractions.Testing;
 
 namespace ErsatzTV.Core.Tests.Scheduling.ClassicScheduling;
 
-/// <summary>
-///     A collection used only by an alternate schedule still gets an enumerator on days when that
-///     alternate isn't active, because the collection media items are gathered once for the primary
-///     schedule and every alternate. On those days it falls into the filler branch and gets a
-///     shuffled enumerator, whose index domain is the grouped item count rather than the media item
-///     count.
-/// </summary>
+// a collection used only by an alternate schedule still gets an enumerator on days that alternate
+// isn't active, because media items are gathered once for the primary schedule and every alternate
 [TestFixture]
 public class AlternateScheduleAnchorTests : PlayoutBuilderTestBase
 {
     private const int PrimaryCollectionId = 1;
     private const int AlternateCollectionId = 2;
 
-    /// <summary>
-    ///     The alternate's collection has 10 episodes and its schedule orders them by season/episode,
-    ///     so its own enumerator's index domain is 0-9. With a multi-part pair the shuffled enumerator
-    ///     used on inactive days groups those 10 items into 9, so index 9 is out of its domain.
-    /// </summary>
+    // season/episode order over 10 episodes indexes 0-9; with a multi-part pair, the shuffled
+    // enumerator used on inactive days sees 9 groups, so index 9 is outside its domain
     [TestCase(9, true, ExpectedResult = 9, TestName = "Index at the grouped count")]
     [TestCase(8, true, ExpectedResult = 8, TestName = "Index below the grouped count")]
     [TestCase(9, false, ExpectedResult = 9, TestName = "Index at the grouped count, nothing grouped")]
@@ -47,8 +39,7 @@ public class AlternateScheduleAnchorTests : PlayoutBuilderTestBase
                 EnumeratorState = new CollectionEnumeratorState { Seed = 1234, Index = index }
             });
 
-        // a Wednesday, so the alternate (Sundays only) is not active and the alternate's
-        // collection is not scheduled at all
+        // a Wednesday, so the alternate (Sundays only) is not active
         DateTimeOffset now = LocalTime(new DateTime(2025, 6, 11), 20);
         now.DayOfWeek.ShouldBe(DayOfWeek.Wednesday);
 

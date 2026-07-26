@@ -134,11 +134,8 @@ public class ShuffledContentTests
         shuffledContent.State.Seed.ShouldNotBe(MagicSeed);
     }
 
-    /// <summary>
-    ///     MoveNext walks (and wraps at) the flattened item count, so an index up to one less than
-    ///     that is valid state. The constructor validates against the group count instead, so any
-    ///     index at or above it is thrown away even though the enumerator itself produced it.
-    /// </summary>
+    // MoveNext wraps at the flattened item count, so any index below that is valid state the
+    // enumerator produced itself
     [Test]
     public void State_Should_Not_Reset_When_Valid_For_Grouped_Items()
     {

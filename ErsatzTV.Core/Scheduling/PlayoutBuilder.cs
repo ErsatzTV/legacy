@@ -169,9 +169,8 @@ public class PlayoutBuilder : IPlayoutBuilder
 
         // _logger.LogDebug("All anchors: {@Anchors}", playout.ProgramScheduleAnchors);
 
-        // remove the "continue" anchors (null anchor date), which hold the state at the head of
-        // the playout; they have to go rather than just be ignored, because GetMediaCollectionEnumerator
-        // ranks a null anchor date above every checkpoint and we want to rewind to today's checkpoint
+        // these have to go rather than just be ignored; GetMediaCollectionEnumerator ranks a null
+        // anchor date above every checkpoint, and we want to rewind to today's checkpoint
         playout.ProgramScheduleAnchors.RemoveAll(a => a.AnchorDate is null);
 
         // _logger.LogDebug("Checkpoint anchors: {@Anchors}", playout.ProgramScheduleAnchors);
@@ -457,8 +456,8 @@ public class PlayoutBuilder : IPlayoutBuilder
             return result;
         }
 
-        // build one whole day at a time; this is also how alternate schedules switch per day,
-        // since the active schedule is selected once per pass
+        // one whole day at a time; this is also how alternate schedules switch, since the active
+        // schedule is selected once per pass
         while (finish < playoutFinish)
         {
             if (cancellationToken.IsCancellationRequested)
@@ -497,7 +496,6 @@ public class PlayoutBuilder : IPlayoutBuilder
 
         if (start < playoutFinish)
         {
-            // build the remaining partial day
             _logger.LogDebug("Building final playout from {Start} to {Finish}", start, playoutFinish);
             Either<BaseError, PlayoutBuildResult> buildResult = await BuildPlayoutItemsForPass(
                 playout,
@@ -901,10 +899,8 @@ public class PlayoutBuilder : IPlayoutBuilder
 
             result.AddedItems.AddRange(playoutItems);
 
-            // save a checkpoint anchor whenever scheduling crosses a local midnight; this has to
-            // happen here rather than at the end of a pass, because pass boundaries only
-            // aspirationally line up with midnights - the final partial pass never ends on one, and
-            // a long item can carry a whole-day pass well past its own boundary
+            // has to happen here rather than at the end of a pass; pass boundaries only aspirationally
+            // line up with midnights, and the final partial pass never ends on one
             if (nextState.CurrentTime.ToLocalTime().Date > playoutBuilderState.CurrentTime.ToLocalTime().Date)
             {
                 SaveCheckpointAnchors(playout, collectionEnumerators, nextState.CurrentTime);
@@ -1212,11 +1208,7 @@ public class PlayoutBuilder : IPlayoutBuilder
         && anchor.PlaylistId == collectionKey.PlaylistId
         && anchor.SearchQuery == collectionKey.SearchQuery;
 
-    /// <summary>
-    ///     Records the collection progress as of <paramref name="checkpointTime" />, which is the first
-    ///     resumable point at or after a local midnight. Refresh rewinds to the checkpoint dated today,
-    ///     so every local day of the playout needs one.
-    /// </summary>
+    // refresh rewinds to the checkpoint dated today, so every local day of the playout needs one
     private static void SaveCheckpointAnchors(
         Playout playout,
         Dictionary<CollectionKey, IMediaCollectionEnumerator> collectionEnumerators,
@@ -1227,15 +1219,13 @@ public class PlayoutBuilder : IPlayoutBuilder
 
         foreach ((CollectionKey collectionKey, IMediaCollectionEnumerator enumerator) in collectionEnumerators)
         {
-            // one checkpoint per collection key per local date; rebuilding a day that already has a
-            // checkpoint replaces it, since the new state is the one that matches the new items
+            // rebuilding a day replaces its checkpoint; the new state is the one matching the new items
             Option<PlayoutProgramScheduleAnchor> maybeExisting = playout.ProgramScheduleAnchors.FirstOrDefault(a =>
                 AnchorMatchesCollectionKey(a, collectionKey)
                 && a.AnchorDateOffset.HasValue
                 && a.AnchorDateOffset.Value.Date == checkpointDate);
 
-            // the enumerator keeps mutating its own state as the build continues, so the checkpoint
-            // needs a copy of it, frozen at this instant
+            // the enumerator keeps mutating its own state as the build continues
             CollectionEnumeratorState state = enumerator.State.Clone();
 
             foreach (PlayoutProgramScheduleAnchor existing in maybeExisting)

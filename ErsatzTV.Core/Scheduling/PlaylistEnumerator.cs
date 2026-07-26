@@ -15,8 +15,7 @@ public class PlaylistEnumerator : IMediaCollectionEnumerator
     private bool _shufflePlaylistItems;
     private List<EnumeratorPlayAllCount> _sortedEnumerators;
 
-    // a cycle start is the only position this enumerator can be put back to directly; every other
-    // position is reached by replaying from one. see RewindToCycleStart
+    // a cycle start is the only position that can be restored directly; see RewindToCycleStart
     private List<EnumeratorPlayAllCount> _enumeratorsInPlaylistOrder;
     private Dictionary<IMediaCollectionEnumerator, CollectionEnumeratorState> _childStatesAtCycleStart;
 
@@ -37,11 +36,7 @@ public class PlaylistEnumerator : IMediaCollectionEnumerator
 
     public int EnumeratorIndex { get; private set; }
 
-    /// <summary>
-    ///     A playlist position isn't described by index and seed alone - it also lives in
-    ///     <see cref="EnumeratorIndex" />, the batch progress, the ids the cycle still owes and the state of
-    ///     every child enumerator - so the only way back to a position is to replay to it.
-    /// </summary>
+    // index and seed don't describe a playlist position, so the only way back to one is to replay to it
     public void ResetState(CollectionEnumeratorState state)
     {
         // nothing has moved since this state was handed out, so there is nothing to rewind
@@ -164,8 +159,7 @@ public class PlaylistEnumerator : IMediaCollectionEnumerator
         {
             List<MediaItem> items = playlistItemMap[playlistItem];
 
-            // a cycle ends when every item has been played, so an item that can never be played would
-            // leave the cycle permanently incomplete; season, episode order won't play season 0
+            // an item that can never play would leave the cycle permanently incomplete
             if (playlistItem.PlaybackOrder is PlaybackOrder.SeasonEpisode)
             {
                 items = SeasonEpisodeMediaCollectionEnumerator.Playable(items);
@@ -226,8 +220,7 @@ public class PlaylistEnumerator : IMediaCollectionEnumerator
                         }
 
                         enumerator = new SeasonEpisodeMediaCollectionEnumerator(items, initState);
-                        // every season 0 episode was already removed above, so this is a playlist item
-                        // that had nothing else in it
+                        // season 0 is already gone, so this item had nothing else in it
                         if (enumerator.Count == 0)
                         {
                             enumerator = null;
@@ -309,10 +302,7 @@ public class PlaylistEnumerator : IMediaCollectionEnumerator
         }
     }
 
-    /// <summary>
-    ///     Puts everything back the way <see cref="Create" /> leaves it for the given seed: children at their
-    ///     starting positions, the playlist items back in seed order, and the cycle owing every item again.
-    /// </summary>
+    // must leave exactly what Create leaves for this seed, or replaying from here won't match a rebuild
     private void RewindToCycleStart(int seed)
     {
         foreach ((IMediaCollectionEnumerator enumerator, CollectionEnumeratorState childState) in
@@ -358,11 +348,8 @@ public class PlaylistEnumerator : IMediaCollectionEnumerator
         }
     }
 
-    /// <summary>
-    ///     Always shuffles the playlist order rather than the current order, so that the result is a function
-    ///     of that order and the seed - which is all the persisted state gives a rebuild to work from. Cycles
-    ///     reshuffle from the same starting point rather than from wherever the last shuffle landed.
-    /// </summary>
+    // shuffles playlist order rather than current order, so the result depends only on that order and the
+    // seed - all a rebuild has to work from
     private List<EnumeratorPlayAllCount> ShufflePlaylistItems()
     {
         if (_enumeratorsInPlaylistOrder.Count < 3)

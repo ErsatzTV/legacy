@@ -34,10 +34,7 @@ public sealed class SeasonEpisodeMediaCollectionEnumerator : IMediaCollectionEnu
         }
     }
 
-    /// <summary>
-    ///     Season 0 is never played in season, episode order. Callers that need to know which items this
-    ///     enumerator will actually play - rather than which items they handed it - share the rule here.
-    /// </summary>
+    // shared with callers that need to know what this will play, not what they handed it
     public static List<MediaItem> Playable(IEnumerable<MediaItem> mediaItems) =>
         mediaItems.Filter(mi => (mi is not Episode episode) || (episode.Season?.SeasonNumber ?? 0) > 0).ToList();
 

@@ -8,11 +8,8 @@ using Shouldly;
 
 namespace ErsatzTV.Core.Tests.Scheduling;
 
-/// <summary>
-///     Marathon content builds a <see cref="PlaylistEnumerator" /> over one playlist item per group,
-///     so it inherits that enumerator's save/restore behaviour. These cover the state handling, not
-///     the grouping.
-/// </summary>
+// marathon content builds a PlaylistEnumerator over one playlist item per group, so it inherits that
+// enumerator's save/restore behaviour; these cover the state handling, not the grouping
 [TestFixture]
 public class MarathonEnumeratorTests
 {
@@ -23,11 +20,7 @@ public class MarathonEnumeratorTests
 
     private CancellationToken _cancellationToken;
 
-    /// <summary>
-    ///     A cycle completes when every media item has been played, which resets the index to 0 and
-    ///     reshuffles the groups. Two shows of three episodes each is six items, so the index has to
-    ///     come back to 0 within six moves.
-    /// </summary>
+    // a cycle completes when every media item has been played, which resets the index to 0
     [Test]
     public async Task Marathon_Should_Complete_A_Cycle()
     {
@@ -44,10 +37,8 @@ public class MarathonEnumeratorTests
         indexes.ShouldContain(0, "the index never returned to 0, so the cycle never completed");
     }
 
-    /// <summary>
-    ///     Season 0 episodes are filtered out by the season/episode enumerator but still counted as
-    ///     items the cycle is waiting on, so the cycle can never complete.
-    /// </summary>
+    // season 0 is filtered out by the season/episode enumerator but still counted as an item the cycle
+    // is waiting on, so the cycle can never complete
     [Test]
     public async Task Marathon_Should_Complete_A_Cycle_With_Specials()
     {
@@ -65,10 +56,8 @@ public class MarathonEnumeratorTests
         indexes.ShouldContain(0, "the index never returned to 0, so the cycle never completed");
     }
 
-    /// <summary>
-    ///     The flood and duration schedulers snapshot every enumerator's state before trying an item
-    ///     and hand it back when the item doesn't fit, so ResetState has to actually rewind.
-    /// </summary>
+    // the flood and duration schedulers hand back a snapshot when an item doesn't fit, so ResetState
+    // has to actually rewind
     [Test]
     public async Task Marathon_Should_Rewind_On_ResetState()
     {
@@ -94,10 +83,6 @@ public class MarathonEnumeratorTests
         enumerator.Current.Map(mi => mi.Id).IfNone(-1).ShouldBe(expected);
     }
 
-    /// <summary>
-    ///     Rebuilding a playout restores the enumerator from the persisted state, which has to land on
-    ///     the same item the previous build stopped at.
-    /// </summary>
     [Test]
     public async Task Marathon_Should_Resume_Where_It_Left_Off()
     {
