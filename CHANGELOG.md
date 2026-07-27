@@ -40,8 +40,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Fix case where block playouts would occasionally get stuck building forever
 - Fix green line sometimes seen with NVIDIA and AMD/VAAPI encoding
   - Both bugs were in ffmpeg, and ETV's patched ffmpeg 8.1.2 is required for the fixes
-- Pass extracted subtitle paths to next engine; this should fix text subtitle burn-in when extraction is enabled
+- Pass extracted subtitle paths to next engine; this fixes text subtitle burn-in when extraction is enabled
   - Embedded text subtitles will otherwise be ignored and unused (when extraction is disabled)
+- Fix next engine music video playback when music video credits are disabled
+- Fix playback when seeking into content beyond final text subtitle cue
 
 ## [26.6.0] - 2026-07-09
 ### Added

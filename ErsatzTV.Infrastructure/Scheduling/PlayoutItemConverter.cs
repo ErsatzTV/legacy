@@ -362,7 +362,7 @@ public class PlayoutItemConverter(
         ChannelSubtitleMode subtitleMode,
         CancellationToken cancellationToken)
     {
-        List<Subtitle> allSubtitles = await GetSubtitles(audioVersion.MediaItem, playoutItem.Id, playoutItem.InPoint);
+        List<Subtitle> allSubtitles = await GetSubtitles(channel, audioVersion.MediaItem, playoutItem.Id, playoutItem.InPoint);
 
         Option<MediaStream> maybeAudioStream = Option<MediaStream>.None;
         Option<Subtitle> maybeSubtitle = Option<Subtitle>.None;
@@ -469,8 +469,6 @@ public class PlayoutItemConverter(
                         KeepAlive = false,
                         Reconnect = true
                     };
-
-                    SetInOutPoints(playoutItem, nextPlayoutItem.Tracks.Subtitle.Source);
                 }
             }
         }
@@ -558,6 +556,7 @@ public class PlayoutItemConverter(
     }
 
     private static async Task<List<Subtitle>> GetSubtitles(
+        Channel channel,
         MediaItem mediaItem,
         int playoutItemId,
         TimeSpan playoutItemInPoint)
@@ -570,7 +569,7 @@ public class PlayoutItemConverter(
             Movie movie => await Optional(movie.MovieMetadata).Flatten().HeadOrNone()
                 .Map(mm => mm.Subtitles ?? [])
                 .IfNoneAsync([]),
-            MusicVideo => GetMusicVideoSubtitles(playoutItemId, playoutItemInPoint),
+            MusicVideo => GetMusicVideoSubtitles(channel, playoutItemId, playoutItemInPoint),
             OtherVideo otherVideo => await Optional(otherVideo.OtherVideoMetadata).Flatten().HeadOrNone()
                 .Map(mm => mm.Subtitles ?? [])
                 .IfNoneAsync([]),
@@ -592,8 +591,13 @@ public class PlayoutItemConverter(
         return allSubtitles;
     }
 
-    private static List<Subtitle> GetMusicVideoSubtitles(int playoutItemId, TimeSpan playoutItemInPoint)
+    private static List<Subtitle> GetMusicVideoSubtitles(Channel channel, int playoutItemId, TimeSpan playoutItemInPoint)
     {
+        if (channel.MusicVideoCreditsMode is not ChannelMusicVideoCreditsMode.GenerateSubtitles)
+        {
+            return [];
+        }
+
         string seekToMs = playoutItemInPoint > TimeSpan.Zero
             ? $"?seekToMs={(long)playoutItemInPoint.TotalMilliseconds}"
             : string.Empty;

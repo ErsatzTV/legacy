@@ -49,7 +49,9 @@ public class UpdateChannelHandler(
         bool hasPlayoutChange = hasEpgChange || c.WatermarkId != update.WatermarkId ||
                                 c.PreferredAudioLanguageCode != update.PreferredAudioLanguageCode ||
                                 c.PreferredAudioTitle != update.PreferredAudioTitle ||
-                                c.PreferredSubtitleLanguageCode != update.PreferredSubtitleLanguageCode;
+                                c.PreferredSubtitleLanguageCode != update.PreferredSubtitleLanguageCode ||
+                                c.MusicVideoCreditsMode != update.MusicVideoCreditsMode ||
+                                c.SubtitleMode != update.SubtitleMode;
 
         c.Name = update.Name;
         c.Number = update.Number;

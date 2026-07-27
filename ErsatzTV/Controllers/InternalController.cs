@@ -1,5 +1,6 @@
 ﻿using System.CommandLine.Parsing;
 using System.Diagnostics;
+using System.Text;
 using CliWrap;
 using ErsatzTV.Application.Emby;
 using ErsatzTV.Application.Jellyfin;
@@ -63,7 +64,8 @@ public class InternalController : StreamingControllerBase
     [HttpGet("ffmpeg/music-video-credits/{playoutItemId:int}")]
     public async Task<IActionResult> GetMusicVideoCredits(
         int playoutItemId,
-        [FromQuery] long? seekToMs,
+        [FromQuery]
+        long? seekToMs,
         CancellationToken cancellationToken)
     {
         Option<string> maybeCreditsFile = await _mediator.Send(
@@ -74,7 +76,7 @@ public class InternalController : StreamingControllerBase
             return new PhysicalFileResult(creditsFile, "text/x-ssa");
         }
 
-        return NotFound();
+        return File(Encoding.UTF8.GetBytes(EmptySubtitleDocument("text/x-ssa")), "text/x-ssa");
     }
 
     [HttpGet("ffmpeg/remote-stream/{remoteStreamId}")]
@@ -218,9 +220,14 @@ public class InternalController : StreamingControllerBase
     }
 
     [HttpGet("/media/subtitle/{id:int}")]
-    public async Task<IActionResult> GetSubtitle(int id, [FromQuery] long? seekToMs)
+    public async Task<IActionResult> GetSubtitle(
+        int id,
+        [FromQuery] long? seekToMs,
+        CancellationToken cancellationToken)
     {
-        Either<BaseError, SubtitlePathAndCodec> maybePath = await _mediator.Send(new GetSubtitlePathById(id));
+        Either<BaseError, SubtitlePathAndCodec> maybePath = await _mediator.Send(
+            new GetSubtitlePathById(id),
+            cancellationToken);
 
         foreach (SubtitlePathAndCodec pathAndCodec in maybePath.RightToSeq())
         {
@@ -236,7 +243,8 @@ public class InternalController : StreamingControllerBase
             if (seekToMs is > 0)
             {
                 Either<BaseError, SeekTextSubtitleProcess> maybeProcess = await _mediator.Send(
-                    new GetSeekTextSubtitleProcess(pathAndCodec, TimeSpan.FromMilliseconds(seekToMs.Value)));
+                    new GetSeekTextSubtitleProcess(pathAndCodec, TimeSpan.FromMilliseconds(seekToMs.Value)),
+                    cancellationToken);
                 foreach (SeekTextSubtitleProcess processModel in maybeProcess.RightToSeq())
                 {
                     Command command = processModel.Process;
@@ -264,10 +272,20 @@ public class InternalController : StreamingControllerBase
                     }
 
                     process.Start();
-                    return new FileStreamResult(process.StandardOutput.BaseStream, mimeType);
+                    using var buffer = new MemoryStream();
+                    await process.StandardOutput.BaseStream.CopyToAsync(buffer, cancellationToken);
+                    await process.WaitForExitAsync(cancellationToken);
+
+                    byte[] bytes = buffer.ToArray();
+                    if (bytes.Length == 0)
+                    {
+                        return Content(EmptySubtitleDocument(mimeType), mimeType);
+                    }
+
+                    return File(bytes, mimeType);
                 }
 
-                return new NotFoundResult();
+                return Content(EmptySubtitleDocument(mimeType), mimeType);
             }
 
             if (pathAndCodec.Path.StartsWith("http", StringComparison.OrdinalIgnoreCase))
@@ -347,4 +365,13 @@ public class InternalController : StreamingControllerBase
 
         return GetProcessResponse(result, channelNumber, StreamingMode.TransportStream);
     }
+
+    private static string EmptySubtitleDocument(string mimeType) => mimeType switch
+    {
+        "text/x-ssa" => "[Script Info]\nScriptType: v4.00+\n\n" +
+                        "[V4+ Styles]\nFormat: Name, Fontname, Fontsize\nStyle: Default,Arial,20\n\n" +
+                        "[Events]\nFormat: Layer, Start, End, Style, Text\n",
+        "text/vtt" => "WEBVTT\n\n",
+        _ => "1\n00:00:00,000 --> 00:00:00,001\n \n\n"
+    };
 }
