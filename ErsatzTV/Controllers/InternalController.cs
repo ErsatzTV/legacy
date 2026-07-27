@@ -22,7 +22,6 @@ using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Primitives;
-using Newtonsoft.Json;
 
 namespace ErsatzTV.Controllers;
 
@@ -320,7 +319,7 @@ public class InternalController : StreamingControllerBase
                 foreach (Core.Next.PlayoutItem nextPlayoutItem in maybeNextPlayoutItem)
                 {
                     return Content(
-                        JsonConvert.SerializeObject(nextPlayoutItem, Core.Next.Converter.Settings),
+                        System.Text.Json.JsonSerializer.Serialize(nextPlayoutItem, Core.Next.Converter.Settings),
                         "application/json");
                 }
             }
