@@ -353,7 +353,8 @@ public class StartFFmpegNextSessionHandler(
             {
                 NextEngineTextSubtitleMode.Convert => Mode.Convert,
                 _ => Mode.Burn
-            }
+            },
+            FontsFolder = FileSystemLayout.FontsCacheFolder
         };
 
         string playoutFolder = _fileSystem.Path.Combine(FileSystemLayout.NextPlayoutsFolder, channel.Number, "current");

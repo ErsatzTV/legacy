@@ -103,20 +103,7 @@ public class PlayoutItemConverter(
 
         foreach (Core.Next.Source source in maybeSource)
         {
-            if (playoutItem is not DynamicPlayoutItem)
-            {
-                if (playoutItem.InPoint > TimeSpan.Zero)
-                {
-                    source.InPointMs = (long)playoutItem.InPoint.TotalMilliseconds;
-                }
-
-                var duration = playoutItem.MediaItem.GetDurationForPlayout();
-                if (playoutItem.OutPoint > TimeSpan.Zero && playoutItem.OutPoint < duration)
-                {
-                    source.OutPointMs = (long)playoutItem.OutPoint.TotalMilliseconds;
-                }
-            }
-
+            SetInOutPoints(playoutItem, source);
             nextPlayoutItem.Source = source;
         }
 
@@ -158,7 +145,7 @@ public class PlayoutItemConverter(
                     Codec = s.Codec
                 }).ToList();
 
-            nextPlayoutItem.Source.ProbeHint = new Core.Next.ProbeHint
+            nextPlayoutItem.Source!.ProbeHint = new Core.Next.ProbeHint
             {
                 Audio = sourceAudioHints,
                 Video = sourceVideoHints,
@@ -428,11 +415,30 @@ public class PlayoutItemConverter(
         {
             if (subtitle.SubtitleKind is SubtitleKind.Embedded)
             {
-                if (nextPlayoutItem.Tracks?.Subtitle?.StreamIndex is null)
+                if (subtitle.IsImage)
                 {
-                    nextPlayoutItem.Tracks ??= new Core.Next.PlayoutItemTracks();
-                    nextPlayoutItem.Tracks.Subtitle ??= new Core.Next.TrackSelection();
-                    nextPlayoutItem.Tracks.Subtitle.StreamIndex = subtitle.StreamIndex;
+                    if (nextPlayoutItem.Tracks?.Subtitle?.StreamIndex is null)
+                    {
+                        nextPlayoutItem.Tracks ??= new Core.Next.PlayoutItemTracks();
+                        nextPlayoutItem.Tracks.Subtitle ??= new Core.Next.TrackSelection();
+                        nextPlayoutItem.Tracks.Subtitle.StreamIndex = subtitle.StreamIndex;
+                    }
+                }
+                // next only supports sidecar text subtitles at the moment; ignore non-extracted text subs
+                else if (subtitle.IsExtracted && !string.IsNullOrWhiteSpace(subtitle.Path))
+                {
+                    if (nextPlayoutItem.Tracks?.Subtitle?.Source is null)
+                    {
+                        nextPlayoutItem.Tracks ??= new Core.Next.PlayoutItemTracks();
+                        nextPlayoutItem.Tracks.Subtitle ??= new Core.Next.TrackSelection();
+                        nextPlayoutItem.Tracks.Subtitle.Source = new Core.Next.Source
+                        {
+                            SourceType = Core.Next.SourceType.Local,
+                            Path = Path.Combine(FileSystemLayout.SubtitleCacheFolder, subtitle.Path),
+                        };
+
+                        SetInOutPoints(playoutItem, nextPlayoutItem.Tracks.Subtitle.Source);
+                    }
                 }
             }
             else if (!subtitle.Path.StartsWith("http", StringComparison.OrdinalIgnoreCase))
@@ -446,6 +452,8 @@ public class PlayoutItemConverter(
                         SourceType = Core.Next.SourceType.Local,
                         Path = subtitle.Path,
                     };
+
+                    SetInOutPoints(playoutItem, nextPlayoutItem.Tracks.Subtitle.Source);
                 }
             }
             else if (subtitle.Path.StartsWith("http://localhost", StringComparison.OrdinalIgnoreCase))
@@ -461,6 +469,8 @@ public class PlayoutItemConverter(
                         KeepAlive = false,
                         Reconnect = true
                     };
+
+                    SetInOutPoints(playoutItem, nextPlayoutItem.Tracks.Subtitle.Source);
                 }
             }
         }
@@ -601,5 +611,22 @@ public class PlayoutItemConverter(
                 SDH = false
             }
         ];
+    }
+
+    private static void SetInOutPoints(PlayoutItem playoutItem, Core.Next.Source source)
+    {
+        if (playoutItem is not DynamicPlayoutItem)
+        {
+            if (playoutItem.InPoint > TimeSpan.Zero)
+            {
+                source.InPointMs = (long)playoutItem.InPoint.TotalMilliseconds;
+            }
+
+            var duration = playoutItem.MediaItem.GetDurationForPlayout();
+            if (playoutItem.OutPoint > TimeSpan.Zero && playoutItem.OutPoint < duration)
+            {
+                source.OutPointMs = (long)playoutItem.OutPoint.TotalMilliseconds;
+            }
+        }
     }
 }

@@ -104,6 +104,9 @@ namespace ErsatzTV.Core.Next.Config
 
     public partial class Subtitle
     {
+        [JsonPropertyName("fonts_folder")]
+        public string? FontsFolder { get; set; }
+
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("mode")]
         public Mode? Mode { get; set; }

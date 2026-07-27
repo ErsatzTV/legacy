@@ -89,12 +89,14 @@ public abstract class ExtractEmbeddedSubtitlesHandlerBase(IFileSystem fileSystem
         return result;
     }
 
-    protected async Task ExtractSubtitles(
+    protected async Task<bool> ExtractSubtitles(
         TvContext dbContext,
         int mediaItemId,
         string ffmpegPath,
         CancellationToken cancellationToken)
     {
+        bool extractedAnything = false;
+
         foreach (MediaItem mediaItem in await GetMediaItem(dbContext, mediaItemId, cancellationToken))
         {
             foreach (List<Subtitle> allSubtitles in GetSubtitles(mediaItem))
@@ -133,9 +135,10 @@ public abstract class ExtractEmbeddedSubtitlesHandlerBase(IFileSystem fileSystem
                     .Add("-hide_banner")
                     .Add("-i").Add(mediaItemPath);
 
-                var subtitleIndexes = subtitlesToExtract
-                    .OrderBy(s => s.Subtitle.StreamIndex)
-                    .Select(s => s.Subtitle.StreamIndex)
+                var subtitleIndexes = allSubtitles
+                    .Filter(s => s.SubtitleKind is SubtitleKind.Embedded)
+                    .OrderBy(s => s.StreamIndex)
+                    .Select(s => s.StreamIndex)
                     .ToList();
 
                 foreach (SubtitleToExtract subtitle in subtitlesToExtract)
@@ -172,6 +175,8 @@ public abstract class ExtractEmbeddedSubtitlesHandlerBase(IFileSystem fileSystem
                         "Successfully extracted {Count} subtitles in {Duration}",
                         subtitlesToExtract.Count,
                         sw.Elapsed.Humanize());
+
+                    extractedAnything = true;
                 }
                 else
                 {
@@ -182,14 +187,18 @@ public abstract class ExtractEmbeddedSubtitlesHandlerBase(IFileSystem fileSystem
                 }
             }
         }
+
+        return extractedAnything;
     }
 
-    protected async Task ExtractFonts(
+    protected async Task<bool> ExtractFonts(
         TvContext dbContext,
         int mediaItemId,
         string ffmpegPath,
         CancellationToken cancellationToken)
     {
+        bool extractedAnything = false;
+
         foreach (MediaItem mediaItem in await GetMediaItem(dbContext, mediaItemId, cancellationToken))
         {
             MediaVersion headVersion = mediaItem.GetHeadVersion();
@@ -232,6 +241,7 @@ public abstract class ExtractEmbeddedSubtitlesHandlerBase(IFileSystem fileSystem
                 if (fileSystem.File.Exists(fullOutputPath))
                 {
                     logger.LogDebug("Successfully extracted font {Font}", fontStream.FileName);
+                    extractedAnything = true;
                 }
                 else
                 {
@@ -242,6 +252,8 @@ public abstract class ExtractEmbeddedSubtitlesHandlerBase(IFileSystem fileSystem
                 }
             }
         }
+
+        return extractedAnything;
     }
 
 

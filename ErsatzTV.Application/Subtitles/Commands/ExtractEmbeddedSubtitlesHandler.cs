@@ -1,6 +1,7 @@
 ﻿using System.IO.Abstractions;
 using System.Threading.Channels;
 using ErsatzTV.Application.Maintenance;
+using ErsatzTV.Application.Playouts;
 using ErsatzTV.Core;
 using ErsatzTV.Core.Domain;
 using ErsatzTV.Core.Interfaces.Locking;
@@ -168,6 +169,7 @@ public class ExtractEmbeddedSubtitlesHandler : ExtractEmbeddedSubtitlesHandlerBa
                 .Map(pi => pi.MediaItemId)
                 .ToList();
 
+            bool extractedAnything = false;
             foreach (int mediaItemId in toUpdate)
             {
                 if (cancellationToken.IsCancellationRequested)
@@ -176,8 +178,16 @@ public class ExtractEmbeddedSubtitlesHandler : ExtractEmbeddedSubtitlesHandlerBa
                 }
 
                 // extract subtitles and fonts for each item and update db
-                await ExtractSubtitles(dbContext, mediaItemId, ffmpegPath, cancellationToken);
-                await ExtractFonts(dbContext, mediaItemId, ffmpegPath, cancellationToken);
+                extractedAnything |= await ExtractSubtitles(
+                    dbContext,
+                    mediaItemId,
+                    ffmpegPath,
+                    cancellationToken);
+                extractedAnything |= await ExtractFonts(
+                    dbContext,
+                    mediaItemId,
+                    ffmpegPath,
+                    cancellationToken);
             }
 
             _logger.LogDebug("Done checking playouts {PlayoutIds} for text subtitles to extract", playoutIdsToCheck);
@@ -185,6 +195,21 @@ public class ExtractEmbeddedSubtitlesHandler : ExtractEmbeddedSubtitlesHandlerBa
             foreach (int playoutId in playoutIdsToCheck)
             {
                 await _entityLocker.UnlockPlayout(playoutId);
+            }
+
+            if (extractedAnything)
+            {
+                List<string> channelNumbers = await dbContext.Channels
+                    .AsNoTracking()
+                    .Where(c => c.StreamingEngine == StreamingEngine.Next &&
+                                c.Playouts.Any(p => playoutIdsToCheck.Contains(p.Id)))
+                    .Select(c => c.Number)
+                    .ToListAsync(cancellationToken);
+
+                foreach (string channelNumber in channelNumbers)
+                {
+                    await _workerChannel.WriteAsync(new SyncNextPlayout(channelNumber), cancellationToken);
+                }
             }
         }
         catch (Exception ex) when (ex is TaskCanceledException or OperationCanceledException)
