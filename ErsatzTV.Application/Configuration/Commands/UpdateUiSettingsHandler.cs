@@ -17,9 +17,12 @@ public class UpdateUiSettingsHandler(IConfigElementRepository configElementRepos
     private async Task<Unit> ApplyUpdate(UiSettingsViewModel uiSettings, CancellationToken cancellationToken)
     {
         await configElementRepository.Upsert(
-            ConfigElementKey.PagesIsDarkMode,
-            uiSettings.IsDarkMode,
+            ConfigElementKey.PagesThemeMode,
+            uiSettings.ThemeMode,
             cancellationToken);
+
+        // the legacy dark mode flag is only used to migrate the theme mode setting
+        await configElementRepository.Delete(ConfigElementKey.PagesIsDarkMode, cancellationToken);
 
         await configElementRepository.Upsert(ConfigElementKey.PagesLanguage, uiSettings.Language, cancellationToken);
 

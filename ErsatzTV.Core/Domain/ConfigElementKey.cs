@@ -32,6 +32,7 @@ public class ConfigElementKey
     public static ConfigElementKey HDHRTunerCount => new("hdhr.tuner_count");
     public static ConfigElementKey HDHRUUID => new("hdhr.uuid");
     public static ConfigElementKey PagesIsDarkMode => new("pages.is_dark_mode");
+    public static ConfigElementKey PagesThemeMode => new("pages.theme_mode");
     public static ConfigElementKey PagesLanguage => new("pages.language");
     public static ConfigElementKey ChannelsPageSize => new("pages.channels.page_size");
     public static ConfigElementKey ChannelsShowDisabled => new("pages.channels.show_disabled");

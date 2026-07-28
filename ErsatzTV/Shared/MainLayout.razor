@@ -17,7 +17,7 @@
 @inject IHealthCheckService HealthCheckService;
 @inject IStringLocalizer<ErsatzTV.Locals.Shared.MainLayout> StringLocalizer;
 
-<MudThemeProvider Theme="ErsatzTvTheme" IsDarkMode="_isDarkMode"/>
+<MudThemeProvider @ref="_mudThemeProvider" Theme="ErsatzTvTheme" IsDarkMode="_isDarkMode" ObserveSystemDarkModeChange="@(_themeMode is ThemeMode.System)"/>
 <MudDialogProvider BackdropClick="false"/>
 <MudSnackbarProvider/>
 <MudPopoverProvider/>
@@ -279,7 +279,10 @@
     private int _playoutWarnings;
     private int _errors;
     private int _warnings;
+    private MudThemeProvider _mudThemeProvider;
+    private ThemeMode _themeMode = ThemeMode.Dark;
     private bool _isDarkMode = true;
+    private bool _systemIsDarkMode = true;
 
     protected override void OnInitialized()
     {
@@ -297,6 +300,45 @@
         await base.OnInitializedAsync();
         await HandleHealthCheckSummary(HealthCheckService.GetHealthCheckSummary(), CancellationToken.None);
     }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+
+        if (!firstRender || _mudThemeProvider is null)
+        {
+            return;
+        }
+
+        // the browser's color scheme is only available once we can use js interop
+        _systemIsDarkMode = await _mudThemeProvider.GetSystemDarkModeAsync();
+        if (_themeMode is ThemeMode.System)
+        {
+            ApplyThemeMode();
+            StateHasChanged();
+        }
+
+        await _mudThemeProvider.WatchSystemDarkModeAsync(OnSystemDarkModeChanged);
+    }
+
+    private async Task OnSystemDarkModeChanged(bool isDarkMode)
+    {
+        _systemIsDarkMode = isDarkMode;
+
+        if (_themeMode is ThemeMode.System)
+        {
+            ApplyThemeMode();
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private void ApplyThemeMode() =>
+        _isDarkMode = _themeMode switch
+        {
+            ThemeMode.Light => false,
+            ThemeMode.System => _systemIsDarkMode,
+            _ => true
+        };
 
     public void Dispose()
     {
@@ -415,9 +457,9 @@
             {
                 _searchTargets ??= await Mediator.Send(new QuerySearchTargets(), token);
 
-                _isDarkMode = await Mediator.Send(new GetConfigElementByKey(ConfigElementKey.PagesIsDarkMode), token)
-                    .MapT(result => !bool.TryParse(result.Value, out bool value) || value)
-                    .IfNoneAsync(true);
+                UiSettingsViewModel uiSettings = await Mediator.Send(new GetUiSettings(), token);
+                _themeMode = uiSettings.ThemeMode;
+                ApplyThemeMode();
 
                 _playoutWarnings = await Mediator.Send(new GetPlayoutWarningsCount(), token);
             }

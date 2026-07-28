@@ -8,6 +8,11 @@ public class GetUiSettingsHandler(IConfigElementRepository configElementReposito
 {
     public async Task<UiSettingsViewModel> Handle(GetUiSettings request, CancellationToken cancellationToken)
     {
+        Option<ThemeMode> pagesThemeMode = await configElementRepository.GetValue<ThemeMode>(
+            ConfigElementKey.PagesThemeMode,
+            cancellationToken);
+
+        // fall back to the legacy dark mode flag for installs that predate the theme mode setting
         Option<bool> pagesIsDarkMode = await configElementRepository.GetValue<bool>(
             ConfigElementKey.PagesIsDarkMode,
             cancellationToken);
@@ -18,7 +23,10 @@ public class GetUiSettingsHandler(IConfigElementRepository configElementReposito
 
         return new UiSettingsViewModel
         {
-            IsDarkMode = await pagesIsDarkMode.IfNoneAsync(true),
+            ThemeMode = pagesThemeMode.IfNone(
+                () => pagesIsDarkMode.Match(
+                    isDarkMode => isDarkMode ? ThemeMode.Dark : ThemeMode.Light,
+                    () => ThemeMode.Dark)),
             Language = await pagesLanguage.IfNoneAsync("en")
         };
     }

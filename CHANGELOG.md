@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
+### Added
+- Add `System` option to **Settings** > **UI** > **Theme**
+  - Follows the light or dark preference of the browser that is viewing ErsatzTV, and updates without a refresh when that preference changes
+
 ### Fixed
 - Fix regression from `v26.2.0` that caused channel logo watermarks to be ignored when the logo is a url
   - This affected external logo urls and generated channel logos

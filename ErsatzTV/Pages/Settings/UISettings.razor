@@ -19,9 +19,10 @@
                 <div class="d-flex">
                     <MudText>Theme</MudText>
                 </div>
-                <MudSelect @bind-Value="_uiSettings.IsDarkMode">
-                    <MudSelectItem Value="@true">Dark</MudSelectItem>
-                    <MudSelectItem Value="@false">Light</MudSelectItem>
+                <MudSelect @bind-Value="_uiSettings.ThemeMode">
+                    <MudSelectItem Value="@ThemeMode.Dark">Dark</MudSelectItem>
+                    <MudSelectItem Value="@ThemeMode.Light">Light</MudSelectItem>
+                    <MudSelectItem Value="@ThemeMode.System">System</MudSelectItem>
                 </MudSelect>
             </MudStack>
             <MudStack Row="true" Breakpoint="Breakpoint.SmAndDown" Class="form-field-stack gap-md-8 mb-5">
