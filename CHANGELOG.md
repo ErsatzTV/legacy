@@ -4,6 +4,9 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
+### Fixed
+- Fix regression from `v26.2.0` that caused channel logo watermarks to be ignored when the logo is a url
+  - This affected external logo urls and generated channel logos
 
 ## [26.7.0] - 2026-07-27
 ### Added

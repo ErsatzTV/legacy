@@ -238,7 +238,8 @@ public class WatermarkSelector(
                             : imageCache.GetPathForImage(logoArtwork.Path, ArtworkKind.Logo, Option<int>.None);
                     }
 
-                    if (fileSystem.File.Exists(channelPath))
+                    // urls (external logos, generated channel logos) can't be checked on the file system
+                    if (Artwork.IsExternalUrl(channelPath) || fileSystem.File.Exists(channelPath))
                     {
                         return new WatermarkOptions(watermark, channelPath, None);
                     }
@@ -287,7 +288,8 @@ public class WatermarkSelector(
                             : imageCache.GetPathForImage(logoArtwork.Path, ArtworkKind.Logo, Option<int>.None);
                     }
 
-                    if (fileSystem.File.Exists(channelPath))
+                    // urls (external logos, generated channel logos) can't be checked on the file system
+                    if (Artwork.IsExternalUrl(channelPath) || fileSystem.File.Exists(channelPath))
                     {
                         return new WatermarkOptions(channel.Watermark, channelPath, None);
                     }
@@ -336,7 +338,8 @@ public class WatermarkSelector(
                             : imageCache.GetPathForImage(logoArtwork.Path, ArtworkKind.Logo, Option<int>.None);
                     }
 
-                    if (fileSystem.File.Exists(channelPath))
+                    // urls (external logos, generated channel logos) can't be checked on the file system
+                    if (Artwork.IsExternalUrl(channelPath) || fileSystem.File.Exists(channelPath))
                     {
                         return new WatermarkOptions(watermark, channelPath, None);
                     }
