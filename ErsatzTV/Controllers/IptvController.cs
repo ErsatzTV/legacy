@@ -170,9 +170,22 @@ public class IptvController : StreamingControllerBase
                 return Content(result.Playlist, "application/vnd.apple.mpegurl");
             }
 
-            // TODO: better error here?
-            _logger.LogWarning("Trim playlist failure; will return not found for channel {Channel}", channelNumber);
-            return NotFound();
+            // the session worker exists, so this is transient: either ffmpeg hasn't written the
+            // first playlist yet, or the read failed. 404 tells clients the stream is gone and
+            // many will abandon it, so ask them to retry shortly instead.
+            if (cancellationToken.IsCancellationRequested)
+            {
+                _logger.LogDebug("Trim playlist was canceled for channel {Channel}", channelNumber);
+            }
+            else
+            {
+                _logger.LogWarning(
+                    "Trim playlist failure for channel {Channel}; will ask client to retry",
+                    channelNumber);
+            }
+
+            Response.Headers.RetryAfter = "1";
+            return StatusCode(StatusCodes.Status503ServiceUnavailable);
         }
 
         _logger.LogWarning(
