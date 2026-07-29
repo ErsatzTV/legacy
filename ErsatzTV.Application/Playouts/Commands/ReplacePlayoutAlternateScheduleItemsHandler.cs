@@ -20,7 +20,10 @@ public class ReplacePlayoutAlternateScheduleItemsHandler(
         ReplacePlayoutAlternateScheduleItems request,
         CancellationToken cancellationToken)
     {
-        // TODO: validate that items is not empty
+        if (request.Items.Count == 0)
+        {
+            return BaseError.New("Playout alternate schedule items must not be empty");
+        }
 
         try
         {
