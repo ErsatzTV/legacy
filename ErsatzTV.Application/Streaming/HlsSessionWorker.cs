@@ -125,7 +125,7 @@ public class HlsSessionWorker : IHlsSessionWorker
                 {
                     await RefreshInits();
 
-                    TrimPlaylistResult trimResult = _hlsPlaylistFilter.TrimPlaylist(
+                    Option<TrimPlaylistResult> maybeTrimResult = _hlsPlaylistFilter.TrimPlaylist(
                         _discontinuityMap,
                         _outputFormatKind,
                         PlaylistStart,
@@ -133,13 +133,16 @@ public class HlsSessionWorker : IHlsSessionWorker
                         _hlsInitSegmentCache,
                         input,
                         maybeMaxSegments: 10);
-                    if (DateTimeOffset.Now > _lastDelete.AddSeconds(30))
+                    foreach (TrimPlaylistResult trimResult in maybeTrimResult)
                     {
-                        DeleteOldSegments(trimResult);
-                        _lastDelete = DateTimeOffset.Now;
+                        if (DateTimeOffset.Now > _lastDelete.AddSeconds(30))
+                        {
+                            DeleteOldSegments(trimResult);
+                            _lastDelete = DateTimeOffset.Now;
+                        }
                     }
 
-                    return trimResult;
+                    return maybeTrimResult;
                 }
 
                 _logger.LogWarning("HlsSessionWorker.TrimPlaylist read empty playlist?");
@@ -691,18 +694,23 @@ public class HlsSessionWorker : IHlsSessionWorker
                 await RefreshInits();
 
                 // trim playlist and insert discontinuity before appending with new ffmpeg process
-                TrimPlaylistResult trimResult = _hlsPlaylistFilter.TrimPlaylistWithDiscontinuity(
+                Option<TrimPlaylistResult> maybeTrimResult = _hlsPlaylistFilter.TrimPlaylistWithDiscontinuity(
                     _discontinuityMap,
                     _outputFormatKind,
                     PlaylistStart,
                     DateTimeOffset.Now.AddMinutes(-1),
                     _hlsInitSegmentCache,
                     lines);
-                await WritePlaylist(trimResult.Playlist, cancellationToken);
 
-                DeleteOldSegments(trimResult);
+                // on trim failure, leave the existing playlist untouched
+                foreach (TrimPlaylistResult trimResult in maybeTrimResult)
+                {
+                    await WritePlaylist(trimResult.Playlist, cancellationToken);
 
-                PlaylistStart = trimResult.PlaylistStart;
+                    DeleteOldSegments(trimResult);
+
+                    PlaylistStart = trimResult.PlaylistStart;
+                }
             }
         }
         finally

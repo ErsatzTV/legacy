@@ -8,7 +8,7 @@ namespace ErsatzTV.Core.FFmpeg;
 
 public class HlsPlaylistFilter(ITempFilePool tempFilePool, ILogger<HlsPlaylistFilter> logger) : IHlsPlaylistFilter
 {
-    public TrimPlaylistResult TrimPlaylist(
+    public Option<TrimPlaylistResult> TrimPlaylist(
         Dictionary<long, int> discontinuityMap,
         OutputFormatKind outputFormat,
         DateTimeOffset playlistStart,
@@ -110,20 +110,18 @@ public class HlsPlaylistFilter(ITempFilePool tempFilePool, ILogger<HlsPlaylistFi
                 File.WriteAllLines(file, lines);
 
                 logger.LogError(ex, "Error filtering playlist. Bad playlist saved to {BadPlaylistFile}", file);
-
-                // TODO: better error result?
-                return new TrimPlaylistResult(playlistStart, 0, 0, string.Empty, 0);
             }
             catch
             {
                 // do nothing
             }
 
-            throw;
+            // never return a fabricated empty playlist; callers must handle the failure
+            return Option<TrimPlaylistResult>.None;
         }
     }
 
-    public TrimPlaylistResult TrimPlaylistWithDiscontinuity(
+    public Option<TrimPlaylistResult> TrimPlaylistWithDiscontinuity(
         Dictionary<long, int> discontinuityMap,
         OutputFormatKind outputFormat,
         DateTimeOffset playlistStart,
