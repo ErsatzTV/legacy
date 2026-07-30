@@ -9,6 +9,7 @@ public interface IFFmpegCapabilities
     bool HasDecoder(FFmpegKnownDecoder decoder);
     bool HasEncoder(FFmpegKnownEncoder encoder);
     bool HasFilter(FFmpegKnownFilter filter);
+    bool HasFilterOption(FFmpegKnownFilter filter, string optionName);
     bool HasOption(FFmpegKnownOption ffmpegOption);
     bool HasDemuxFormat(FFmpegKnownFormat format);
     Option<IDecoder> SoftwareDecoderForVideoFormat(string videoFormat);

@@ -36,6 +36,9 @@ public partial class HardwareCapabilitiesFactory(
     private static readonly CompositeFormat QsvCacheKeyFormat = CompositeFormat.Parse("ffmpeg.hardware.qsv.{0}");
     private static readonly CompositeFormat FFmpegCapabilitiesCacheKeyFormat = CompositeFormat.Parse("ffmpeg.{0}");
 
+    private static readonly CompositeFormat FFmpegFilterOptionsCacheKeyFormat =
+        CompositeFormat.Parse("ffmpeg.filter.{0}");
+
     private static readonly string[] QsvArguments =
     {
         "-f", "lavfi",
@@ -54,6 +57,8 @@ public partial class HardwareCapabilitiesFactory(
         memoryCache.Remove(string.Format(CultureInfo.InvariantCulture, FFmpegCapabilitiesCacheKeyFormat, "encoders"));
         memoryCache.Remove(string.Format(CultureInfo.InvariantCulture, FFmpegCapabilitiesCacheKeyFormat, "options"));
         memoryCache.Remove(string.Format(CultureInfo.InvariantCulture, FFmpegCapabilitiesCacheKeyFormat, "formats"));
+        memoryCache.Remove(
+            string.Format(CultureInfo.InvariantCulture, FFmpegFilterOptionsCacheKeyFormat, FFmpegKnownFilter.VppQsv.Name));
     }
 
     public async Task<IFFmpegCapabilities> GetFFmpegCapabilities(string ffmpegPath, CancellationToken cancellationToken)
@@ -87,6 +92,13 @@ public partial class HardwareCapabilitiesFactory(
         IReadOnlySet<string> ffmpegDemuxFormats = await GetFFmpegFormats(ffmpegPath, "D", cancellationToken)
             .Map(set => set.Intersect(FFmpegKnownFormat.AllFormats).ToImmutableHashSet());
 
+        IReadOnlySet<string> vppQsvOptions =
+            await GetFFmpegFilterOptions(ffmpegPath, FFmpegKnownFilter.VppQsv.Name, cancellationToken);
+        var ffmpegFilterOptions = new Dictionary<string, IReadOnlySet<string>>
+        {
+            [FFmpegKnownFilter.VppQsv.Name] = vppQsvOptions
+        };
+
         return new FFmpegCapabilities(
             ffmpegVersion,
             ffmpegHardwareAccelerations,
@@ -94,7 +106,8 @@ public partial class HardwareCapabilitiesFactory(
             ffmpegFilters,
             ffmpegEncoders,
             ffmpegOptions,
-            ffmpegDemuxFormats);
+            ffmpegDemuxFormats,
+            ffmpegFilterOptions);
     }
 
     public async Task<IHardwareCapabilities> GetHardwareCapabilities(
@@ -432,6 +445,36 @@ public partial class HardwareCapabilitiesFactory(
         var capabilitiesResult = output.Split("\n").Map(s => s.Trim())
             .Bind(l => ParseFFmpegOptionLine(l))
             .ToImmutableHashSet();
+
+        memoryCache.Set(cacheKey, capabilitiesResult);
+
+        return capabilitiesResult;
+    }
+
+    private async Task<IReadOnlySet<string>> GetFFmpegFilterOptions(
+        string ffmpegPath,
+        string filterName,
+        CancellationToken cancellationToken)
+    {
+        var cacheKey = string.Format(CultureInfo.InvariantCulture, FFmpegFilterOptionsCacheKeyFormat, filterName);
+        if (memoryCache.TryGetValue(cacheKey, out IReadOnlySet<string>? cachedCapabilities) &&
+            cachedCapabilities is not null)
+        {
+            return cachedCapabilities;
+        }
+
+        string[] arguments = ["-hide_banner", "-h", $"filter={filterName}"];
+
+        BufferedCommandResult result = await Cli.Wrap(ffmpegPath)
+            .WithArguments(arguments)
+            .WithValidation(CommandResultValidation.None)
+            .ExecuteBufferedAsync(Encoding.UTF8, cancellationToken);
+
+        string output = string.IsNullOrWhiteSpace(result.StandardOutput)
+            ? result.StandardError
+            : result.StandardOutput;
+
+        IReadOnlySet<string> capabilitiesResult = FFmpegFilterOptionParser.Parse(output);
 
         memoryCache.Set(cacheKey, capabilitiesResult);
 

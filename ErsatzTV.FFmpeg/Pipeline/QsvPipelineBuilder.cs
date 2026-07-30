@@ -18,6 +18,7 @@ namespace ErsatzTV.FFmpeg.Pipeline;
 
 public class QsvPipelineBuilder : SoftwarePipelineBuilder
 {
+    private readonly IFFmpegCapabilities _ffmpegCapabilities;
     private readonly IHardwareCapabilities _hardwareCapabilities;
     private readonly ILogger _logger;
 
@@ -46,6 +47,7 @@ public class QsvPipelineBuilder : SoftwarePipelineBuilder
         fontsFolder,
         logger)
     {
+        _ffmpegCapabilities = ffmpegCapabilities;
         _hardwareCapabilities = hardwareCapabilities;
         _logger = logger;
     }
@@ -194,8 +196,9 @@ public class QsvPipelineBuilder : SoftwarePipelineBuilder
         // _logger.LogDebug("After deinterlace: {PixelFormat}", currentState.PixelFormat);
         currentState = SetScale(videoInputFile, videoStream, context, ffmpegState, desiredState, currentState);
         // _logger.LogDebug("After scale: {PixelFormat}", currentState.PixelFormat);
+        bool isHdrTonemap = videoStream.ColorParams.IsHdr;
         currentState = SetTonemap(videoInputFile, videoStream, ffmpegState, desiredState, currentState);
-        currentState = SetPad(videoInputFile, videoStream, desiredState, currentState);
+        currentState = SetPad(videoInputFile, videoStream, ffmpegState, desiredState, currentState, isHdrTonemap);
         // _logger.LogDebug("After pad: {PixelFormat}", currentState.PixelFormat);
         currentState = SetCrop(videoInputFile, desiredState, currentState);
         SetStillImageLoop(videoInputFile, videoStream, ffmpegState, desiredState, pipelineSteps);
@@ -311,7 +314,7 @@ public class QsvPipelineBuilder : SoftwarePipelineBuilder
 
             bool usesVppQsv =
                 videoInputFile.FilterSteps.Any(f =>
-                    f is QsvFormatFilter or ScaleQsvFilter or DeinterlaceQsvFilter or TonemapQsvFilter);
+                    f is QsvFormatFilter or ScaleQsvFilter or DeinterlaceQsvFilter or TonemapQsvFilter or PadQsvFilter);
 
             // if we have no filters, check whether we need to convert pixel format
             // since qsv doesn't seem to like doing that at the encoder
@@ -598,17 +601,33 @@ public class QsvPipelineBuilder : SoftwarePipelineBuilder
         }
     }
 
-    private static FrameState SetPad(
+    private FrameState SetPad(
         VideoInputFile videoInputFile,
         VideoStream videoStream,
+        FFmpegState ffmpegState,
         FrameState desiredState,
-        FrameState currentState)
+        FrameState currentState,
+        bool isHdrTonemap)
     {
         if (desiredState.CroppedSize.IsNone && currentState.PaddedSize != desiredState.PaddedSize)
         {
-            var padStep = new PadFilter(currentState, desiredState.PaddedSize);
-            currentState = padStep.NextState(currentState);
-            videoInputFile.FilterSteps.Add(padStep);
+            if (desiredState.PadMode is FFmpegFilterMode.Software
+                || isHdrTonemap
+                || !_ffmpegCapabilities.HasFilterOption(FFmpegKnownFilter.VppQsv, "pad_w"))
+            {
+                var padStep = new PadFilter(currentState, desiredState.PaddedSize);
+                currentState = padStep.NextState(currentState);
+                videoInputFile.FilterSteps.Add(padStep);
+            }
+            else
+            {
+                var padStep = new PadQsvFilter(
+                    currentState,
+                    desiredState.PaddedSize,
+                    ffmpegState.QsvExtraHardwareFrames);
+                currentState = padStep.NextState(currentState);
+                videoInputFile.FilterSteps.Add(padStep);
+            }
         }
 
         return currentState;
