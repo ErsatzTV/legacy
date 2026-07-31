@@ -17,6 +17,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Fix regression from `v26.2.0` that caused channel logo watermarks to be ignored when the logo is a url
   - This affected external logo urls and generated channel logos
 - Maintain collection progress when refreshing a classic playout containing playlists
+- Fix UI bug where on-demand channels would always show out of date gaps (unscheduled time)
+- Fix UI bug where gaps (unscheduled time) would be shown from previous playout build, not current build
 
 ## [26.7.0] - 2026-07-27
 ### Added

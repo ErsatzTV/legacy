@@ -788,6 +788,7 @@ public class Startup
         services.AddScoped<ISchedulingEngine, SchedulingEngine>();
         services.AddScoped<IExternalJsonPlayoutBuilder, ExternalJsonPlayoutBuilder>();
         services.AddScoped<IPlayoutTimeShifter, PlayoutTimeShifter>();
+        services.AddScoped<IPlayoutGapInserter, PlayoutGapInserter>();
         services.AddScoped<IImageCache, ImageCache>();
         services.AddScoped<ILocalFileSystem, LocalFileSystem>();
         services.AddScoped<IPlexServerApiClient, PlexServerApiClient>();

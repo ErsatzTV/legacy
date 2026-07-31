@@ -87,9 +87,6 @@ public class WorkerService : BackgroundService
                         case CheckForOverlappingPlayoutItems checkForOverlappingPlayoutItems:
                             await mediator.Send(checkForOverlappingPlayoutItems, stoppingToken);
                             break;
-                        case InsertPlayoutGaps insertPlayoutGaps:
-                            await mediator.Send(insertPlayoutGaps, stoppingToken);
-                            break;
                         case TimeShiftOnDemandPlayout timeShiftOnDemandPlayout:
                             await mediator.Send(timeShiftOnDemandPlayout, stoppingToken);
                             break;

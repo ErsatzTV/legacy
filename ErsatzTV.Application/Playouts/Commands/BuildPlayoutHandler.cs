@@ -26,6 +26,7 @@ public class BuildPlayoutHandler : IRequestHandler<BuildPlayout, Either<BaseErro
     private readonly IExternalJsonPlayoutBuilder _externalJsonPlayoutBuilder;
     private readonly IFFmpegSegmenterService _ffmpegSegmenterService;
     private readonly IPlayoutBuilder _playoutBuilder;
+    private readonly IPlayoutGapInserter _playoutGapInserter;
     private readonly IPlayoutTimeShifter _playoutTimeShifter;
     private readonly ChannelWriter<IBackgroundServiceRequest> _workerChannel;
     private readonly ILogger<BuildPlayoutHandler> _logger;
@@ -43,6 +44,7 @@ public class BuildPlayoutHandler : IRequestHandler<BuildPlayout, Either<BaseErro
         IFFmpegSegmenterService ffmpegSegmenterService,
         IEntityLocker entityLocker,
         IPlayoutTimeShifter playoutTimeShifter,
+        IPlayoutGapInserter playoutGapInserter,
         ChannelWriter<IBackgroundServiceRequest> workerChannel,
         ILogger<BuildPlayoutHandler> logger)
     {
@@ -56,6 +58,7 @@ public class BuildPlayoutHandler : IRequestHandler<BuildPlayout, Either<BaseErro
         _ffmpegSegmenterService = ffmpegSegmenterService;
         _entityLocker = entityLocker;
         _playoutTimeShifter = playoutTimeShifter;
+        _playoutGapInserter = playoutGapInserter;
         _workerChannel = workerChannel;
         _logger = logger;
     }
@@ -88,6 +91,10 @@ public class BuildPlayoutHandler : IRequestHandler<BuildPlayout, Either<BaseErro
                 {
                     await _playoutTimeShifter.TimeShift(request.PlayoutId, timeShiftTo, false, cancellationToken);
                 }
+
+                // must happen after any time shift, and before the playout is unlocked so that
+                // the ui sees items and gaps from the same build
+                await _playoutGapInserter.InsertGaps(request.PlayoutId, cancellationToken);
 
                 if (playoutBuildResult.Warnings.TailFillerTooLong > 0)
                 {
@@ -304,8 +311,6 @@ public class BuildPlayoutHandler : IRequestHandler<BuildPlayout, Either<BaseErro
                     await _workerChannel.WriteAsync(
                         new CheckForOverlappingPlayoutItems(request.PlayoutId),
                         cancellationToken);
-
-                    await _workerChannel.WriteAsync(new InsertPlayoutGaps(request.PlayoutId), cancellationToken);
 
                     string fileName = Path.Combine(FileSystemLayout.ChannelGuideCacheFolder, $"{channelNumber}.xml");
                     if (hasChanges || !File.Exists(fileName) ||
