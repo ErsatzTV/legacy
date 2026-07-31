@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
+
+## [26.7.1] - 2026-07-31
 ### Changed
 - Change rule for how `Flexible` fixed start times work in classic schedules
   - Previously, flexible waited only for start times later in the same *calendar day*
@@ -3320,7 +3322,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Initial release to facilitate testing outside of Docker.
 
 
-[Unreleased]: https://github.com/ErsatzTV/legacy/compare/v26.7.0...HEAD
+[Unreleased]: https://github.com/ErsatzTV/legacy/compare/v26.7.1...HEAD
+[26.7.1]: https://github.com/ErsatzTV/legacy/compare/v26.7.0...v26.7.1
 [26.7.0]: https://github.com/ErsatzTV/legacy/compare/v26.6.0...v26.7.0
 [26.6.0]: https://github.com/ErsatzTV/legacy/compare/v26.5.1...v26.6.0
 [26.5.1]: https://github.com/ErsatzTV/legacy/compare/v26.5.0...v26.5.1
