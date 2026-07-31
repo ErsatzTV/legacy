@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
+### Changed
+- Change rule for how `Flexible` fixed start times work in classic schedules
+  - Previously, flexible waited only for start times later in the same *calendar day*
+    - This caused undesired behavior near midnight
+      - A flexible start time of 23:55 when the current playout is at 00:05 would wait nearly a full day
+      - A flexible start time of 00:30 when the current playout is at 23:50 would start immediately instead of waiting 40 minutes
+  - Now, flexible will only wait when the desired start time is <= 12 hours after the current time, otherwise it will start immediately
+  - `Strict` behavior is unchanged
+
 ### Fixed
 - Fix regression from `v26.2.0` that caused channel logo watermarks to be ignored when the logo is a url
   - This affected external logo urls and generated channel logos
