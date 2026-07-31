@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - `Strict` behavior is unchanged
 
 ### Fixed
+- Bundle new ffmpeg 8.1.2 build that is patched to fix QSV on Windows
 - Fix regression from `v26.2.0` that caused channel logo watermarks to be ignored when the logo is a url
   - This affected external logo urls and generated channel logos
 - Maintain collection progress when refreshing a classic playout containing playlists
