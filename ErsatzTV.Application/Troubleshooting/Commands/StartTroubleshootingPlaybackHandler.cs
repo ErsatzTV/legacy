@@ -59,6 +59,8 @@ public class StartTroubleshootingPlaybackHandler(
                 new
                 {
                     request.TroubleshootingInfo.Version,
+                    request.TroubleshootingInfo.NextVersion,
+                    request.TroubleshootingInfo.FFmpegVersion,
                     Environment = request.TroubleshootingInfo.Environment.OrderBy(x => x.Key)
                         .ToDictionary(x => x.Key, x => x.Value),
                     request.TroubleshootingInfo.Health,
