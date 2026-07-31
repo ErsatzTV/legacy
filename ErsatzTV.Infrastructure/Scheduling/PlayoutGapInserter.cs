@@ -1,21 +1,22 @@
 using EFCore.BulkExtensions;
 using ErsatzTV.Core.Domain;
+using ErsatzTV.Core.Interfaces.Scheduling;
 using ErsatzTV.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
-namespace ErsatzTV.Application.Playouts;
+namespace ErsatzTV.Infrastructure.Scheduling;
 
-public class InsertPlayoutGapsHandler(IDbContextFactory<TvContext> dbContextFactory)
-    : IRequestHandler<InsertPlayoutGaps>
+public class PlayoutGapInserter(IDbContextFactory<TvContext> dbContextFactory) : IPlayoutGapInserter
 {
-    public async Task Handle(InsertPlayoutGaps request, CancellationToken cancellationToken)
+    public async Task InsertGaps(int playoutId, CancellationToken cancellationToken)
     {
         await using TvContext dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
 
         var toAdd = new List<PlayoutGap>();
 
         IOrderedQueryable<PlayoutItem> query = dbContext.PlayoutItems
-            .Filter(pi => pi.PlayoutId == request.PlayoutId)
+            .AsNoTracking()
+            .Filter(pi => pi.PlayoutId == playoutId)
             .OrderBy(i => i.Start);
 
         var queue = new Queue<PlayoutItem>(query);
@@ -27,14 +28,15 @@ public class InsertPlayoutGapsHandler(IDbContextFactory<TvContext> dbContextFact
             DateTime start = one.Finish;
             DateTime finish = two.Start;
 
-            if (start == finish)
+            // overlapping items would otherwise produce a negative-duration gap
+            if (start >= finish)
             {
                 continue;
             }
 
             var gap = new PlayoutGap
             {
-                PlayoutId = request.PlayoutId,
+                PlayoutId = playoutId,
                 Start = start,
                 Finish = finish
             };
@@ -44,7 +46,7 @@ public class InsertPlayoutGapsHandler(IDbContextFactory<TvContext> dbContextFact
 
         // delete all existing gaps
         await dbContext.PlayoutGaps
-            .Where(pg => pg.PlayoutId == request.PlayoutId)
+            .Where(pg => pg.PlayoutId == playoutId)
             .ExecuteDeleteAsync(cancellationToken);
 
         // insert new gaps
