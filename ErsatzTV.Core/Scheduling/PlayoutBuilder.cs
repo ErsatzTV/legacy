@@ -185,67 +185,17 @@ public class PlayoutBuilder : IPlayoutBuilder
 
         // _logger.LogDebug("Remaining anchors: {@Anchors}", playout.ProgramScheduleAnchors);
 
-        var allAnchors = playout.ProgramScheduleAnchors.ToList();
-
-        var collectionIds = playout.ProgramScheduleAnchors.Map(a => Optional(a.CollectionId)).Somes().ToHashSet();
-
-        var multiCollectionIds =
-            playout.ProgramScheduleAnchors.Map(a => Optional(a.MultiCollectionId)).Somes().ToHashSet();
-
-        var smartCollectionIds =
-            playout.ProgramScheduleAnchors.Map(a => Optional(a.SmartCollectionId)).Somes().ToHashSet();
-
-        var searchQueries =
-            playout.ProgramScheduleAnchors.Map(a => Optional(a.SearchQuery)).Somes().ToHashSet();
-
-        var rerunCollectionIds =
-            playout.ProgramScheduleAnchors.Map(a => Optional(a.RerunCollectionId)).Somes().ToHashSet();
-
-        var mediaItemIds = playout.ProgramScheduleAnchors.Map(a => Optional(a.MediaItemId)).Somes().ToHashSet();
+        // only today's checkpoints are left, and at most one per collection key per local date is
+        // ever written, so this should already be one anchor per key; keep the oldest in case an
+        // older database has more. group on the whole key, anything left out is silently dropped,
+        // which is how playlist and fake-collection anchors used to lose their progress
+        List<PlayoutProgramScheduleAnchor> oldestAnchorPerKey = playout.ProgramScheduleAnchors
+            .GroupBy(CollectionKey.ForAnchor)
+            .Map(g => g.MinBy(a => a.AnchorDateOffset.IfNone(DateTimeOffset.MaxValue).Ticks))
+            .ToList();
 
         playout.ProgramScheduleAnchors.Clear();
-
-        foreach (int collectionId in collectionIds)
-        {
-            PlayoutProgramScheduleAnchor minAnchor = allAnchors.Filter(a => a.CollectionId == collectionId)
-                .MinBy(a => a.AnchorDateOffset.IfNone(DateTimeOffset.MaxValue).Ticks);
-            playout.ProgramScheduleAnchors.Add(minAnchor);
-        }
-
-        foreach (int multiCollectionId in multiCollectionIds)
-        {
-            PlayoutProgramScheduleAnchor minAnchor = allAnchors.Filter(a => a.MultiCollectionId == multiCollectionId)
-                .MinBy(a => a.AnchorDateOffset.IfNone(DateTimeOffset.MaxValue).Ticks);
-            playout.ProgramScheduleAnchors.Add(minAnchor);
-        }
-
-        foreach (int smartCollectionId in smartCollectionIds)
-        {
-            PlayoutProgramScheduleAnchor minAnchor = allAnchors.Filter(a => a.SmartCollectionId == smartCollectionId)
-                .MinBy(a => a.AnchorDateOffset.IfNone(DateTimeOffset.MaxValue).Ticks);
-            playout.ProgramScheduleAnchors.Add(minAnchor);
-        }
-
-        foreach (string searchQuery in searchQueries)
-        {
-            PlayoutProgramScheduleAnchor minAnchor = allAnchors.Filter(a => a.SearchQuery == searchQuery)
-                .MinBy(a => a.AnchorDateOffset.IfNone(DateTimeOffset.MaxValue).Ticks);
-            playout.ProgramScheduleAnchors.Add(minAnchor);
-        }
-
-        foreach (int rerunCollectionId in rerunCollectionIds)
-        {
-            PlayoutProgramScheduleAnchor minAnchor = allAnchors.Filter(a => a.RerunCollectionId == rerunCollectionId)
-                .MinBy(a => a.AnchorDateOffset.IfNone(DateTimeOffset.MaxValue).Ticks);
-            playout.ProgramScheduleAnchors.Add(minAnchor);
-        }
-
-        foreach (int mediaItemId in mediaItemIds)
-        {
-            PlayoutProgramScheduleAnchor minAnchor = allAnchors.Filter(a => a.MediaItemId == mediaItemId)
-                .MinBy(a => a.AnchorDateOffset.IfNone(DateTimeOffset.MaxValue).Ticks);
-            playout.ProgramScheduleAnchors.Add(minAnchor);
-        }
+        playout.ProgramScheduleAnchors.AddRange(oldestAnchorPerKey);
 
         // _logger.LogDebug("Oldest anchors for each collection: {@Anchors}", playout.ProgramScheduleAnchors);
 
@@ -257,9 +207,11 @@ public class PlayoutBuilder : IPlayoutBuilder
 
         // _logger.LogDebug("Final anchors: {@Anchors}", playout.ProgramScheduleAnchors);
 
+        // rewind to the start of today, so take the earliest rather than whichever comes first
         Option<DateTime> maybeAnchorDate = playout.ProgramScheduleAnchors
             .Map(a => Optional(a.AnchorDate))
             .Somes()
+            .OrderBy(d => d)
             .HeadOrNone();
 
         foreach (DateTime anchorDate in maybeAnchorDate)

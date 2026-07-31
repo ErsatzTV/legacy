@@ -16,6 +16,22 @@ public class CollectionKey : Record<CollectionKey>
     public string SearchQuery { get; set; }
     public string FakeCollectionKey { get; set; }
 
+    // the inverse of the other factories: every column that makes up an anchor's identity.
+    // keep in sync with PlayoutBuilder.AnchorMatchesCollectionKey
+    public static CollectionKey ForAnchor(PlayoutProgramScheduleAnchor anchor) =>
+        new()
+        {
+            CollectionType = anchor.CollectionType,
+            CollectionId = anchor.CollectionId,
+            MultiCollectionId = anchor.MultiCollectionId,
+            SmartCollectionId = anchor.SmartCollectionId,
+            RerunCollectionId = anchor.RerunCollectionId,
+            MediaItemId = anchor.MediaItemId,
+            PlaylistId = anchor.PlaylistId,
+            SearchQuery = anchor.SearchQuery,
+            FakeCollectionKey = anchor.FakeCollectionKey
+        };
+
     public static CollectionKey ForPlaylistItem(PlaylistItem item) =>
         item.CollectionType switch
         {
