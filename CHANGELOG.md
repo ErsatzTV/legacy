@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
+### Fixed
+- Fix regression from `v26.6.0` that broke `MPEG-TS` channels on Windows when the channel name or the ffmpeg path contains non-english characters (like `Télévision`)
+  - Affected channels would connect but never send any data
+  - `MPEG-TS (Legacy)` and channel preview were not affected
+  - Custom MPEG-TS scripts can now use the `ETV_CHANNEL_NAME`, `ETV_HLS_URL` and `ETV_FFMPEG_PATH` environment variables, which are not affected by this issue; the `{{ ChannelName }}`, `{{ HlsUrl }}` and `{{ FFmpegPath }}` template variables continue to work but remain affected
 
 ## [26.7.1] - 2026-07-31
 ### Changed
