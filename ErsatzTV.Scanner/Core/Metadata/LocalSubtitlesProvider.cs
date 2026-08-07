@@ -87,7 +87,11 @@ public class LocalSubtitlesProvider : ILocalSubtitlesProvider
             var subtitles = subtitleStreams.Map(Subtitle.FromMediaStream).ToList();
             string mediaItemPath = await localPath.IfNoneAsync(() => mediaItem.GetHeadVersion().MediaFiles.Head().Path);
             subtitles.AddRange(LocateExternalSubtitles(_languageCodes, mediaItemPath, saveFullPath));
-            bool updateResult = await _metadataRepository.UpdateSubtitles(metadata, subtitles, cancellationToken);
+            bool updateResult = await _metadataRepository.UpdateSubtitles(
+                metadata,
+                subtitles,
+                SidecarSubtitleIdentity.FileName,
+                cancellationToken);
             if (!updateResult)
             {
                 _logger.LogError("Failed to save {Count} subtitles to database", subtitles.Count);
