@@ -347,7 +347,11 @@ public class PlexOtherVideoLibraryScanner :
             }
         }
 
-        if (await _metadataRepository.UpdateSubtitles(existingMetadata, fullMetadata.Subtitles, cancellationToken))
+        if (await _metadataRepository.UpdateSubtitles(
+                existingMetadata,
+                fullMetadata.Subtitles,
+                SidecarSubtitleIdentity.StreamIndex,
+                cancellationToken))
         {
             result.IsUpdated = true;
         }
