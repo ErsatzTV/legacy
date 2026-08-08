@@ -1,3 +1,4 @@
+using System.IO.Abstractions;
 using System.IO.Pipelines;
 using System.Runtime.InteropServices;
 using System.Text.Json;
@@ -8,6 +9,7 @@ using ErsatzTV.Core;
 using ErsatzTV.Core.Domain;
 using ErsatzTV.Core.FFmpeg;
 using ErsatzTV.Core.Interfaces.Locking;
+using ErsatzTV.Core.Interfaces.Metadata;
 using ErsatzTV.Core.Interfaces.Streaming;
 using ErsatzTV.Core.Interfaces.Troubleshooting;
 using ErsatzTV.Core.Notifications;
@@ -26,6 +28,8 @@ public class StartTroubleshootingPlaybackHandler(
     IGraphicsEngine graphicsEngine,
     InMemoryLogService logService,
     LoggingLevelSwitches loggingLevelSwitches,
+    ILocalFileSystem localFileSystem,
+    IFileSystem fileSystem,
     ILogger<StartTroubleshootingPlaybackHandler> logger)
     : IRequestHandler<StartTroubleshootingPlayback>
 {
@@ -169,6 +173,23 @@ public class StartTroubleshootingPlaybackHandler(
                     "Troubleshooting playback ({ProcessName}) completed with exit code {ExitCode}",
                     processName,
                     commandResult.ExitCode);
+
+                if (request.StreamingEngine is StreamingEngine.Next)
+                {
+                    foreach (string dir in localFileSystem.ListSubdirectories(
+                                 FileSystemLayout.TranscodeTroubleshootingFolder))
+                    {
+                        foreach (string file in localFileSystem.ListFiles(dir, "ffreport.log"))
+                        {
+                            foreach (string line in await fileSystem.File.ReadAllLinesAsync(file, cancellationToken))
+                            {
+                                progressParser.ParseLine(line);
+                            }
+
+                            break;
+                        }
+                    }
+                }
 
                 progressParser.LogSpeed(
                     request.MediaItemInfo.Map(i => i.Id),
