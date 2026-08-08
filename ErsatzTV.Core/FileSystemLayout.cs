@@ -10,6 +10,7 @@ public static class FileSystemLayout
     public static readonly string TranscodeFolder;
     public static readonly string TranscodeTroubleshootingChannel;
     public static readonly string TranscodeTroubleshootingFolder;
+    public static readonly string TranscodeTroubleshootingPlayoutFolder;
 
     public static readonly string DataProtectionFolder;
     public static readonly string LogsFolder;
@@ -198,5 +199,6 @@ public static class FileSystemLayout
 
         NextChannelConfigOverlaysFolder = Path.Combine(AppDataFolder, "next", "channel-config-overlays");
         NextPlayoutsFolder = Path.Combine(AppDataFolder, "next", "playouts");
+        TranscodeTroubleshootingPlayoutFolder = Path.Combine(NextPlayoutsFolder, TranscodeTroubleshootingChannel);
     }
 }

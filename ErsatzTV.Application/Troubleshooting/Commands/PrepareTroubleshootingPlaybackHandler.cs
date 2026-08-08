@@ -1,4 +1,6 @@
+using System.Globalization;
 using System.IO.Abstractions;
+using CliWrap;
 using ErsatzTV.Application.Streaming;
 using ErsatzTV.Core;
 using ErsatzTV.Core.Domain;
@@ -11,6 +13,9 @@ using ErsatzTV.Core.Interfaces.Jellyfin;
 using ErsatzTV.Core.Interfaces.Locking;
 using ErsatzTV.Core.Interfaces.Metadata;
 using ErsatzTV.Core.Interfaces.Plex;
+using ErsatzTV.Core.Interfaces.Scheduling;
+using ErsatzTV.Core.Interfaces.Streaming;
+using ErsatzTV.Core.Next.Config;
 using ErsatzTV.Core.Notifications;
 using ErsatzTV.FFmpeg;
 using ErsatzTV.FFmpeg.State;
@@ -20,6 +25,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Serilog.Context;
 using Serilog.Events;
+using Subtitle = ErsatzTV.Core.Domain.Subtitle;
 
 namespace ErsatzTV.Application.Troubleshooting;
 
@@ -34,6 +40,8 @@ public class PrepareTroubleshootingPlaybackHandler(
     ISongVideoGenerator songVideoGenerator,
     IWatermarkSelector watermarkSelector,
     IEntityLocker entityLocker,
+    IChannelConfigConverter channelConfigConverter,
+    IPlayoutItemConverter playoutItemConverter,
     IMediator mediator,
     LoggingLevelSwitches loggingLevelSwitches,
     ILogger<PrepareTroubleshootingPlaybackHandler> logger)
@@ -41,8 +49,12 @@ public class PrepareTroubleshootingPlaybackHandler(
         plexPathReplacementService,
         jellyfinPathReplacementService,
         embyPathReplacementService,
-        fileSystem), IRequestHandler<PrepareTroubleshootingPlayback, Either<BaseError, PlayoutItemResult>>
+        fileSystem: fileSystem), IRequestHandler<PrepareTroubleshootingPlayback, Either<BaseError, PlayoutItemResult>>
 {
+    private readonly IFileSystem _fileSystem = fileSystem;
+
+    private const ChannelSubtitleMode SubtitleMode = ChannelSubtitleMode.Any;
+
     public async Task<Either<BaseError, PlayoutItemResult>> Handle(
         PrepareTroubleshootingPlayback request,
         CancellationToken cancellationToken)
@@ -170,10 +182,6 @@ public class PrepareTroubleshootingPlaybackHandler(
         localFileSystem.EnsureFolderExists(FileSystemLayout.TranscodeTroubleshootingFolder);
         localFileSystem.EmptyFolder(FileSystemLayout.TranscodeTroubleshootingFolder);
 
-        const ChannelSubtitleMode SUBTITLE_MODE = ChannelSubtitleMode.Any;
-
-        MediaVersion version = mediaItem.GetHeadVersion();
-
         string mediaPath = await GetMediaItemPath(dbContext, mediaItem, cancellationToken);
         if (string.IsNullOrEmpty(mediaPath))
         {
@@ -189,7 +197,7 @@ public class PrepareTroubleshootingPlaybackHandler(
             FFmpegProfile = ffmpegProfile,
             StreamingMode = request.StreamingMode,
             StreamSelectorMode = ChannelStreamSelectorMode.Troubleshooting,
-            SubtitleMode = SUBTITLE_MODE
+            SubtitleMode = SubtitleMode
             //SongVideoMode = ChannelSongVideoMode.WithProgress
         };
 
@@ -197,6 +205,38 @@ public class PrepareTroubleshootingPlaybackHandler(
         {
             channel.StreamSelectorMode = ChannelStreamSelectorMode.Custom;
             channel.StreamSelector = request.StreamSelector;
+        }
+
+        MediaVersion version = mediaItem.GetHeadVersion();
+
+        var duration = TimeSpan.FromSeconds(Math.Min(version.Duration.TotalSeconds, 30));
+        if (duration <= TimeSpan.Zero)
+        {
+            duration = TimeSpan.FromSeconds(30);
+        }
+
+        // we cannot burst live input
+        bool hlsRealtime = mediaItem is RemoteStream { IsLive: true };
+
+        TimeSpan inPoint = TimeSpan.Zero;
+        TimeSpan outPoint = duration;
+        if (!hlsRealtime)
+        {
+            foreach (int seekSeconds in request.SeekSeconds)
+            {
+                inPoint = TimeSpan.FromSeconds(seekSeconds);
+                if (inPoint > version.Duration)
+                {
+                    inPoint = version.Duration - duration;
+                }
+
+                if (inPoint + duration > version.Duration)
+                {
+                    duration = version.Duration - inPoint;
+                }
+
+                outPoint = inPoint + duration;
+            }
         }
 
         List<WatermarkOptions> watermarks = [];
@@ -210,9 +250,168 @@ public class PrepareTroubleshootingPlaybackHandler(
             foreach (var watermark in channelWatermarks)
             {
                 watermarks.AddRange(
-                    watermarkSelector.GetWatermarkOptions(channel, watermark, Option<ChannelWatermark>.None, shouldLogMessages: true));
+                    watermarkSelector.GetWatermarkOptions(
+                        channel,
+                        watermark,
+                        Option<ChannelWatermark>.None,
+                        shouldLogMessages: true));
             }
         }
+
+        switch (request.StreamingEngine)
+        {
+            case StreamingEngine.Next:
+                return await GetNextProcess(
+                    request,
+                    mediaItem,
+                    ffmpegProfile,
+                    channel,
+                    inPoint,
+                    outPoint,
+                    watermarks,
+                    cancellationToken);
+            default:
+                return await GetLegacyProcess(
+                    dbContext,
+                    request,
+                    mediaItem,
+                    mediaPath,
+                    ffmpegPath,
+                    ffprobePath,
+                    ffmpegProfile,
+                    channel,
+                    inPoint,
+                    watermarks,
+                    cancellationToken);
+        }
+    }
+
+    private async Task<Either<BaseError, PlayoutItemResult>> GetNextProcess(
+        PrepareTroubleshootingPlayback request,
+        MediaItem mediaItem,
+        FFmpegProfile ffmpegProfile,
+        Channel channel,
+        TimeSpan inPoint,
+        TimeSpan outPoint,
+        List<WatermarkOptions> watermarks,
+        CancellationToken cancellationToken)
+    {
+        Validation<BaseError, string> channelBinaryResult = await ChannelBinaryMustExist();
+        foreach (var error in channelBinaryResult.FailToSeq())
+        {
+            return error;
+        }
+
+        string channelBinary = channelBinaryResult.SuccessToSeq().Head();
+
+        // ignore fractional seconds so virtual start and playout item start always match
+        DateTimeOffset start = DateTimeOffset.FromUnixTimeSeconds(DateTimeOffset.Now.ToUnixTimeSeconds());
+
+        ChannelConfig config = await channelConfigConverter.ToNext(
+            Channels.Mapper.ProjectToViewModel(channel, playoutCount: 0),
+            FFmpegProfiles.Mapper.ProjectToViewModel(ffmpegProfile),
+            cancellationToken);
+
+        config.Playout.VirtualStart = start.ToString("yyyy-MM-dd'T'HH:mm:ss.fffK", CultureInfo.InvariantCulture);
+        logger.LogInformation("Config virtual start: {Start}", config.Playout.VirtualStart);
+
+        string workingDirectory = FileSystemLayout.TranscodeTroubleshootingFolder;
+        config.Ffmpeg.ReportsFolder = workingDirectory;
+
+        var playoutItem = new PlayoutItem
+        {
+            MediaItem = mediaItem,
+            MediaItemId = mediaItem.Id,
+            Start = start.UtcDateTime,
+            Finish = start.UtcDateTime.Add(outPoint - inPoint),
+            GuideStart = null,
+            GuideFinish = null,
+            CustomTitle = null,
+            GuideGroup = 0,
+            FillerKind = FillerKind.None,
+            Playout = null,
+            PlayoutId = 0,
+            InPoint = inPoint,
+            OutPoint = outPoint,
+            ChapterTitle = null,
+            Watermarks = [],
+            DisableWatermarks = request.WatermarkIds.Count == 0,
+            PreferredAudioLanguageCode = null,
+            PreferredAudioTitle = null,
+            PreferredSubtitleLanguageCode = null,
+            SubtitleMode = SubtitleMode,
+            BlockKey = null,
+            CollectionKey = null,
+            CollectionEtag = null,
+            PlayoutItemWatermarks = [],
+            GraphicsElements = [],
+            PlayoutItemGraphicsElements = []
+        };
+
+        Option<Core.Next.PlayoutItem> maybeNextPlayoutItem =
+            await playoutItemConverter.ToNext(
+                Some(channel),
+                watermarks.HeadOrNone().Map(wm => wm.Watermark),
+                TimeSpan.Zero,
+                playoutItem,
+                cancellationToken);
+
+        foreach (var nextPlayoutItem in maybeNextPlayoutItem)
+        {
+            var playout = new Core.Next.Playout
+            {
+                Version = "https://ersatztv.org/playout/version/0.0.2",
+                Items = [nextPlayoutItem]
+            };
+
+            localFileSystem.EnsureFolderExists(FileSystemLayout.TranscodeTroubleshootingPlayoutFolder);
+            localFileSystem.EmptyFolder(FileSystemLayout.TranscodeTroubleshootingPlayoutFolder);
+
+            string fileName = _fileSystem.Path.Combine(
+                FileSystemLayout.TranscodeTroubleshootingPlayoutFolder,
+                $"{playoutItem.StartOffset.ToUnixTimeMilliseconds()}_{playoutItem.FinishOffset.ToUnixTimeMilliseconds()}.json");
+            await _fileSystem.File.WriteAllTextAsync(fileName, Core.Next.Serialize.ToJson(playout), cancellationToken);
+
+            config.Playout.Folder = FileSystemLayout.TranscodeTroubleshootingPlayoutFolder;
+
+            List<string> arguments =
+                ["run", "--output-folder", workingDirectory, "--number", channel.Number, "--troubleshoot", "-"];
+
+            string defaultOverlayFile = _fileSystem.Path.Combine(
+                FileSystemLayout.NextChannelConfigOverlaysFolder,
+                "default.json");
+            if (_fileSystem.File.Exists(defaultOverlayFile))
+            {
+                arguments.Add(defaultOverlayFile);
+            }
+
+            Command command = Cli.Wrap(channelBinary)
+                .WithArguments(arguments)
+                .WithStandardInputPipe(PipeSource.FromString(config.ToJson()));
+
+            return new PlayoutItemResult(
+                command,
+                Option<GraphicsEngineContext>.None,
+                Some(request.MediaItemId));
+        }
+
+        return BaseError.New("Failed to prepare troubleshooting playback using next engine");
+    }
+
+    private async Task<Either<BaseError, PlayoutItemResult>> GetLegacyProcess(
+        TvContext dbContext,
+        PrepareTroubleshootingPlayback request,
+        MediaItem mediaItem,
+        string mediaPath,
+        string ffmpegPath,
+        string ffprobePath,
+        FFmpegProfile ffmpegProfile,
+        Channel channel,
+        TimeSpan inPoint,
+        List<WatermarkOptions> watermarks,
+        CancellationToken cancellationToken)
+    {
+        MediaVersion version = mediaItem.GetHeadVersion();
 
         string videoPath = mediaPath;
         MediaVersion videoVersion = version;
@@ -268,27 +467,6 @@ public class PrepareTroubleshootingPlaybackHandler(
         // we cannot burst live input
         bool hlsRealtime = mediaItem is RemoteStream { IsLive: true };
 
-        TimeSpan inPoint = TimeSpan.Zero;
-        TimeSpan outPoint = duration;
-        if (!hlsRealtime)
-        {
-            foreach (int seekSeconds in request.SeekSeconds)
-            {
-                inPoint = TimeSpan.FromSeconds(seekSeconds);
-                if (inPoint > version.Duration)
-                {
-                    inPoint = version.Duration - duration;
-                }
-
-                if (inPoint + duration > version.Duration)
-                {
-                    duration = version.Duration - inPoint;
-                }
-
-                outPoint = inPoint + duration;
-            }
-        }
-
         List<GraphicsElement> graphicsElements = await dbContext.GraphicsElements
             .Where(ge => request.GraphicsElementIds.Contains(ge.Id))
             .ToListAsync(cancellationToken);
@@ -306,7 +484,7 @@ public class PrepareTroubleshootingPlaybackHandler(
             string.Empty,
             string.Empty,
             string.Empty,
-            SUBTITLE_MODE,
+            SubtitleMode,
             now,
             now + duration,
             now,

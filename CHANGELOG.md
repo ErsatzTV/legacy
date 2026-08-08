@@ -4,6 +4,9 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
+### Added
+- Add `Streaming Engine` dropdown to playback troubleshooter to support troubleshooting Next engine playback
+
 ### Fixed
 - Fix regression from `v26.6.0` that caused external (sidecar) subtitles from Jellyfin and Emby to go missing
   - All Jellyfin external subtitles were deleted by hourly maintenance, so they were missing from **Troubleshooting** > **Playback** and were never burned in

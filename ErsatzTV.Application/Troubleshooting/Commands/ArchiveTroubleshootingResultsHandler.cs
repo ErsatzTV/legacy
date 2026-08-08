@@ -13,39 +13,61 @@ public class ArchiveTroubleshootingResultsHandler(ILocalFileSystem localFileSyst
         using ZipArchive zipArchive = ZipFile.Open(tempFile, ZipArchiveMode.Update);
 
         var hasReport = false;
-        foreach (string file in localFileSystem.ListFiles(FileSystemLayout.TranscodeTroubleshootingFolder))
+        List<string> directories =
+        [
+            FileSystemLayout.TranscodeTroubleshootingFolder,
+            .. localFileSystem.ListSubdirectories(FileSystemLayout.TranscodeTroubleshootingFolder)
+        ];
+
+        foreach (string directory in directories)
         {
-            string fileName = Path.GetFileName(file);
-
-            // add to archive
-            if (fileName.StartsWith("ffmpeg-", StringComparison.OrdinalIgnoreCase))
+            foreach (string file in localFileSystem.ListFiles(directory))
             {
-                hasReport = true;
-                zipArchive.CreateEntryFromFile(file, fileName);
-                continue;
-            }
+                string fileName = Path.GetFileName(file);
 
-            if (fileName.Equals("logs.txt", StringComparison.OrdinalIgnoreCase))
-            {
-                zipArchive.CreateEntryFromFile(file, fileName);
-                continue;
-            }
+                // add to archive
+                if (fileName.StartsWith("ffmpeg-", StringComparison.OrdinalIgnoreCase))
+                {
+                    hasReport = true;
+                    zipArchive.CreateEntryFromFile(file, fileName);
+                    continue;
+                }
 
-            if (Path.GetExtension(file).Equals(".json", StringComparison.OrdinalIgnoreCase))
-            {
-                zipArchive.CreateEntryFromFile(file, fileName);
-                continue;
-            }
+                if (fileName.Equals("logs.txt", StringComparison.OrdinalIgnoreCase))
+                {
+                    zipArchive.CreateEntryFromFile(file, fileName);
+                    continue;
+                }
 
-            if (fileName.Contains("capabilities", StringComparison.OrdinalIgnoreCase))
-            {
-                zipArchive.CreateEntryFromFile(file, fileName);
-                continue;
-            }
+                if (Path.GetExtension(file).Equals(".json", StringComparison.OrdinalIgnoreCase))
+                {
+                    zipArchive.CreateEntryFromFile(file, fileName);
+                    continue;
+                }
 
-            if (fileName.Contains("stream-selector", StringComparison.OrdinalIgnoreCase))
-            {
-                zipArchive.CreateEntryFromFile(file, fileName);
+                if (fileName.Contains("capabilities", StringComparison.OrdinalIgnoreCase))
+                {
+                    zipArchive.CreateEntryFromFile(file, fileName);
+                    continue;
+                }
+
+                if (fileName.Contains("stream-selector", StringComparison.OrdinalIgnoreCase))
+                {
+                    zipArchive.CreateEntryFromFile(file, fileName);
+                    continue;
+                }
+
+                if (fileName.Contains("ffreport", StringComparison.OrdinalIgnoreCase))
+                {
+                    hasReport = true;
+                    zipArchive.CreateEntryFromFile(file, fileName);
+                    continue;
+                }
+
+                if (fileName.Contains("outcome", StringComparison.OrdinalIgnoreCase))
+                {
+                    zipArchive.CreateEntryFromFile(file, fileName);
+                }
             }
         }
 

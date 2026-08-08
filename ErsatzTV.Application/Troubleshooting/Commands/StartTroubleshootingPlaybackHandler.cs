@@ -114,9 +114,12 @@ public class StartTroubleshootingPlaybackHandler(
                     cancellationToken);
             }
 
-            logger.LogDebug(
-                "ffmpeg troubleshooting arguments {FFmpegArguments}",
-                request.PlayoutItemResult.Process.Arguments);
+            if (request.StreamingEngine is StreamingEngine.Legacy)
+            {
+                logger.LogDebug(
+                    "ffmpeg troubleshooting arguments {FFmpegArguments}",
+                    request.PlayoutItemResult.Process.Arguments);
+            }
 
             Option<Pipe> maybePipe = Option<Pipe>.None;
 
@@ -142,10 +145,18 @@ public class StartTroubleshootingPlaybackHandler(
 
                 var progressParser = new FFmpegProgress();
 
+                var outputPipe = request.StreamingEngine is StreamingEngine.Legacy
+                    ? PipeTarget.ToDelegate(progressParser.ParseLine)
+                    : PipeTarget.ToDelegate(l => logger.LogDebug("{Line}", l));
+
+                var errorPipe = request.StreamingEngine is StreamingEngine.Legacy
+                    ? PipeTarget.Null
+                    : PipeTarget.ToDelegate(l => logger.LogDebug("{Line}", l));
+
                 CommandResult commandResult = await processWithPipe
                     .WithWorkingDirectory(FileSystemLayout.TranscodeTroubleshootingFolder)
-                    .WithStandardErrorPipe(PipeTarget.Null)
-                    .WithStandardOutputPipe(PipeTarget.ToDelegate(progressParser.ParseLine))
+                    .WithStandardErrorPipe(errorPipe)
+                    .WithStandardOutputPipe(outputPipe)
                     .WithValidation(CommandResultValidation.None)
                     .ExecuteAsync(linkedCts.Token);
 

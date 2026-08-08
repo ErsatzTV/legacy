@@ -367,6 +367,7 @@ public class Startup
             FileSystemLayout.DefaultMpegTsScriptFolder,
             FileSystemLayout.NextChannelConfigOverlaysFolder,
             FileSystemLayout.NextPlayoutsFolder,
+            FileSystemLayout.TranscodeTroubleshootingPlayoutFolder,
         ];
 
         foreach (string directory in directoriesToCreate)
@@ -828,6 +829,7 @@ public class Startup
         services.AddScoped<IMpegTsScriptService, MpegTsScriptService>();
         services.AddScoped<ILanguageCodeService, LanguageCodeService>();
         services.AddScoped<IPlayoutItemConverter, PlayoutItemConverter>();
+        services.AddScoped<IChannelConfigConverter, ChannelConfigConverter>();
         services.AddScoped<IDynamicPlayoutItemService, DynamicPlayoutItemService>();
 
         services.AddScoped<IFFmpegProcessService, FFmpegLibraryProcessService>();

@@ -63,6 +63,15 @@
             <MudDivider Class="mb-6"/>
             <MudStack Row="true" Breakpoint="Breakpoint.SmAndDown" Class="form-field-stack gap-md-8 mb-5">
                 <div class="d-flex">
+                    <MudText>Streaming Engine</MudText>
+                </div>
+                <MudSelect @bind-Value="_streamingEngine" For="@(() => _streamingEngine)">
+                    <MudSelectItem Value="StreamingEngine.Legacy">Legacy</MudSelectItem>
+                    <MudSelectItem Value="StreamingEngine.Next">Next</MudSelectItem>
+                </MudSelect>
+            </MudStack>
+            <MudStack Row="true" Breakpoint="Breakpoint.SmAndDown" Class="form-field-stack gap-md-8 mb-5">
+                <div class="d-flex">
                     <MudText>FFmpeg Profile</MudText>
                 </div>
                 <MudSelect @bind-Value="_ffmpegProfileId" For="@(() => _ffmpegProfileId)">
@@ -72,17 +81,20 @@
                     }
                 </MudSelect>
             </MudStack>
-            <MudStack Row="true" Breakpoint="Breakpoint.SmAndDown" Class="form-field-stack gap-md-8 mb-5">
-                <div class="d-flex">
-                    <MudText>Stream Selector</MudText>
-                </div>
-                <MudSelect @bind-Value="_streamSelector" For="@(() => _streamSelector)" Clearable="true" Disabled="@(_streamSelectors.Count == 0)">
-                    @foreach (string selector in _streamSelectors)
-                    {
-                        <MudSelectItem T="string" Value="@selector">@selector</MudSelectItem>
-                    }
-                </MudSelect>
-            </MudStack>
+            @if (_streamingEngine is StreamingEngine.Legacy)
+            {
+                <MudStack Row="true" Breakpoint="Breakpoint.SmAndDown" Class="form-field-stack gap-md-8 mb-5">
+                    <div class="d-flex">
+                        <MudText>Stream Selector</MudText>
+                    </div>
+                    <MudSelect @bind-Value="_streamSelector" For="@(() => _streamSelector)" Clearable="true" Disabled="@(_streamSelectors.Count == 0)">
+                        @foreach (string selector in _streamSelectors)
+                        {
+                            <MudSelectItem T="string" Value="@selector">@selector</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudStack>
+            }
             @if (_channelMode)
             {
                 <MudStack Row="true" Breakpoint="Breakpoint.SmAndDown" Class="form-field-stack gap-md-8 mb-5">
@@ -108,26 +120,38 @@
                 </MudStack>
                 <MudStack Row="true" Breakpoint="Breakpoint.SmAndDown" Class="form-field-stack gap-md-8 mb-5">
                     <div class="d-flex">
-                        <MudText>Watermarks</MudText>
+                        @if (_streamingEngine is StreamingEngine.Legacy)
+                        {
+                            <MudText>Watermarks</MudText>
+                        }
+                        else
+                        {
+                            <MudText>Watermark</MudText>
+                        }
                     </div>
-                    <MudSelect T="string" @bind-SelectedValues="_watermarkNames" Clearable="true" MultiSelection="true">
+                    <MudSelect T="string" @bind-SelectedValues="_watermarkNames" Clearable="true" MultiSelection="_streamingEngine is StreamingEngine.Legacy">
                         @foreach (WatermarkViewModel watermark in _watermarks)
                         {
                             <MudSelectItem T="string" Value="@watermark.Name">@watermark.Name</MudSelectItem>
                         }
                     </MudSelect>
                 </MudStack>
-                <MudStack Row="true" Breakpoint="Breakpoint.SmAndDown" Class="form-field-stack gap-md-8 mb-5">
-                    <div class="d-flex">
-                        <MudText>Graphics Elements</MudText>
-                    </div>
-                    <MudSelect T="string" @bind-SelectedValues="_graphicsElementNames" Clearable="true" MultiSelection="true">
-                        @foreach (GraphicsElementViewModel graphicsElement in _graphicsElements)
-                        {
-                            <MudSelectItem T="string" Value="@graphicsElement.Name">@graphicsElement.Name</MudSelectItem>
-                        }
-                    </MudSelect>
-                </MudStack>
+                if (_streamingEngine is StreamingEngine.Legacy)
+                {
+                    <MudStack Row="true" Breakpoint="Breakpoint.SmAndDown" Class="form-field-stack gap-md-8 mb-5">
+                        <div class="d-flex">
+                            <MudText>Graphics Elements</MudText>
+                        </div>
+                        <MudSelect T="string" @bind-SelectedValues="_graphicsElementNames" Clearable="true"
+                                   MultiSelection="true">
+                            @foreach (GraphicsElementViewModel graphicsElement in _graphicsElements)
+                            {
+                                <MudSelectItem T="string"
+                                               Value="@graphicsElement.Name">@graphicsElement.Name</MudSelectItem>
+                            }
+                        </MudSelect>
+                    </MudStack>
+                }
                 <MudStack Row="true" Breakpoint="Breakpoint.SmAndDown" Class="form-field-stack gap-md-8 mb-5">
                     <div class="d-flex">
                         <MudText>Start From Beginning</MudText>
@@ -204,6 +228,7 @@
     private readonly StreamingMode _streamingMode = StreamingMode.HttpLiveStreamingSegmenter;
     private int _ffmpegProfileId;
     private bool _channelMode;
+    private StreamingEngine _streamingEngine = StreamingEngine.Legacy;
     private string _streamSelector;
     private IReadOnlyCollection<string> _watermarkNames = new System.Collections.Generic.HashSet<string>();
     private IReadOnlyCollection<string> _graphicsElementNames = new System.Collections.Generic.HashSet<string>();
@@ -349,6 +374,8 @@
         {
             queryString.Add(new KeyValuePair<string, string>("subtitleId", _subtitleId.Value.ToString()));
         }
+
+        queryString.Add(new KeyValuePair<string, string>("streamingEngine", _streamingEngine.ToString()));
 
         string uriWithQuery = QueryHelpers.AddQueryString(apiUri, queryString);
         await JsRuntime.InvokeVoidAsync("previewChannel", uriWithQuery);

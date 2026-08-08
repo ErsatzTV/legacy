@@ -1,5 +1,6 @@
 using System.IO.Abstractions;
 using Dapper;
+using ErsatzTV.Application.Streaming;
 using ErsatzTV.Core;
 using ErsatzTV.Core.Domain;
 using ErsatzTV.Core.Errors;
@@ -18,13 +19,18 @@ public abstract class TroubleshootingHandlerBase(
     IJellyfinPathReplacementService jellyfinPathReplacementService,
     IEmbyPathReplacementService embyPathReplacementService,
     IFileSystem fileSystem)
+    : NextChannelHandlerBase(fileSystem)
 {
+    private readonly IFileSystem _fileSystem = fileSystem;
+
     protected static async Task<Validation<BaseError, MediaItem>> MediaItemMustExist(
         TvContext dbContext,
         int mediaItemId,
         CancellationToken cancellationToken) =>
         await dbContext.MediaItems
             .AsNoTracking()
+            .Include(mi => mi.LibraryPath)
+            .ThenInclude(mi => mi.Library)
             .Include(mi => (mi as Episode).EpisodeMetadata)
             .ThenInclude(em => em.Subtitles)
             .Include(mi => (mi as Episode).MediaVersions)
@@ -103,7 +109,7 @@ public abstract class TroubleshootingHandlerBase(
         string path = await GetLocalPath(mediaItem, cancellationToken);
 
         // check filesystem first
-        if (fileSystem.File.Exists(path))
+        if (_fileSystem.File.Exists(path))
         {
             if (mediaItem is RemoteStream remoteStream)
             {
