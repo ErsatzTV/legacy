@@ -81,20 +81,17 @@
                     }
                 </MudSelect>
             </MudStack>
-            @if (_streamingEngine is StreamingEngine.Legacy)
-            {
-                <MudStack Row="true" Breakpoint="Breakpoint.SmAndDown" Class="form-field-stack gap-md-8 mb-5">
-                    <div class="d-flex">
-                        <MudText>Stream Selector</MudText>
-                    </div>
-                    <MudSelect @bind-Value="_streamSelector" For="@(() => _streamSelector)" Clearable="true" Disabled="@(_streamSelectors.Count == 0)">
-                        @foreach (string selector in _streamSelectors)
-                        {
-                            <MudSelectItem T="string" Value="@selector">@selector</MudSelectItem>
-                        }
-                    </MudSelect>
-                </MudStack>
-            }
+            <MudStack Row="true" Breakpoint="Breakpoint.SmAndDown" Class="form-field-stack gap-md-8 mb-5">
+                <div class="d-flex">
+                    <MudText>Stream Selector</MudText>
+                </div>
+                <MudSelect @bind-Value="_streamSelector" For="@(() => _streamSelector)" Clearable="true" Disabled="@(_streamSelectors.Count == 0)">
+                    @foreach (string selector in _streamSelectors)
+                    {
+                        <MudSelectItem T="string" Value="@selector">@selector</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudStack>
             @if (_channelMode)
             {
                 <MudStack Row="true" Breakpoint="Breakpoint.SmAndDown" Class="form-field-stack gap-md-8 mb-5">

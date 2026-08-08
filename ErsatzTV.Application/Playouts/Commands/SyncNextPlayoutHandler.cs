@@ -253,6 +253,8 @@ public partial class SyncNextPlayoutHandler(
                     maybeGlobalWatermark,
                     playoutOffset,
                     playoutItem,
+                    Option<List<Subtitle>>.None,
+                    shouldLogMessages: false,
                     cancellationToken);
 
                 foreach (var nextPlayoutItem in maybeNextPlayoutItem)
