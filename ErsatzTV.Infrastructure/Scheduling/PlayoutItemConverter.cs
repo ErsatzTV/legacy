@@ -67,6 +67,8 @@ public class PlayoutItemConverter(
             maybeGlobalWatermark,
             playoutOffset,
             playoutItem,
+            Option<List<Subtitle>>.None,
+            false,
             cancellationToken);
     }
 
@@ -75,6 +77,8 @@ public class PlayoutItemConverter(
         Option<ChannelWatermark> maybeGlobalWatermark,
         TimeSpan playoutOffset,
         PlayoutItem playoutItem,
+        Option<List<Subtitle>> subtitles,
+        bool shouldLogMessages,
         CancellationToken cancellationToken)
     {
         if (playoutItem is not DynamicPlayoutItem &&
@@ -200,6 +204,8 @@ public class PlayoutItemConverter(
                     playoutItem.PreferredAudioTitle ?? channel.PreferredAudioTitle,
                     playoutItem.PreferredSubtitleLanguageCode ?? channel.PreferredSubtitleLanguageCode,
                     playoutItem.SubtitleMode ?? channel.SubtitleMode,
+                    subtitles,
+                    shouldLogMessages,
                     cancellationToken);
                 await SelectWatermark(
                     maybeGlobalWatermark,
@@ -360,9 +366,15 @@ public class PlayoutItemConverter(
         string preferredAudioTitle,
         string preferredSubtitleLanguage,
         ChannelSubtitleMode subtitleMode,
+        Option<List<Subtitle>> subtitles,
+        bool shouldLogMessages,
         CancellationToken cancellationToken)
     {
-        List<Subtitle> allSubtitles = await GetSubtitles(channel, audioVersion.MediaItem, playoutItem.Id, playoutItem.InPoint);
+        List<Subtitle> allSubtitles = await subtitles.IfNoneAsync(
+            await GetSubtitles(channel, audioVersion.MediaItem, playoutItem.Id, playoutItem.InPoint));
+
+        // TODO: external image subtitles
+        allSubtitles.RemoveAll(s => s.IsImage && s.SubtitleKind is not SubtitleKind.Embedded);
 
         Option<MediaStream> maybeAudioStream = Option<MediaStream>.None;
         Option<Subtitle> maybeSubtitle = Option<Subtitle>.None;
@@ -374,7 +386,7 @@ public class PlayoutItemConverter(
                 nextPlayoutItem.Start,
                 audioVersion,
                 allSubtitles,
-                shouldLogMessages: false);
+                shouldLogMessages);
             maybeAudioStream = result.AudioStream;
             maybeSubtitle = result.Subtitle;
         }
@@ -388,7 +400,7 @@ public class PlayoutItemConverter(
                     channel,
                     preferredAudioLanguage,
                     preferredAudioTitle,
-                    shouldLogMessages: false,
+                    shouldLogMessages,
                     cancellationToken);
 
             maybeSubtitle =
@@ -397,7 +409,7 @@ public class PlayoutItemConverter(
                     channel,
                     preferredSubtitleLanguage,
                     subtitleMode,
-                    shouldLogMessages: false,
+                    shouldLogMessages,
                     cancellationToken);
         }
 
@@ -584,9 +596,6 @@ public class PlayoutItemConverter(
             // closed captions are currently unsupported
             allSubtitles.RemoveAll(s => s.Codec == "eia_608");
         }
-
-        // TODO: external image subtitles
-        allSubtitles.RemoveAll(s => s.IsImage && s.SubtitleKind is not SubtitleKind.Embedded);
 
         return allSubtitles;
     }

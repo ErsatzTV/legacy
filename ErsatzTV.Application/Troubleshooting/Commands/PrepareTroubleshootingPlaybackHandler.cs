@@ -195,6 +195,7 @@ public class PrepareTroubleshootingPlaybackHandler(
             Name = "ETV",
             Number = FileSystemLayout.TranscodeTroubleshootingChannel,
             FFmpegProfile = ffmpegProfile,
+            StreamingEngine = request.StreamingEngine,
             StreamingMode = request.StreamingMode,
             StreamSelectorMode = ChannelStreamSelectorMode.Troubleshooting,
             SubtitleMode = SubtitleMode
@@ -354,6 +355,8 @@ public class PrepareTroubleshootingPlaybackHandler(
                 watermarks.HeadOrNone().Map(wm => wm.Watermark),
                 TimeSpan.Zero,
                 playoutItem,
+                await GetSubtitles(mediaItem, request),
+                shouldLogMessages: true,
                 cancellationToken);
 
         foreach (var nextPlayoutItem in maybeNextPlayoutItem)

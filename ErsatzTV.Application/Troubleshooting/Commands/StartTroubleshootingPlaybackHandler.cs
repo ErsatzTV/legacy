@@ -1,12 +1,15 @@
+using System.IO.Abstractions;
 using System.IO.Pipelines;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using CliWrap;
+using ErsatzTV.Application.Streaming;
 using ErsatzTV.Core;
 using ErsatzTV.Core.Domain;
 using ErsatzTV.Core.FFmpeg;
 using ErsatzTV.Core.Interfaces.Locking;
+using ErsatzTV.Core.Interfaces.Metadata;
 using ErsatzTV.Core.Interfaces.Streaming;
 using ErsatzTV.Core.Interfaces.Troubleshooting;
 using ErsatzTV.Core.Notifications;
@@ -25,6 +28,8 @@ public class StartTroubleshootingPlaybackHandler(
     IGraphicsEngine graphicsEngine,
     InMemoryLogService logService,
     LoggingLevelSwitches loggingLevelSwitches,
+    ILocalFileSystem localFileSystem,
+    IFileSystem fileSystem,
     ILogger<StartTroubleshootingPlaybackHandler> logger)
     : IRequestHandler<StartTroubleshootingPlayback>
 {
@@ -147,11 +152,11 @@ public class StartTroubleshootingPlaybackHandler(
 
                 var outputPipe = request.StreamingEngine is StreamingEngine.Legacy
                     ? PipeTarget.ToDelegate(progressParser.ParseLine)
-                    : PipeTarget.ToDelegate(l => logger.LogDebug("{Line}", l));
+                    : PipeTarget.ToDelegate(l => NextLogger.LogNextLine(l, logger));
 
                 var errorPipe = request.StreamingEngine is StreamingEngine.Legacy
                     ? PipeTarget.Null
-                    : PipeTarget.ToDelegate(l => logger.LogDebug("{Line}", l));
+                    : PipeTarget.ToDelegate(l => NextLogger.LogNextLine(l, logger));
 
                 CommandResult commandResult = await processWithPipe
                     .WithWorkingDirectory(FileSystemLayout.TranscodeTroubleshootingFolder)
@@ -160,7 +165,31 @@ public class StartTroubleshootingPlaybackHandler(
                     .WithValidation(CommandResultValidation.None)
                     .ExecuteAsync(linkedCts.Token);
 
-                logger.LogDebug("Troubleshooting playback completed with exit code {ExitCode}", commandResult.ExitCode);
+                string processName = request.StreamingEngine is StreamingEngine.Legacy
+                    ? "ffmpeg"
+                    : "ersatztv-channel";
+
+                logger.LogDebug(
+                    "Troubleshooting playback ({ProcessName}) completed with exit code {ExitCode}",
+                    processName,
+                    commandResult.ExitCode);
+
+                if (request.StreamingEngine is StreamingEngine.Next)
+                {
+                    foreach (string dir in localFileSystem.ListSubdirectories(
+                                 FileSystemLayout.TranscodeTroubleshootingFolder))
+                    {
+                        foreach (string file in localFileSystem.ListFiles(dir, "ffreport.log"))
+                        {
+                            foreach (string line in await fileSystem.File.ReadAllLinesAsync(file, cancellationToken))
+                            {
+                                progressParser.ParseLine(line);
+                            }
+
+                            break;
+                        }
+                    }
+                }
 
                 progressParser.LogSpeed(
                     request.MediaItemInfo.Map(i => i.Id),
