@@ -107,6 +107,9 @@ namespace ErsatzTV.Core.Next.Config
         [JsonPropertyName("fonts_folder")]
         public string? FontsFolder { get; set; }
 
+        [JsonPropertyName("force_style")]
+        public string? ForceStyle { get; set; }
+
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("mode")]
         public Mode? Mode { get; set; }
