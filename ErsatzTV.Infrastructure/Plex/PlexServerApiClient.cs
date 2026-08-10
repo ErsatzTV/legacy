@@ -42,7 +42,7 @@ public class PlexServerApiClient(PlexEtag plexEtag, ILogger<PlexServerApiClient>
     {
         try
         {
-            IPlexServerApi service = RestService.For<IPlexServerApi>(
+            IPlexServerApi service = RestService.ForGenerated<IPlexServerApi>(
                 new HttpClient
                 {
                     BaseAddress = new Uri(connection.Uri),
@@ -416,7 +416,7 @@ public class PlexServerApiClient(PlexEtag plexEtag, ILogger<PlexServerApiClient>
     {
         try
         {
-            IPlexServerApi service = RestService.For<IPlexServerApi>(
+            IPlexServerApi service = RestService.ForGenerated<IPlexServerApi>(
                 new HttpClient { BaseAddress = new Uri(connection.Uri) });
 
             PlexMediaContainerResponse<PlexMediaContainerHubContent<PlexHubResponse>> searchResponse =
@@ -466,7 +466,7 @@ public class PlexServerApiClient(PlexEtag plexEtag, ILogger<PlexServerApiClient>
 
         const int PAGE_SIZE = 10;
 
-        IPlexServerApi jsonService = RestService.For<IPlexServerApi>(connection.Uri);
+        IPlexServerApi jsonService = RestService.ForGenerated<IPlexServerApi>(connection.Uri);
         int pages = (size - 1) / PAGE_SIZE + 1;
 
         for (var i = 0; i < pages; i++)
@@ -490,7 +490,7 @@ public class PlexServerApiClient(PlexEtag plexEtag, ILogger<PlexServerApiClient>
 
         TimeSpan httpClientTimeout = timeout ?? TimeSpan.FromSeconds(30);
 
-        return RestService.For<IPlexServerApi>(
+        return RestService.ForGenerated<IPlexServerApi>(
             new HttpClient
             {
                 BaseAddress = new Uri(uri),
