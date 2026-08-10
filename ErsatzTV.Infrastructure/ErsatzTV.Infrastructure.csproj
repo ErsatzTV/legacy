@@ -13,7 +13,7 @@
 
     <ItemGroup>
         <PackageReference Include="Blurhash.SkiaSharp" Version="2.0.0" />
-        <PackageReference Include="CliWrap" Version="3.10.2" />
+        <PackageReference Include="CliWrap" Version="3.10.4" />
         <PackageReference Include="Dapper" Version="2.1.79" />
         <PackageReference Include="EFCore.BulkExtensions" Version="[9.0.2,10)" />
         <PackageReference Include="Elastic.Clients.Elasticsearch" Version="9.4.2" />
@@ -34,7 +34,7 @@
         <PackageReference Include="Refit.Newtonsoft.Json" Version="13.1.0" />
         <PackageReference Include="Refit.Xml" Version="13.1.0" />
         <PackageReference Include="RichTextKit.Stbear" Version="0.4.167.3" />
-        <PackageReference Include="Scriban.Signed" Version="7.2.5" />
+        <PackageReference Include="Scriban.Signed" Version="7.2.6" />
         <PackageReference Include="SixLabors.ImageSharp" Version="[3.1.12,4)" />
         <PackageReference Include="SkiaSharp" Version="4.150.1" />
         <PackageReference Include="TagLibSharp" Version="2.3.0" />

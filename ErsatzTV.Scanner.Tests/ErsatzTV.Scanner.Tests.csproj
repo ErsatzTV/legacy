@@ -23,7 +23,7 @@
             <PrivateAssets>all</PrivateAssets>
         </PackageReference>
         <PackageReference Include="Shouldly" Version="4.3.0" />
-        <PackageReference Include="Testably.Abstractions.Testing" Version="7.0.1" />
+        <PackageReference Include="Testably.Abstractions.Testing" Version="7.0.2" />
     </ItemGroup>
 
     <ItemGroup>

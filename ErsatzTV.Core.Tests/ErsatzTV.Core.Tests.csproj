@@ -7,7 +7,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="CliWrap" Version="3.10.2" />
+        <PackageReference Include="CliWrap" Version="3.10.4" />
         <PackageReference Include="LanguageExt.Core" Version="4.4.9" />
         <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="10.0.10" />
         <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.10" />
@@ -22,7 +22,7 @@
         <PackageReference Include="Serilog.Extensions.Logging" Version="10.0.0" />
         <PackageReference Include="Serilog.Sinks.Debug" Version="3.0.0" />
         <PackageReference Include="Shouldly" Version="4.3.0" />
-        <PackageReference Include="Testably.Abstractions.Testing" Version="7.0.1" />
+        <PackageReference Include="Testably.Abstractions.Testing" Version="7.0.2" />
     </ItemGroup>
 
     <ItemGroup>

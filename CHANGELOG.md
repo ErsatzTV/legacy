@@ -7,6 +7,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Added
 - Add `Streaming Engine` dropdown to playback troubleshooter to support troubleshooting Next engine playback
 
+### Changed
+- Upgrade Mesa driver in docker from 25.2.8 to 26.0.3 to fix issues with hevc_vaapi encoder when using radeonsi driver
+
 ### Fixed
 - Fix regression from `v26.6.0` that caused external (sidecar) subtitles from Jellyfin and Emby to go missing
   - All Jellyfin external subtitles were deleted by hourly maintenance, so they were missing from **Troubleshooting** > **Playback** and were never burned in
