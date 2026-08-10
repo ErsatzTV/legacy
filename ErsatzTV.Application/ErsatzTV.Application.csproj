@@ -11,7 +11,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="CliWrap" Version="3.10.2" />
+        <PackageReference Include="CliWrap" Version="3.10.4" />
         <PackageReference Include="Humanizer.Core" Version="3.0.10" />
         <PackageReference Include="MediatR" Version="[12.5.0]" />
         <PackageReference Include="Microsoft.Extensions.Caching.Abstractions" Version="10.0.10" />
