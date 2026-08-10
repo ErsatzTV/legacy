@@ -221,6 +221,13 @@ public class YamlPlayoutDurationHandler(EnumeratorCache enumeratorCache) : YamlP
                         {
                             playoutItem.MediaItemId = fallbackItem.Id;
                             playoutItem.Finish = targetTime.UtcDateTime;
+
+                            // this item was built for the content that did not fit, so its
+                            // out point is that item's duration and has nothing to do with
+                            // the fallback taking its place; leaving it makes the fallback
+                            // claim to run longer than the gap it fills
+                            playoutItem.OutPoint = playoutItem.Finish - playoutItem.Start;
+
                             playoutItem.FillerKind = FillerKind.Fallback;
 
                             context.AddedItems.Add(playoutItem);
