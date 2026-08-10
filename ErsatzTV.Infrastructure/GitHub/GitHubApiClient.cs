@@ -10,7 +10,7 @@ public class GitHubApiClient : IGitHubApiClient
     {
         try
         {
-            IGitHubApi service = RestService.For<IGitHubApi>("https://api.github.com");
+            IGitHubApi service = RestService.ForGenerated<IGitHubApi>("https://api.github.com");
             return await service.GetReleases(cancellationToken).Map(releases => releases.Head().Body);
         }
         catch (Exception ex)
@@ -23,7 +23,7 @@ public class GitHubApiClient : IGitHubApiClient
     {
         try
         {
-            IGitHubApi service = RestService.For<IGitHubApi>("https://api.github.com");
+            IGitHubApi service = RestService.ForGenerated<IGitHubApi>("https://api.github.com");
             return await service.GetTag(tag, cancellationToken).Map(t => t.Body);
         }
         catch (Exception ex)

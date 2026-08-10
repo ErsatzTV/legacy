@@ -471,10 +471,10 @@ public class Startup
 
         services.AddMediatR(config => config.RegisterServicesFromAssemblyContaining<GetAllChannels>());
 
-        services.AddRefitClient<IPlexTvApi>()
+        services.AddRefitGeneratedClient<IPlexTvApi>()
             .ConfigureHttpClient(c => c.BaseAddress = new Uri("https://plex.tv/api/v2"));
 
-        services.AddRefitClient<ITraktApi>(
+        services.AddRefitGeneratedClient<ITraktApi>(
                 new RefitSettings
                 {
                     ContentSerializer = new NewtonsoftJsonContentSerializer(
