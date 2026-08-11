@@ -183,6 +183,14 @@ namespace ErsatzTV.Core.Next
         public List<string>? Headers { get; set; }
 
         /// <summary>
+        /// Whether the content is live and therefore cannot seek or work ahead. Default: false.
+        ///
+        /// Whether the content is live and therefore cannot work ahead. Default: false.
+        /// </summary>
+        [JsonPropertyName("is_live")]
+        public bool? IsLive { get; set; }
+
+        /// <summary>
         /// Enable persistent connections in ffmpeg. Default: false.
         /// </summary>
         [JsonPropertyName("keep_alive")]
@@ -242,12 +250,6 @@ namespace ErsatzTV.Core.Next
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("command")]
         public string? Command { get; set; }
-
-        /// <summary>
-        /// Whether the content is live and therefore cannot work ahead. Default: false.
-        /// </summary>
-        [JsonPropertyName("is_live")]
-        public bool? IsLive { get; set; }
     }
 
     /// <summary>
@@ -390,6 +392,15 @@ namespace ErsatzTV.Core.Next
         /// </summary>
         [JsonPropertyName("display_aspect_ratio")]
         public string? DisplayAspectRatio { get; set; }
+
+        /// <summary>
+        /// Dolby Vision profile from the stream's DOVI configuration record (e.g. 5, 7, 8). Profile
+        /// 5 has no backward-compatible base layer and is not described by the color_* fields;
+        /// profiles 4, 7 and 8 do, so those are handled from color_transfer alone. Omit for
+        /// non-Dolby Vision streams.
+        /// </summary>
+        [JsonPropertyName("dv_profile")]
+        public long? DvProfile { get; set; }
 
         /// <summary>
         /// Interlacing field order as reported by ffprobe ("progressive", "tt", "bb", "tb", "bt").
@@ -656,6 +667,14 @@ namespace ErsatzTV.Core.Next
         public List<string>? Headers { get; set; }
 
         /// <summary>
+        /// Whether the content is live and therefore cannot seek or work ahead. Default: false.
+        ///
+        /// Whether the content is live and therefore cannot work ahead. Default: false.
+        /// </summary>
+        [JsonPropertyName("is_live")]
+        public bool? IsLive { get; set; }
+
+        /// <summary>
         /// Enable persistent connections in ffmpeg. Default: false.
         /// </summary>
         [JsonPropertyName("keep_alive")]
@@ -715,12 +734,6 @@ namespace ErsatzTV.Core.Next
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("command")]
         public string? Command { get; set; }
-
-        /// <summary>
-        /// Whether the content is live and therefore cannot work ahead. Default: false.
-        /// </summary>
-        [JsonPropertyName("is_live")]
-        public bool? IsLive { get; set; }
     }
 
     /// <summary>
