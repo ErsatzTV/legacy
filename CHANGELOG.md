@@ -11,7 +11,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Upgrade Mesa driver in docker from 25.2.8 to 26.0.3 to fix issues with hevc_vaapi encoder when using radeonsi driver
 
 ### Fixed
-- Bundle new ffmpeg 8.1.2 build that is patched to fix Vulkan/CUDA interop on windows (i.e. tonemapping)
+- Bundle new ffmpeg 8.1.2 build that is patched to fix Vulkan/CUDA interop (tonemapping) on windows
+- Fix Vulkan/CUDA interop (tonemapping) in Docker
 - Fix regression from `v26.6.0` that caused external (sidecar) subtitles from Jellyfin and Emby to go missing
   - All Jellyfin external subtitles were deleted by hourly maintenance, so they were missing from **Troubleshooting** > **Playback** and were never burned in
   - Jellyfin and Emby items with multiple external subtitles would keep only one of them after a scan
