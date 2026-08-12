@@ -43,5 +43,4 @@ RUN fc-cache update
 WORKDIR /source
 ENV ETV_CONFIG_FOLDER=/config
 ENV ETV_TRANSCODE_FOLDER=/transcode
-ENV ETV_DISABLE_VULKAN=1
 ENTRYPOINT ["dotnet", "test", "-v", "quiet", "--no-build", "--tl", "--nologo", "ErsatzTV.Scanner.Tests/ErsatzTV.Scanner.Tests.csproj", "--logger", "console;verbosity=minimal", "--filter", "FullyQualifiedName=ErsatzTV.Scanner.Tests.Core.FFmpeg.TranscodingTests.Transcode"]
