@@ -64,5 +64,4 @@ COPY ersatztv-channel ./
 ENV PYTHONPATH=/app/pythonlibs
 ENV ETV_CONFIG_FOLDER=/config
 ENV ETV_TRANSCODE_FOLDER=/transcode
-ENV ETV_DISABLE_VULKAN=1
 ENTRYPOINT ["./ErsatzTV"]
