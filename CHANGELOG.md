@@ -6,13 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 ### Added
 - Add `Streaming Engine` dropdown to playback troubleshooter to support troubleshooting Next engine playback
-- Next engine: use `overlay_qsv` for watermarks and image subtitles
+- Next engine: use `overlay_qsv` for hardware-accelerated watermarks and image subtitles
 
 ### Changed
 - Upgrade Mesa driver in docker from 25.2.8 to 26.0.3 to fix issues with hevc_vaapi encoder when using radeonsi driver
 
 ### Fixed
-- Bundle new ffmpeg 8.1.2 build that is patched to fix Vulkan/CUDA interop (libplacebo tonemapping) on windows
+- Bundle new ffmpeg 8.1.2 build on Windows that is patched to fix
+  - Vulkan/CUDA interop (libplacebo tonemapping)
+  - Unexpected slow performance with image subtitles
 - Enable Vulkan/CUDA interop (libplacebo tonemapping) in Docker, using Legacy and Next streaming engines
 - Fix regression from `v26.6.0` that caused external (sidecar) subtitles from Jellyfin and Emby to go missing
   - All Jellyfin external subtitles were deleted by hourly maintenance, so they were missing from **Troubleshooting** > **Playback** and were never burned in
