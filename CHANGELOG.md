@@ -6,6 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 ### Added
 - Add `Streaming Engine` dropdown to playback troubleshooter to support troubleshooting Next engine playback
+- Next engine: use `overlay_qsv` for watermarks and image subtitles
 
 ### Changed
 - Upgrade Mesa driver in docker from 25.2.8 to 26.0.3 to fix issues with hevc_vaapi encoder when using radeonsi driver
@@ -21,6 +22,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Affected channels would connect but never send any data
   - `MPEG-TS (Legacy)` and channel preview were not affected
   - Custom MPEG-TS scripts can now use the `ETV_CHANNEL_NAME`, `ETV_HLS_URL` and `ETV_FFMPEG_PATH` environment variables, which are not affected by this issue; the `{{ ChannelName }}`, `{{ HlsUrl }}` and `{{ FFmpegPath }}` template variables continue to work but remain affected
+- Next engine
+  - Fix audio dropout/desync when using QSV accel and loudness normalization with certain content
+  - Fix anamorphic content scaling (was incorrectly stretched with older builds)
 
 ## [26.7.1] - 2026-07-31
 ### Changed
