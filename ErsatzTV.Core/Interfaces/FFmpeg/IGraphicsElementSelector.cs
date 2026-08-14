@@ -7,5 +7,6 @@ public interface IGraphicsElementSelector
     List<PlayoutItemGraphicsElement> SelectGraphicsElements(
         Channel channel,
         PlayoutItem playoutItem,
-        DateTimeOffset now);
+        DateTimeOffset now,
+        bool shouldLogMessages);
 }

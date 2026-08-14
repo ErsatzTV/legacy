@@ -358,7 +358,8 @@ public class GetPlayoutItemProcessByChannelNumberHandler : FFmpegProcessHandler<
             List<PlayoutItemGraphicsElement> graphicsElements = _graphicsElementSelector.SelectGraphicsElements(
                 channel,
                 playoutItemWithPath.PlayoutItem,
-                now);
+                now,
+                shouldLogMessages: true);
 
             if (playoutItemWithPath.PlayoutItem.MediaItem is Image)
             {

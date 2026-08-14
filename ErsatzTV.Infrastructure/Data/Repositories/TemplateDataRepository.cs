@@ -34,6 +34,11 @@ public class TemplateDataRepository(IFileSystem fileSystem, IDbContextFactory<Tv
     {
         try
         {
+            if (count <= 0)
+            {
+                return Option<Dictionary<string, object>>.None;
+            }
+
             if (channelNumber.Equals(
                     FileSystemLayout.TranscodeTroubleshootingChannel,
                     StringComparison.OrdinalIgnoreCase))

@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Next engine
   - Use `overlay_qsv` for hardware-accelerated watermarks and image subtitles
   - Support multiple watermarks (still only `permanent` and `intermittent` modes, not `opacity expression`)
+  - Support image graphics elements that do not use an opacity expression
 
 ### Changed
 - Upgrade Mesa driver in docker from 25.2.8 to 26.0.3 to fix issues with hevc_vaapi encoder when using radeonsi driver
