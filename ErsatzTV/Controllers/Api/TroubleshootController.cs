@@ -57,11 +57,6 @@ public class TroubleshootController(
         {
             Option<int> ss = seekSeconds > 0 ? seekSeconds : Option<int>.None;
 
-            if (streamingEngine is StreamingEngine.Next && watermark.Count > 1)
-            {
-                watermark = [watermark.Head()];
-            }
-
             Either<BaseError, PlayoutItemResult> result = await mediator.Send(
                 new PrepareTroubleshootingPlayback(
                     sessionId,

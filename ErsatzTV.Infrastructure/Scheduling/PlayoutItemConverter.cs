@@ -499,70 +499,70 @@ public class PlayoutItemConverter(
             playoutItem.StartOffset,
             shouldLogMessages: false);
 
-        // single, permanent or intermittent watermarks are supported
-        if (watermarks.Count == 1 && watermarks.All(wm =>
-                wm.Watermark.Mode is ChannelWatermarkMode.Permanent or ChannelWatermarkMode.Intermittent))
+        // permanent or intermittent watermarks are supported
+        if (watermarks.All(wm => wm.Watermark.Mode is ChannelWatermarkMode.Permanent or ChannelWatermarkMode.Intermittent))
         {
-            foreach (WatermarkOptions watermarkOptions in watermarks)
+            nextPlayoutItem.Graphics = [];
+
+            foreach (WatermarkOptions watermarkOptions in watermarks.OrderBy(wm => wm.Watermark.ZIndex))
             {
-                if (nextPlayoutItem.Watermark is null)
+                Core.Next.GraphicsLocation location = watermarkOptions.Watermark.Location switch
                 {
-                    Core.Next.WatermarkLocation location = watermarkOptions.Watermark.Location switch
-                    {
-                        WatermarkLocation.TopMiddle => Core.Next.WatermarkLocation.TopCenter,
-                        WatermarkLocation.TopRight => Core.Next.WatermarkLocation.TopRight,
-                        WatermarkLocation.LeftMiddle => Core.Next.WatermarkLocation.CenterLeft,
-                        WatermarkLocation.MiddleCenter => Core.Next.WatermarkLocation.Center,
-                        WatermarkLocation.RightMiddle => Core.Next.WatermarkLocation.CenterRight,
-                        WatermarkLocation.BottomLeft => Core.Next.WatermarkLocation.BottomLeft,
-                        WatermarkLocation.BottomMiddle => Core.Next.WatermarkLocation.BottomCenter,
-                        WatermarkLocation.BottomRight => Core.Next.WatermarkLocation.BottomRight,
-                        _ => Core.Next.WatermarkLocation.TopLeft,
-                    };
+                    WatermarkLocation.TopMiddle => Core.Next.GraphicsLocation.TopCenter,
+                    WatermarkLocation.TopRight => Core.Next.GraphicsLocation.TopRight,
+                    WatermarkLocation.LeftMiddle => Core.Next.GraphicsLocation.CenterLeft,
+                    WatermarkLocation.MiddleCenter => Core.Next.GraphicsLocation.Center,
+                    WatermarkLocation.RightMiddle => Core.Next.GraphicsLocation.CenterRight,
+                    WatermarkLocation.BottomLeft => Core.Next.GraphicsLocation.BottomLeft,
+                    WatermarkLocation.BottomMiddle => Core.Next.GraphicsLocation.BottomCenter,
+                    WatermarkLocation.BottomRight => Core.Next.GraphicsLocation.BottomRight,
+                    _ => Core.Next.GraphicsLocation.TopLeft,
+                };
 
-                    nextPlayoutItem.Watermark = new Core.Next.Watermark
-                    {
-                        Location = location,
-                        HorizontalMarginPercent = watermarkOptions.Watermark.HorizontalMarginPercent,
-                        VerticalMarginPercent = watermarkOptions.Watermark.VerticalMarginPercent,
-                        OpacityPercent = watermarkOptions.Watermark.Opacity,
-                        StreamIndex = await watermarkOptions.ImageStreamIndex.IfNoneAsync(0),
-                        WithinSourceContent = watermarkOptions.Watermark.PlaceWithinSourceContent,
-                    };
+                var layer = new Core.Next.GraphicsLayer
+                {
+                    Location = location,
+                    HorizontalMarginPercent = watermarkOptions.Watermark.HorizontalMarginPercent,
+                    VerticalMarginPercent = watermarkOptions.Watermark.VerticalMarginPercent,
+                    OpacityPercent = watermarkOptions.Watermark.Opacity,
+                    StreamIndex = await watermarkOptions.ImageStreamIndex.IfNoneAsync(0),
+                    WithinSourceContent = watermarkOptions.Watermark.PlaceWithinSourceContent,
+                };
 
-                    if (watermarkOptions.Watermark.Size is WatermarkSize.Scaled)
-                    {
-                        nextPlayoutItem.Watermark.WidthPercent = watermarkOptions.Watermark.WidthPercent;
-                    }
-
-                    if (watermarkOptions.ImagePath.StartsWith("http", StringComparison.OrdinalIgnoreCase))
-                    {
-                        nextPlayoutItem.Watermark.Source = new Core.Next.PlayoutItemSource
-                        {
-                            SourceType = Core.Next.SourceType.Http,
-                            Uri = watermarkOptions.ImagePath,
-                        };
-                    }
-                    else
-                    {
-                        nextPlayoutItem.Watermark.Source = new Core.Next.PlayoutItemSource
-                        {
-                            SourceType = Core.Next.SourceType.Local,
-                            Path = watermarkOptions.ImagePath,
-                        };
-                    }
-
-                    if (watermarkOptions.Watermark.Mode is ChannelWatermarkMode.Intermittent)
-                    {
-                        nextPlayoutItem.Watermark.Timing = new Core.Next.Timing
-                        {
-                            TimingType = Core.Next.TimingType.Periodic,
-                            Clock = Core.Next.PeriodicClock.Wall,
-                            FrequencyMs = watermarkOptions.Watermark.FrequencyMinutes * 60 * 1000,
-                            HoldMs = watermarkOptions.Watermark.DurationSeconds * 1000,
-                        };
-                    }
+                if (watermarkOptions.Watermark.Size is WatermarkSize.Scaled)
+                {
+                    layer.WidthPercent = watermarkOptions.Watermark.WidthPercent;
                 }
+
+                if (watermarkOptions.ImagePath.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+                {
+                    layer.Source = new Core.Next.PlayoutItemSource
+                    {
+                        SourceType = Core.Next.SourceType.Http,
+                        Uri = watermarkOptions.ImagePath,
+                    };
+                }
+                else
+                {
+                    layer.Source = new Core.Next.PlayoutItemSource
+                    {
+                        SourceType = Core.Next.SourceType.Local,
+                        Path = watermarkOptions.ImagePath,
+                    };
+                }
+
+                if (watermarkOptions.Watermark.Mode is ChannelWatermarkMode.Intermittent)
+                {
+                    layer.Timing = new Core.Next.Timing
+                    {
+                        TimingType = Core.Next.TimingType.Periodic,
+                        Clock = Core.Next.PeriodicClock.Wall,
+                        FrequencyMs = watermarkOptions.Watermark.FrequencyMinutes * 60 * 1000,
+                        HoldMs = watermarkOptions.Watermark.DurationSeconds * 1000,
+                    };
+                }
+
+                nextPlayoutItem.Graphics.Add(layer);
             }
         }
     }

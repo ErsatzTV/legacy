@@ -245,7 +245,7 @@ public partial class SyncNextPlayoutHandler(
                 targetFolder,
                 $"{first.StartOffset.ToUnixTimeMilliseconds()}_{last.FinishOffset.ToUnixTimeMilliseconds()}.json");
 
-            var playout = new Core.Next.Playout { Version = "https://ersatztv.org/playout/version/0.0.2", Items = [] };
+            var playout = new Core.Next.Playout { Version = "https://ersatztv.org/playout/version/0.0.3", Items = [] };
             foreach (PlayoutItem playoutItem in group)
             {
                 Option<Core.Next.PlayoutItem> maybeNextPlayoutItem = await playoutItemConverter.ToNext(
