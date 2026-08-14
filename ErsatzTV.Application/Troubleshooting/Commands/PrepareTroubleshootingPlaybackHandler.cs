@@ -335,7 +335,7 @@ public class PrepareTroubleshootingPlaybackHandler(
             InPoint = inPoint,
             OutPoint = outPoint,
             ChapterTitle = null,
-            Watermarks = [],
+            Watermarks = [.. watermarks.Map(wm => wm.Watermark)],
             DisableWatermarks = request.WatermarkIds.Count == 0,
             PreferredAudioLanguageCode = null,
             PreferredAudioTitle = null,
@@ -352,7 +352,7 @@ public class PrepareTroubleshootingPlaybackHandler(
         Option<Core.Next.PlayoutItem> maybeNextPlayoutItem =
             await playoutItemConverter.ToNext(
                 Some(channel),
-                watermarks.HeadOrNone().Map(wm => wm.Watermark),
+                [],
                 TimeSpan.Zero,
                 playoutItem,
                 await GetSubtitles(mediaItem, request),
@@ -363,7 +363,7 @@ public class PrepareTroubleshootingPlaybackHandler(
         {
             var playout = new Core.Next.Playout
             {
-                Version = "https://ersatztv.org/playout/version/0.0.2",
+                Version = "https://ersatztv.org/playout/version/0.0.3",
                 Items = [nextPlayoutItem]
             };
 

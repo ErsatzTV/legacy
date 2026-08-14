@@ -117,16 +117,9 @@
                 </MudStack>
                 <MudStack Row="true" Breakpoint="Breakpoint.SmAndDown" Class="form-field-stack gap-md-8 mb-5">
                     <div class="d-flex">
-                        @if (_streamingEngine is StreamingEngine.Legacy)
-                        {
-                            <MudText>Watermarks</MudText>
-                        }
-                        else
-                        {
-                            <MudText>Watermark</MudText>
-                        }
+                        <MudText>Watermarks</MudText>
                     </div>
-                    <MudSelect T="string" @bind-SelectedValues="_watermarkNames" Clearable="true" MultiSelection="_streamingEngine is StreamingEngine.Legacy">
+                    <MudSelect T="string" @bind-SelectedValues="_watermarkNames" Clearable="true" MultiSelection="true">
                         @foreach (WatermarkViewModel watermark in _watermarks)
                         {
                             <MudSelectItem T="string" Value="@watermark.Name">@watermark.Name</MudSelectItem>

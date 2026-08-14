@@ -65,6 +65,14 @@ namespace ErsatzTV.Core.Next
         public DateTimeOffset Finish { get; set; }
 
         /// <summary>
+        /// Ordered media-backed graphics layers. The first entry is lowest and the last entry is
+        /// highest; a compatibility `watermark` is always below this array.
+        /// </summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("graphics")]
+        public List<GraphicsLayer>? Graphics { get; set; }
+
+        /// <summary>
         /// Stable identifier for this item, unique within the playout.
         /// </summary>
         [JsonPropertyName("id")]
@@ -91,14 +99,93 @@ namespace ErsatzTV.Core.Next
         public PlayoutItemTracks? Tracks { get; set; }
 
         /// <summary>
-        /// Watermark (image/video overlay) to composite on top of the primary content for the
-        /// duration of this item. Omit for no watermark.
+        /// Compatibility graphics layer composited below every entry in `graphics`. Omit for no
+        /// legacy watermark.
         /// </summary>
         [JsonPropertyName("watermark")]
-        public Watermark? Watermark { get; set; }
+        public GraphicsLayer? Watermark { get; set; }
     }
 
     /// <summary>
+    /// An image or video graphics layer composited on top of the primary content. Sized and
+    /// positioned relative to the primary content's frame.
+    /// </summary>
+    public partial class GraphicsLayer
+    {
+        /// <summary>
+        /// Horizontal offset from the anchor `location`, as a percent of primary content width
+        /// (0–100). Omit for 0.
+        /// </summary>
+        [JsonPropertyName("horizontal_margin_percent")]
+        [JsonConverter(typeof(MinMaxValueCheckConverter))]
+        public double? HorizontalMarginPercent { get; set; }
+
+        /// <summary>
+        /// Anchor position within the primary content frame.
+        /// </summary>
+        [JsonPropertyName("location")]
+        public GraphicsLocation Location { get; set; }
+
+        /// <summary>
+        /// Opacity as a percent (0–100). Omit for fully opaque (100).
+        /// </summary>
+        [JsonPropertyName("opacity_percent")]
+        [JsonConverter(typeof(MinMaxValueCheckConverter))]
+        public double? OpacityPercent { get; set; }
+
+        /// <summary>
+        /// The source providing the graphics media (typically an image, but any `PlayoutItemSource`
+        /// is accepted).
+        /// </summary>
+        [JsonPropertyName("source")]
+        public PlayoutItemSource Source { get; set; }
+
+        /// <summary>
+        /// Zero-based stream index within the source. If omitted, the server picks the first video
+        /// stream.
+        /// </summary>
+        [JsonPropertyName("stream_index")]
+        public long? StreamIndex { get; set; }
+
+        /// <summary>
+        /// Visibility schedule for the graphics layer. Omit for an always-on layer.
+        /// </summary>
+        [JsonPropertyName("timing")]
+        public Timing? Timing { get; set; }
+
+        /// <summary>
+        /// Vertical offset from the anchor `location`, as a percent of primary content height
+        /// (0–100). Omit for 0.
+        /// </summary>
+        [JsonPropertyName("vertical_margin_percent")]
+        [JsonConverter(typeof(MinMaxValueCheckConverter))]
+        public double? VerticalMarginPercent { get; set; }
+
+        /// <summary>
+        /// Scale the graphics layer to this percent of the primary content width (0–100). Omit to
+        /// use its actual size.
+        /// </summary>
+        [JsonPropertyName("width_percent")]
+        [JsonConverter(typeof(MinMaxValueCheckConverter))]
+        public double? WidthPercent { get; set; }
+
+        /// <summary>
+        /// When true, position margins are measured from the edges of the source content rather than
+        /// the padded output frame, so letterbox/pillarbox bars push the graphics layer inward and
+        /// keep it inside the visible content. When false, margins are relative to the full padded
+        /// frame, so a 0% margin can land inside the bars. Has no effect when the primary content
+        /// fills the output (crop/stretch). Omit for false.
+        /// </summary>
+        [JsonPropertyName("within_source_content")]
+        public bool? WithinSourceContent { get; set; }
+    }
+
+    /// <summary>
+    /// The source providing the graphics media (typically an image, but any `PlayoutItemSource`
+    /// is accepted).
+    ///
+    /// A media source. Exactly one variant, distinguished by `source_type`.
+    ///
     /// A file on the local filesystem reachable by the server.
     ///
     /// A synthetic source produced by an ffmpeg lavfi filter graph.
@@ -131,7 +218,7 @@ namespace ErsatzTV.Core.Next
     /// - `x-etv-until` — the placeholder's `finish`; the resolver should not return an item that
     /// extends beyond this (it will be clamped if it does).
     /// </summary>
-    public partial class Source
+    public partial class PlayoutItemSource
     {
         /// <summary>
         /// Optional start offset into the source, in milliseconds.
@@ -454,135 +541,61 @@ namespace ErsatzTV.Core.Next
     }
 
     /// <summary>
-    /// Per-track overrides for a playout item. Omit a field to use the server default for that
-    /// track kind (first stream of that kind in the item's `source`, if any).
+    /// Controls when the graphics layer is shown. Exactly one variant, distinguished by
+    /// `timing_type`.
+    ///
+    /// Cyclical visibility: the graphics layer fades in, holds, and fades out once every
+    /// `frequency_ms`. Cycle length is start-to-start, so `2 * fade_ms + hold_ms` must be ≤
+    /// `frequency_ms`, and `fade_ms` must be ≤ `hold_ms`.
     /// </summary>
-    public partial class PlayoutItemTracks
+    public partial class Timing
     {
         /// <summary>
-        /// Audio track selection.
+        /// Reference clock used to position cycles.
         /// </summary>
-        [JsonPropertyName("audio")]
-        public TrackSelection? Audio { get; set; }
+        [JsonPropertyName("clock")]
+        public PeriodicClock Clock { get; set; }
 
         /// <summary>
-        /// Subtitle track selection.
+        /// Cap on the time, measured from the start of the playout item in milliseconds, during
+        /// which new appearances are allowed to begin. An appearance already in progress at the cap
+        /// is allowed to fade out cleanly. Omit for no cap.
         /// </summary>
-        [JsonPropertyName("subtitle")]
-        public TrackSelection? Subtitle { get; set; }
+        [JsonPropertyName("disable_after_ms")]
+        public long? DisableAfterMs { get; set; }
 
         /// <summary>
-        /// Video track selection.
+        /// Fade-in and fade-out duration in milliseconds (symmetric). Must be ≤ `hold_ms`. Omit for
+        /// 1000; set to 0 for hard cuts.
         /// </summary>
-        [JsonPropertyName("video")]
-        public TrackSelection? Video { get; set; }
+        [JsonPropertyName("fade_ms")]
+        public long? FadeMs { get; set; }
+
+        /// <summary>
+        /// Period of the cycle, start-to-start, in milliseconds.
+        /// </summary>
+        [JsonPropertyName("frequency_ms")]
+        public long FrequencyMs { get; set; }
+
+        /// <summary>
+        /// Time held fully visible between fade-in and fade-out, in milliseconds.
+        /// </summary>
+        [JsonPropertyName("hold_ms")]
+        public long HoldMs { get; set; }
+
+        /// <summary>
+        /// Shift the cycle by this many milliseconds. With `clock: wall` and `frequency_ms: 300000`,
+        /// an offset of 0 puts an appearance start at every wall-clock 5-minute boundary; 120000
+        /// shifts to :02, :07, :12, etc. Omit for 0.
+        /// </summary>
+        [JsonPropertyName("phase_offset_ms")]
+        public long? PhaseOffsetMs { get; set; }
+
+        [JsonPropertyName("timing_type")]
+        public TimingType TimingType { get; set; }
     }
 
     /// <summary>
-    /// Selects a single track (video or audio).
-    ///
-    /// - `source` absent: inherit the parent `PlayoutItem.source`.
-    /// - `source` present: use this source for this track, overriding the parent.
-    /// - `stream_index` absent: server picks the first stream of the track's kind in the
-    /// effective source.
-    /// - `stream_index` present: use this specific stream within the effective source.
-    /// </summary>
-    public partial class TrackSelection
-    {
-        /// <summary>
-        /// Source to pull this track from. If omitted, inherits from the parent `PlayoutItem.source`.
-        /// </summary>
-        [JsonPropertyName("source")]
-        public Source? Source { get; set; }
-
-        /// <summary>
-        /// Zero-based stream index within the effective source. If omitted, the server picks the
-        /// first stream of this track's kind.
-        /// </summary>
-        [JsonPropertyName("stream_index")]
-        public long? StreamIndex { get; set; }
-    }
-
-    /// <summary>
-    /// An image or video overlay composited on top of the primary content. Sized and positioned
-    /// relative to the primary content's frame.
-    /// </summary>
-    public partial class Watermark
-    {
-        /// <summary>
-        /// Horizontal offset from the anchor `location`, as a percent of primary content width
-        /// (0–100). Omit for 0.
-        /// </summary>
-        [JsonPropertyName("horizontal_margin_percent")]
-        [JsonConverter(typeof(MinMaxValueCheckConverter))]
-        public double? HorizontalMarginPercent { get; set; }
-
-        /// <summary>
-        /// Anchor position within the primary content frame.
-        /// </summary>
-        [JsonPropertyName("location")]
-        public WatermarkLocation Location { get; set; }
-
-        /// <summary>
-        /// Opacity as a percent (0–100). Omit for fully opaque (100).
-        /// </summary>
-        [JsonPropertyName("opacity_percent")]
-        [JsonConverter(typeof(MinMaxValueCheckConverter))]
-        public double? OpacityPercent { get; set; }
-
-        /// <summary>
-        /// The source providing the watermark media (typically an image, but any `PlayoutItemSource`
-        /// is accepted).
-        /// </summary>
-        [JsonPropertyName("source")]
-        public PlayoutItemSource Source { get; set; }
-
-        /// <summary>
-        /// Zero-based stream index within the source. If omitted, the server picks the first video
-        /// stream.
-        /// </summary>
-        [JsonPropertyName("stream_index")]
-        public long? StreamIndex { get; set; }
-
-        /// <summary>
-        /// Visibility schedule for the watermark. Omit for an always-on watermark.
-        /// </summary>
-        [JsonPropertyName("timing")]
-        public Timing? Timing { get; set; }
-
-        /// <summary>
-        /// Vertical offset from the anchor `location`, as a percent of primary content height
-        /// (0–100). Omit for 0.
-        /// </summary>
-        [JsonPropertyName("vertical_margin_percent")]
-        [JsonConverter(typeof(MinMaxValueCheckConverter))]
-        public double? VerticalMarginPercent { get; set; }
-
-        /// <summary>
-        /// Scale the watermark to this percent of the primary content width (0–100). Omit to use the
-        /// watermark's actual size.
-        /// </summary>
-        [JsonPropertyName("width_percent")]
-        [JsonConverter(typeof(MinMaxValueCheckConverter))]
-        public double? WidthPercent { get; set; }
-
-        /// <summary>
-        /// When true, position margins are measured from the edges of the source content rather than
-        /// the padded output frame, so letterbox/pillarbox bars push the watermark inward and keep
-        /// it inside the visible content. When false, margins are relative to the full padded frame,
-        /// so a 0% margin can land inside the bars. Has no effect when the primary content fills the
-        /// output (crop/stretch). Omit for false.
-        /// </summary>
-        [JsonPropertyName("within_source_content")]
-        public bool? WithinSourceContent { get; set; }
-    }
-
-    /// <summary>
-    /// A media source. Exactly one variant, distinguished by `source_type`.
-    ///
-    /// The source providing the watermark media (typically an image, but any `PlayoutItemSource`
-    /// is accepted).
-    ///
     /// A file on the local filesystem reachable by the server.
     ///
     /// A synthetic source produced by an ffmpeg lavfi filter graph.
@@ -615,7 +628,7 @@ namespace ErsatzTV.Core.Next
     /// - `x-etv-until` — the placeholder's `finish`; the resolver should not return an item that
     /// extends beyond this (it will be clamped if it does).
     /// </summary>
-    public partial class PlayoutItemSource
+    public partial class Source
     {
         /// <summary>
         /// Optional start offset into the source, in milliseconds.
@@ -737,61 +750,54 @@ namespace ErsatzTV.Core.Next
     }
 
     /// <summary>
-    /// Controls when the watermark is shown. Exactly one variant, distinguished by
-    /// `timing_type`.
-    ///
-    /// Cyclical visibility: the watermark fades in, holds, and fades out once every
-    /// `frequency_ms`. Cycle length is start-to-start, so `2 * fade_ms + hold_ms` must be ≤
-    /// `frequency_ms`, and `fade_ms` must be ≤ `hold_ms`.
+    /// Per-track overrides for a playout item. Omit a field to use the server default for that
+    /// track kind (first stream of that kind in the item's `source`, if any).
     /// </summary>
-    public partial class Timing
+    public partial class PlayoutItemTracks
     {
         /// <summary>
-        /// Reference clock used to position cycles.
+        /// Audio track selection.
         /// </summary>
-        [JsonPropertyName("clock")]
-        public PeriodicClock Clock { get; set; }
+        [JsonPropertyName("audio")]
+        public TrackSelection? Audio { get; set; }
 
         /// <summary>
-        /// Cap on the time, measured from the start of the playout item in milliseconds, during
-        /// which new appearances are allowed to begin. An appearance already in progress at the cap
-        /// is allowed to fade out cleanly. Omit for no cap.
+        /// Subtitle track selection.
         /// </summary>
-        [JsonPropertyName("disable_after_ms")]
-        public long? DisableAfterMs { get; set; }
+        [JsonPropertyName("subtitle")]
+        public TrackSelection? Subtitle { get; set; }
 
         /// <summary>
-        /// Fade-in and fade-out duration in milliseconds (symmetric). Must be ≤ `hold_ms`. Omit for
-        /// 1000; set to 0 for hard cuts.
+        /// Video track selection.
         /// </summary>
-        [JsonPropertyName("fade_ms")]
-        public long? FadeMs { get; set; }
-
-        /// <summary>
-        /// Period of the cycle, start-to-start, in milliseconds.
-        /// </summary>
-        [JsonPropertyName("frequency_ms")]
-        public long FrequencyMs { get; set; }
-
-        /// <summary>
-        /// Time held fully visible between fade-in and fade-out, in milliseconds.
-        /// </summary>
-        [JsonPropertyName("hold_ms")]
-        public long HoldMs { get; set; }
-
-        /// <summary>
-        /// Shift the cycle by this many milliseconds. With `clock: wall` and `frequency_ms: 300000`,
-        /// an offset of 0 puts an appearance start at every wall-clock 5-minute boundary; 120000
-        /// shifts to :02, :07, :12, etc. Omit for 0.
-        /// </summary>
-        [JsonPropertyName("phase_offset_ms")]
-        public long? PhaseOffsetMs { get; set; }
-
-        [JsonPropertyName("timing_type")]
-        public TimingType TimingType { get; set; }
+        [JsonPropertyName("video")]
+        public TrackSelection? Video { get; set; }
     }
 
-    public enum SourceType { Dynamic, Http, Lavfi, Local, Rtsp, Script };
+    /// <summary>
+    /// Selects a single track (video or audio).
+    ///
+    /// - `source` absent: inherit the parent `PlayoutItem.source`.
+    /// - `source` present: use this source for this track, overriding the parent.
+    /// - `stream_index` absent: server picks the first stream of the track's kind in the
+    /// effective source.
+    /// - `stream_index` present: use this specific stream within the effective source.
+    /// </summary>
+    public partial class TrackSelection
+    {
+        /// <summary>
+        /// Source to pull this track from. If omitted, inherits from the parent `PlayoutItem.source`.
+        /// </summary>
+        [JsonPropertyName("source")]
+        public Source? Source { get; set; }
+
+        /// <summary>
+        /// Zero-based stream index within the effective source. If omitted, the server picks the
+        /// first stream of this track's kind.
+        /// </summary>
+        [JsonPropertyName("stream_index")]
+        public long? StreamIndex { get; set; }
+    }
 
     /// <summary>
     /// Anchor position within the primary content frame.
@@ -799,7 +805,9 @@ namespace ErsatzTV.Core.Next
     /// Nine-position anchor within the primary content frame. Read like a 3×3 grid: rows
     /// top/center/bottom, columns left/center/right; the dead center is `center`.
     /// </summary>
-    public enum WatermarkLocation { BottomCenter, BottomLeft, BottomRight, Center, CenterLeft, CenterRight, TopCenter, TopLeft, TopRight };
+    public enum GraphicsLocation { BottomCenter, BottomLeft, BottomRight, Center, CenterLeft, CenterRight, TopCenter, TopLeft, TopRight };
+
+    public enum SourceType { Dynamic, Http, Lavfi, Local, Rtsp, Script };
 
     /// <summary>
     /// Reference clock used to position cycles.
@@ -829,8 +837,8 @@ namespace ErsatzTV.Core.Next
             DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
             Converters =
             {
+                GraphicsLocationConverter.Singleton,
                 SourceTypeConverter.Singleton,
-                WatermarkLocationConverter.Singleton,
                 PeriodicClockConverter.Singleton,
                 TimingTypeConverter.Singleton,
                 new DateOnlyConverter(),
@@ -838,6 +846,102 @@ namespace ErsatzTV.Core.Next
                 IsoDateTimeOffsetConverter.Singleton
             },
         };
+    }
+
+    internal class MinMaxValueCheckConverter : JsonConverter<double>
+    {
+        public override bool CanConvert(Type t) => t == typeof(double);
+
+        public override double Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetDouble();
+            if (value >= 0 && value <= 100)
+            {
+                return value;
+            }
+            throw new Exception("Cannot unmarshal type double");
+        }
+
+        public override void Write(Utf8JsonWriter writer, double value, JsonSerializerOptions options)
+        {
+            if (value >= 0 && value <= 100)
+            {
+                JsonSerializer.Serialize(writer, value, options);
+                return;
+            }
+            throw new Exception("Cannot marshal type double");
+        }
+
+        public static readonly MinMaxValueCheckConverter Singleton = new MinMaxValueCheckConverter();
+    }
+
+    internal class GraphicsLocationConverter : JsonConverter<GraphicsLocation>
+    {
+        public override bool CanConvert(Type t) => t == typeof(GraphicsLocation);
+
+        public override GraphicsLocation Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "bottom_center":
+                    return GraphicsLocation.BottomCenter;
+                case "bottom_left":
+                    return GraphicsLocation.BottomLeft;
+                case "bottom_right":
+                    return GraphicsLocation.BottomRight;
+                case "center":
+                    return GraphicsLocation.Center;
+                case "center_left":
+                    return GraphicsLocation.CenterLeft;
+                case "center_right":
+                    return GraphicsLocation.CenterRight;
+                case "top_center":
+                    return GraphicsLocation.TopCenter;
+                case "top_left":
+                    return GraphicsLocation.TopLeft;
+                case "top_right":
+                    return GraphicsLocation.TopRight;
+            }
+            throw new Exception("Cannot unmarshal type GraphicsLocation");
+        }
+
+        public override void Write(Utf8JsonWriter writer, GraphicsLocation value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case GraphicsLocation.BottomCenter:
+                    JsonSerializer.Serialize(writer, "bottom_center", options);
+                    return;
+                case GraphicsLocation.BottomLeft:
+                    JsonSerializer.Serialize(writer, "bottom_left", options);
+                    return;
+                case GraphicsLocation.BottomRight:
+                    JsonSerializer.Serialize(writer, "bottom_right", options);
+                    return;
+                case GraphicsLocation.Center:
+                    JsonSerializer.Serialize(writer, "center", options);
+                    return;
+                case GraphicsLocation.CenterLeft:
+                    JsonSerializer.Serialize(writer, "center_left", options);
+                    return;
+                case GraphicsLocation.CenterRight:
+                    JsonSerializer.Serialize(writer, "center_right", options);
+                    return;
+                case GraphicsLocation.TopCenter:
+                    JsonSerializer.Serialize(writer, "top_center", options);
+                    return;
+                case GraphicsLocation.TopLeft:
+                    JsonSerializer.Serialize(writer, "top_left", options);
+                    return;
+                case GraphicsLocation.TopRight:
+                    JsonSerializer.Serialize(writer, "top_right", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type GraphicsLocation");
+        }
+
+        public static readonly GraphicsLocationConverter Singleton = new GraphicsLocationConverter();
     }
 
     internal class SourceTypeConverter : JsonConverter<SourceType>
@@ -892,102 +996,6 @@ namespace ErsatzTV.Core.Next
         }
 
         public static readonly SourceTypeConverter Singleton = new SourceTypeConverter();
-    }
-
-    internal class MinMaxValueCheckConverter : JsonConverter<double>
-    {
-        public override bool CanConvert(Type t) => t == typeof(double);
-
-        public override double Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
-        {
-            var value = reader.GetDouble();
-            if (value >= 0 && value <= 100)
-            {
-                return value;
-            }
-            throw new Exception("Cannot unmarshal type double");
-        }
-
-        public override void Write(Utf8JsonWriter writer, double value, JsonSerializerOptions options)
-        {
-            if (value >= 0 && value <= 100)
-            {
-                JsonSerializer.Serialize(writer, value, options);
-                return;
-            }
-            throw new Exception("Cannot marshal type double");
-        }
-
-        public static readonly MinMaxValueCheckConverter Singleton = new MinMaxValueCheckConverter();
-    }
-
-    internal class WatermarkLocationConverter : JsonConverter<WatermarkLocation>
-    {
-        public override bool CanConvert(Type t) => t == typeof(WatermarkLocation);
-
-        public override WatermarkLocation Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
-        {
-            var value = reader.GetString();
-            switch (value)
-            {
-                case "bottom_center":
-                    return WatermarkLocation.BottomCenter;
-                case "bottom_left":
-                    return WatermarkLocation.BottomLeft;
-                case "bottom_right":
-                    return WatermarkLocation.BottomRight;
-                case "center":
-                    return WatermarkLocation.Center;
-                case "center_left":
-                    return WatermarkLocation.CenterLeft;
-                case "center_right":
-                    return WatermarkLocation.CenterRight;
-                case "top_center":
-                    return WatermarkLocation.TopCenter;
-                case "top_left":
-                    return WatermarkLocation.TopLeft;
-                case "top_right":
-                    return WatermarkLocation.TopRight;
-            }
-            throw new Exception("Cannot unmarshal type WatermarkLocation");
-        }
-
-        public override void Write(Utf8JsonWriter writer, WatermarkLocation value, JsonSerializerOptions options)
-        {
-            switch (value)
-            {
-                case WatermarkLocation.BottomCenter:
-                    JsonSerializer.Serialize(writer, "bottom_center", options);
-                    return;
-                case WatermarkLocation.BottomLeft:
-                    JsonSerializer.Serialize(writer, "bottom_left", options);
-                    return;
-                case WatermarkLocation.BottomRight:
-                    JsonSerializer.Serialize(writer, "bottom_right", options);
-                    return;
-                case WatermarkLocation.Center:
-                    JsonSerializer.Serialize(writer, "center", options);
-                    return;
-                case WatermarkLocation.CenterLeft:
-                    JsonSerializer.Serialize(writer, "center_left", options);
-                    return;
-                case WatermarkLocation.CenterRight:
-                    JsonSerializer.Serialize(writer, "center_right", options);
-                    return;
-                case WatermarkLocation.TopCenter:
-                    JsonSerializer.Serialize(writer, "top_center", options);
-                    return;
-                case WatermarkLocation.TopLeft:
-                    JsonSerializer.Serialize(writer, "top_left", options);
-                    return;
-                case WatermarkLocation.TopRight:
-                    JsonSerializer.Serialize(writer, "top_right", options);
-                    return;
-            }
-            throw new Exception("Cannot marshal type WatermarkLocation");
-        }
-
-        public static readonly WatermarkLocationConverter Singleton = new WatermarkLocationConverter();
     }
 
     internal class PeriodicClockConverter : JsonConverter<PeriodicClock>
