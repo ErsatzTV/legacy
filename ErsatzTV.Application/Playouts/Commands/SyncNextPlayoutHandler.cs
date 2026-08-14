@@ -129,7 +129,12 @@ public partial class SyncNextPlayoutHandler(
             .ThenInclude(d => d.DecoGraphicsElements)
             .ThenInclude(d => d.GraphicsElement)
 
+            // get watermarks
             .Include(i => i.Watermarks)
+
+            // get graphics elements
+            .Include(i => i.PlayoutItemGraphicsElements)
+            .ThenInclude(pige => pige.GraphicsElement)
 
             // get playout templates (and deco templates/decos)
             .Include(i => i.Playout)
@@ -139,6 +144,15 @@ public partial class SyncNextPlayoutHandler(
             .ThenInclude(i => i.Deco)
             .ThenInclude(d => d.DecoWatermarks)
             .ThenInclude(d => d.Watermark)
+
+            // get playout templates (and deco templates/decos)
+            .Include(i => i.Playout)
+            .ThenInclude(p => p.Templates)
+            .ThenInclude(t => t.DecoTemplate)
+            .ThenInclude(t => t.Items)
+            .ThenInclude(i => i.Deco)
+            .ThenInclude(d => d.DecoGraphicsElements)
+            .ThenInclude(d => d.GraphicsElement)
 
             .Include(i => i.MediaItem)
             .ThenInclude(mi => mi.LibraryPath)
@@ -232,6 +246,8 @@ public partial class SyncNextPlayoutHandler(
             .AsNoTracking()
             .Include(c => c.Watermark)
             .Include(c => c.Artwork)
+            .Include(c => c.FFmpegProfile)
+            .ThenInclude(ff => ff.Resolution)
             .SingleOrDefaultAsync(c => c.Number == channelNumber, cancellationToken)
             .Map(Optional);
 

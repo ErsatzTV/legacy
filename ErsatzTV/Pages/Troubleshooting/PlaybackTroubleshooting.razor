@@ -126,22 +126,19 @@
                         }
                     </MudSelect>
                 </MudStack>
-                if (_streamingEngine is StreamingEngine.Legacy)
-                {
-                    <MudStack Row="true" Breakpoint="Breakpoint.SmAndDown" Class="form-field-stack gap-md-8 mb-5">
-                        <div class="d-flex">
-                            <MudText>Graphics Elements</MudText>
-                        </div>
-                        <MudSelect T="string" @bind-SelectedValues="_graphicsElementNames" Clearable="true"
-                                   MultiSelection="true">
-                            @foreach (GraphicsElementViewModel graphicsElement in _graphicsElements)
-                            {
-                                <MudSelectItem T="string"
-                                               Value="@graphicsElement.Name">@graphicsElement.Name</MudSelectItem>
-                            }
-                        </MudSelect>
-                    </MudStack>
-                }
+                <MudStack Row="true" Breakpoint="Breakpoint.SmAndDown" Class="form-field-stack gap-md-8 mb-5">
+                    <div class="d-flex">
+                        <MudText>Graphics Elements</MudText>
+                    </div>
+                    <MudSelect T="string" @bind-SelectedValues="_graphicsElementNames" Clearable="true"
+                               MultiSelection="true">
+                        @foreach (GraphicsElementViewModel graphicsElement in _graphicsElements)
+                        {
+                            <MudSelectItem T="string"
+                                           Value="@graphicsElement.Name">@graphicsElement.Name</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudStack>
                 <MudStack Row="true" Breakpoint="Breakpoint.SmAndDown" Class="form-field-stack gap-md-8 mb-5">
                     <div class="d-flex">
                         <MudText>Start From Beginning</MudText>

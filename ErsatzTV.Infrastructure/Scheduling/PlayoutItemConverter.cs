@@ -11,10 +11,14 @@ using ErsatzTV.Core.Interfaces.FFmpeg;
 using ErsatzTV.Core.Interfaces.Jellyfin;
 using ErsatzTV.Core.Interfaces.Plex;
 using ErsatzTV.Core.Interfaces.Scheduling;
+using ErsatzTV.Core.Interfaces.Streaming;
+using ErsatzTV.FFmpeg;
 using ErsatzTV.FFmpeg.State;
 using ErsatzTV.Infrastructure.Data;
 using ErsatzTV.Infrastructure.Extensions;
 using Microsoft.EntityFrameworkCore;
+using MediaStream = ErsatzTV.Core.Domain.MediaStream;
+using PlayoutItem = ErsatzTV.Core.Domain.PlayoutItem;
 
 namespace ErsatzTV.Infrastructure.Scheduling;
 
@@ -26,6 +30,8 @@ public class PlayoutItemConverter(
     ICustomStreamSelector customStreamSelector,
     IFFmpegStreamSelector ffmpegStreamSelector,
     IWatermarkSelector watermarkSelector,
+    IGraphicsElementSelector graphicsElementSelector,
+    IGraphicsElementLoader graphicsElementLoader,
     IDbContextFactory<TvContext> dbContextFactory) : IPlayoutItemConverter
 {
     public async Task<Option<Core.Next.PlayoutItem>> ToNext(
@@ -207,11 +213,14 @@ public class PlayoutItemConverter(
                     subtitles,
                     shouldLogMessages,
                     cancellationToken);
-                await SelectWatermark(
+                await SelectGraphics(
                     maybeGlobalWatermark,
                     channel,
                     playoutItem,
-                    nextPlayoutItem);
+                    nextPlayoutItem,
+                    headVersion.RFrameRate,
+                    shouldLogMessages,
+                    cancellationToken);
             }
         }
 
@@ -453,7 +462,7 @@ public class PlayoutItemConverter(
                     }
                 }
             }
-            else if (!subtitle.Path.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+            else if (!IsRemoteUri(subtitle.Path))
             {
                 if (nextPlayoutItem.Tracks?.Subtitle?.Source is null)
                 {
@@ -486,12 +495,18 @@ public class PlayoutItemConverter(
         }
     }
 
-    private async Task SelectWatermark(
+    private async Task SelectGraphics(
         Option<ChannelWatermark> maybeGlobalWatermark,
         Channel channel,
         PlayoutItem playoutItem,
-        Core.Next.PlayoutItem nextPlayoutItem)
+        Core.Next.PlayoutItem nextPlayoutItem,
+        string frameRate,
+        bool shouldLogMessages,
+        CancellationToken cancellationToken)
     {
+        nextPlayoutItem.Graphics ??= [];
+        var result = new List<KeyValuePair<Core.Next.GraphicsLayer, int>>();
+
         List<WatermarkOptions> watermarks = watermarkSelector.SelectWatermarks(
             maybeGlobalWatermark,
             channel,
@@ -500,71 +515,156 @@ public class PlayoutItemConverter(
             shouldLogMessages: false);
 
         // permanent or intermittent watermarks are supported
-        if (watermarks.All(wm => wm.Watermark.Mode is ChannelWatermarkMode.Permanent or ChannelWatermarkMode.Intermittent))
+        IEnumerable<WatermarkOptions> supportedWatermarks = watermarks.Where(wm =>
+            wm.Watermark.Mode is ChannelWatermarkMode.Permanent or ChannelWatermarkMode.Intermittent);
+
+        foreach (WatermarkOptions watermarkOptions in supportedWatermarks)
         {
-            nextPlayoutItem.Graphics = [];
-
-            foreach (WatermarkOptions watermarkOptions in watermarks.OrderBy(wm => wm.Watermark.ZIndex))
+            var layer = new Core.Next.GraphicsLayer
             {
-                Core.Next.GraphicsLocation location = watermarkOptions.Watermark.Location switch
+                Location = ToGraphics(watermarkOptions.Watermark.Location),
+                HorizontalMarginPercent = watermarkOptions.Watermark.HorizontalMarginPercent,
+                VerticalMarginPercent = watermarkOptions.Watermark.VerticalMarginPercent,
+                OpacityPercent = watermarkOptions.Watermark.Opacity,
+                StreamIndex = await watermarkOptions.ImageStreamIndex.IfNoneAsync(0),
+                WithinSourceContent = watermarkOptions.Watermark.PlaceWithinSourceContent,
+            };
+
+            if (watermarkOptions.Watermark.Size is WatermarkSize.Scaled)
+            {
+                layer.WidthPercent = watermarkOptions.Watermark.WidthPercent;
+            }
+
+            if (IsRemoteUri(watermarkOptions.ImagePath))
+            {
+                layer.Source = new Core.Next.PlayoutItemSource
                 {
-                    WatermarkLocation.TopMiddle => Core.Next.GraphicsLocation.TopCenter,
-                    WatermarkLocation.TopRight => Core.Next.GraphicsLocation.TopRight,
-                    WatermarkLocation.LeftMiddle => Core.Next.GraphicsLocation.CenterLeft,
-                    WatermarkLocation.MiddleCenter => Core.Next.GraphicsLocation.Center,
-                    WatermarkLocation.RightMiddle => Core.Next.GraphicsLocation.CenterRight,
-                    WatermarkLocation.BottomLeft => Core.Next.GraphicsLocation.BottomLeft,
-                    WatermarkLocation.BottomMiddle => Core.Next.GraphicsLocation.BottomCenter,
-                    WatermarkLocation.BottomRight => Core.Next.GraphicsLocation.BottomRight,
-                    _ => Core.Next.GraphicsLocation.TopLeft,
+                    SourceType = Core.Next.SourceType.Http,
+                    Uri = watermarkOptions.ImagePath,
                 };
-
-                var layer = new Core.Next.GraphicsLayer
+            }
+            else
+            {
+                layer.Source = new Core.Next.PlayoutItemSource
                 {
-                    Location = location,
-                    HorizontalMarginPercent = watermarkOptions.Watermark.HorizontalMarginPercent,
-                    VerticalMarginPercent = watermarkOptions.Watermark.VerticalMarginPercent,
-                    OpacityPercent = watermarkOptions.Watermark.Opacity,
-                    StreamIndex = await watermarkOptions.ImageStreamIndex.IfNoneAsync(0),
-                    WithinSourceContent = watermarkOptions.Watermark.PlaceWithinSourceContent,
+                    SourceType = Core.Next.SourceType.Local,
+                    Path = watermarkOptions.ImagePath,
                 };
+            }
 
-                if (watermarkOptions.Watermark.Size is WatermarkSize.Scaled)
+            if (watermarkOptions.Watermark.Mode is ChannelWatermarkMode.Intermittent)
+            {
+                layer.Timing = new Core.Next.Timing
                 {
-                    layer.WidthPercent = watermarkOptions.Watermark.WidthPercent;
-                }
+                    TimingType = Core.Next.TimingType.Periodic,
+                    Clock = Core.Next.PeriodicClock.Wall,
+                    FrequencyMs = watermarkOptions.Watermark.FrequencyMinutes * 60 * 1000,
+                    HoldMs = watermarkOptions.Watermark.DurationSeconds * 1000,
+                };
+            }
 
-                if (watermarkOptions.ImagePath.StartsWith("http", StringComparison.OrdinalIgnoreCase))
-                {
-                    layer.Source = new Core.Next.PlayoutItemSource
+            result.Add(new KeyValuePair<Core.Next.GraphicsLayer, int>(layer, watermarkOptions.Watermark.ZIndex));
+        }
+
+        List<PlayoutItemGraphicsElement> graphicsElements = graphicsElementSelector.SelectGraphicsElements(
+            channel,
+            playoutItem,
+            playoutItem.StartOffset,
+            shouldLogMessages);
+
+        IEnumerable<PlayoutItemGraphicsElement> supportedGraphicsElements = graphicsElements
+            .Where(ge => ge.GraphicsElement.Kind is GraphicsElementKind.Image);
+
+        var squarePixelFrameSize = channel.FFmpegProfile.Resolution;
+
+        var headVersion = playoutItem.MediaItem.GetHeadVersion();
+        Option<VideoStream> maybeVideoStream = headVersion.Streams
+            .Where(s => s.MediaStreamKind is MediaStreamKind.Video)
+            .HeadOrNone()
+            .Select(v => new VideoStream(
+                v.Index,
+                v.Codec,
+                v.Profile,
+                None,
+                ColorParams.Unknown,
+                new FrameSize(headVersion.Width, headVersion.Height),
+                headVersion.SampleAspectRatio,
+                headVersion.DisplayAspectRatio,
+                None,
+                StillImage: false,
+                ScanKind.Progressive));
+
+        foreach (var videoStream in maybeVideoStream)
+        {
+            var frameSize = videoStream.SquarePixelFrameSize(
+                new FrameSize(channel.FFmpegProfile.Resolution.Width, channel.FFmpegProfile.Resolution.Height));
+
+            squarePixelFrameSize.Width = frameSize.Width;
+            squarePixelFrameSize.Height = frameSize.Height;
+        }
+
+        var context = new GraphicsEngineContext(
+            channel.Number,
+            playoutItem.MediaItem,
+            Elements: [],
+            TemplateVariables: [],
+            squarePixelFrameSize,
+            channel.FFmpegProfile.Resolution,
+            new FrameRate(frameRate),
+            playoutItem.StartOffset,
+            playoutItem.StartOffset,
+            TimeSpan.Zero,
+            playoutItem.OutPoint - playoutItem.InPoint,
+            playoutItem.MediaItem.GetDurationForPlayout());
+
+        context = await graphicsElementLoader.LoadAll(context, [.. supportedGraphicsElements], cancellationToken);
+
+        foreach (GraphicsElementContext element in context.Elements)
+        {
+            switch (element)
+            {
+                case ImageElementDataContext({ } image):
+                    // opacity expressions are not supported yet
+                    if (!string.IsNullOrWhiteSpace(image.OpacityExpression))
                     {
-                        SourceType = Core.Next.SourceType.Http,
-                        Uri = watermarkOptions.ImagePath,
-                    };
-                }
-                else
-                {
-                    layer.Source = new Core.Next.PlayoutItemSource
-                    {
-                        SourceType = Core.Next.SourceType.Local,
-                        Path = watermarkOptions.ImagePath,
-                    };
-                }
+                        continue;
+                    }
 
-                if (watermarkOptions.Watermark.Mode is ChannelWatermarkMode.Intermittent)
-                {
-                    layer.Timing = new Core.Next.Timing
+                    var layer = new Core.Next.GraphicsLayer
                     {
-                        TimingType = Core.Next.TimingType.Periodic,
-                        Clock = Core.Next.PeriodicClock.Wall,
-                        FrequencyMs = watermarkOptions.Watermark.FrequencyMinutes * 60 * 1000,
-                        HoldMs = watermarkOptions.Watermark.DurationSeconds * 1000,
+                        Location = ToGraphics(image.Location),
+                        HorizontalMarginPercent = image.HorizontalMarginPercent,
+                        VerticalMarginPercent = image.VerticalMarginPercent,
+                        OpacityPercent = image.OpacityPercent,
+                        StreamIndex = 0,
+                        WithinSourceContent = image.PlaceWithinSourceContent,
+                        WidthPercent = image.Scale ? image.ScaleWidthPercent ?? 100 : null,
                     };
-                }
 
-                nextPlayoutItem.Graphics.Add(layer);
+                    if (IsRemoteUri(image.Image))
+                    {
+                        layer.Source = new Core.Next.PlayoutItemSource
+                        {
+                            SourceType = Core.Next.SourceType.Http,
+                            Uri = image.Image,
+                        };
+                    }
+                    else
+                    {
+                        layer.Source = new Core.Next.PlayoutItemSource
+                        {
+                            SourceType = Core.Next.SourceType.Local,
+                            Path = image.Image,
+                        };
+                    }
+
+                    result.Add(new KeyValuePair<Core.Next.GraphicsLayer, int>(layer, image.ZIndex ?? 0));
+                    break;
             }
         }
+
+        nextPlayoutItem.Graphics.Clear();
+        nextPlayoutItem.Graphics.AddRange(result.OrderBy(kvp => kvp.Value).Select(kvp => kvp.Key));
     }
 
     private static async Task<List<Subtitle>> GetSubtitles(
@@ -642,4 +742,23 @@ public class PlayoutItemConverter(
             }
         }
     }
+
+    private static Core.Next.GraphicsLocation ToGraphics(WatermarkLocation watermarkLocation) =>
+        watermarkLocation switch
+        {
+            WatermarkLocation.TopMiddle => Core.Next.GraphicsLocation.TopCenter,
+            WatermarkLocation.TopRight => Core.Next.GraphicsLocation.TopRight,
+            WatermarkLocation.LeftMiddle => Core.Next.GraphicsLocation.CenterLeft,
+            WatermarkLocation.MiddleCenter => Core.Next.GraphicsLocation.Center,
+            WatermarkLocation.RightMiddle => Core.Next.GraphicsLocation.CenterRight,
+            WatermarkLocation.BottomLeft => Core.Next.GraphicsLocation.BottomLeft,
+            WatermarkLocation.BottomMiddle => Core.Next.GraphicsLocation.BottomCenter,
+            WatermarkLocation.BottomRight => Core.Next.GraphicsLocation.BottomRight,
+            _ => Core.Next.GraphicsLocation.TopLeft
+        };
+
+    private static bool IsRemoteUri(string path) =>
+        Uri.TryCreate(path, UriKind.Absolute, out Uri uriResult)
+        && (uriResult.Scheme == Uri.UriSchemeHttp ||
+            uriResult.Scheme == Uri.UriSchemeHttps);
 }

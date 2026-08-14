@@ -3,6 +3,7 @@ using ErsatzTV.Core.Domain.Filler;
 using ErsatzTV.Core.Domain.Scheduling;
 using ErsatzTV.Core.Interfaces.FFmpeg;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace ErsatzTV.Core.FFmpeg;
 
@@ -12,9 +13,14 @@ public class GraphicsElementSelector(IDecoSelector decoSelector, ILogger<Graphic
     public List<PlayoutItemGraphicsElement> SelectGraphicsElements(
         Channel channel,
         PlayoutItem playoutItem,
-        DateTimeOffset now)
+        DateTimeOffset now,
+        bool shouldLogMessages)
     {
-        logger.LogDebug("Checking for graphics elements at {Now}", now);
+        ILogger<GraphicsElementSelector> log = shouldLogMessages
+            ? logger
+            : NullLogger<GraphicsElementSelector>.Instance;
+
+        log.LogDebug("Checking for graphics elements at {Now}", now);
 
         var result = new List<PlayoutItemGraphicsElement>();
 
@@ -25,7 +31,7 @@ public class GraphicsElementSelector(IDecoSelector decoSelector, ILogger<Graphic
 
         // if (playoutItem.DisableWatermarks)
         // {
-        //     logger.LogDebug("Graphics elements are disabled by playout item");
+        //     log.LogDebug("Graphics elements are disabled by playout item");
         //     return result;
         // }
 
@@ -41,21 +47,21 @@ public class GraphicsElementSelector(IDecoSelector decoSelector, ILogger<Graphic
                 case DecoMode.Merge:
                     if (playoutItem.FillerKind is FillerKind.None || templateDeco.UseGraphicsElementsDuringFiller)
                     {
-                        logger.LogDebug("Graphics elements will come from template deco (merge)");
+                        log.LogDebug("Graphics elements will come from template deco (merge)");
                         result.AddRange(
                             templateDeco.DecoGraphicsElements.Map(dge => dge.GraphicsElement).Map(ge =>
                                 new PlayoutItemGraphicsElement { PlayoutItem = playoutItem, GraphicsElement = ge }));
                         break;
                     }
 
-                    logger.LogDebug("Graphics elements are disabled by template deco during filler");
+                    log.LogDebug("Graphics elements are disabled by template deco during filler");
                     result.Clear();
                     done = true;
                     break;
                 case DecoMode.Override:
                     if (playoutItem.FillerKind is FillerKind.None || templateDeco.UseGraphicsElementsDuringFiller)
                     {
-                        logger.LogDebug("Graphics elements will come from template deco (replace)");
+                        log.LogDebug("Graphics elements will come from template deco (replace)");
                         result.AddRange(
                             templateDeco.DecoGraphicsElements.Map(dge => dge.GraphicsElement).Map(ge =>
                                 new PlayoutItemGraphicsElement { PlayoutItem = playoutItem, GraphicsElement = ge }));
@@ -63,16 +69,16 @@ public class GraphicsElementSelector(IDecoSelector decoSelector, ILogger<Graphic
                         break;
                     }
 
-                    logger.LogDebug("Graphics elements are disabled by template deco during filler");
+                    log.LogDebug("Graphics elements are disabled by template deco during filler");
                     result.Clear();
                     done = true;
                     break;
                 case DecoMode.Disable:
-                    logger.LogDebug("Graphics elements are disabled by template deco");
+                    log.LogDebug("Graphics elements are disabled by template deco");
                     done = true;
                     break;
                 case DecoMode.Inherit:
-                    logger.LogDebug("Graphics elements will inherit from playout deco");
+                    log.LogDebug("Graphics elements will inherit from playout deco");
                     break;
             }
 
@@ -92,21 +98,21 @@ public class GraphicsElementSelector(IDecoSelector decoSelector, ILogger<Graphic
                 case DecoMode.Merge:
                     if (playoutItem.FillerKind is FillerKind.None || playoutDeco.UseGraphicsElementsDuringFiller)
                     {
-                        logger.LogDebug("Graphics elements will come from playout deco (merge)");
+                        log.LogDebug("Graphics elements will come from playout deco (merge)");
                         result.AddRange(
                             playoutDeco.DecoGraphicsElements.Map(dge => dge.GraphicsElement).Map(ge =>
                                 new PlayoutItemGraphicsElement { PlayoutItem = playoutItem, GraphicsElement = ge }));
                         break;
                     }
 
-                    logger.LogDebug("Graphics elements are disabled by playout deco during filler");
+                    log.LogDebug("Graphics elements are disabled by playout deco during filler");
                     result.Clear();
                     done = true;
                     break;
                 case DecoMode.Override:
                     if (playoutItem.FillerKind is FillerKind.None || playoutDeco.UseGraphicsElementsDuringFiller)
                     {
-                        logger.LogDebug("Graphics elements will come from playout deco (replace)");
+                        log.LogDebug("Graphics elements will come from playout deco (replace)");
                         result.AddRange(
                             playoutDeco.DecoGraphicsElements.Map(dge => dge.GraphicsElement).Map(ge =>
                                 new PlayoutItemGraphicsElement { PlayoutItem = playoutItem, GraphicsElement = ge }));
@@ -114,16 +120,16 @@ public class GraphicsElementSelector(IDecoSelector decoSelector, ILogger<Graphic
                         break;
                     }
 
-                    logger.LogDebug("Graphics elements are disabled by playout deco during filler");
+                    log.LogDebug("Graphics elements are disabled by playout deco during filler");
                     result.Clear();
                     done = true;
                     break;
                 case DecoMode.Disable:
-                    logger.LogDebug("Graphics elements are disabled by playout deco");
+                    log.LogDebug("Graphics elements are disabled by playout deco");
                     done = true;
                     break;
                 case DecoMode.Inherit:
-                    logger.LogDebug("Graphics elements will inherit from channel and/or global setting");
+                    log.LogDebug("Graphics elements will inherit from channel and/or global setting");
                     break;
             }
 
