@@ -170,7 +170,7 @@ public partial class GraphicsElementLoader(
             // do nothing
         }
 
-        return context;
+        return null;
     }
 
     public async Task<Option<string>> TryLoadName(string fileName, CancellationToken cancellationToken)

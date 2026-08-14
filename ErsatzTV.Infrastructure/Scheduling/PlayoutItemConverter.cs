@@ -575,7 +575,17 @@ public class PlayoutItemConverter(
         IEnumerable<PlayoutItemGraphicsElement> supportedGraphicsElements = graphicsElements
             .Where(ge => ge.GraphicsElement.Kind is GraphicsElementKind.Image);
 
-        var squarePixelFrameSize = channel.FFmpegProfile.Resolution;
+        var outputFrameSize = new Resolution
+        {
+            Width = channel.FFmpegProfile.Resolution.Width,
+            Height = channel.FFmpegProfile.Resolution.Height,
+        };
+
+        var squarePixelFrameSize = new Resolution
+        {
+            Width = outputFrameSize.Width,
+            Height = outputFrameSize.Height
+        };
 
         var headVersion = playoutItem.MediaItem.GetHeadVersion();
         Option<VideoStream> maybeVideoStream = headVersion.Streams
@@ -596,8 +606,8 @@ public class PlayoutItemConverter(
 
         foreach (var videoStream in maybeVideoStream)
         {
-            var frameSize = videoStream.SquarePixelFrameSize(
-                new FrameSize(channel.FFmpegProfile.Resolution.Width, channel.FFmpegProfile.Resolution.Height));
+            var frameSize =
+                videoStream.SquarePixelFrameSize(new FrameSize(outputFrameSize.Width, outputFrameSize.Height));
 
             squarePixelFrameSize.Width = frameSize.Width;
             squarePixelFrameSize.Height = frameSize.Height;
@@ -609,7 +619,7 @@ public class PlayoutItemConverter(
             Elements: [],
             TemplateVariables: [],
             squarePixelFrameSize,
-            channel.FFmpegProfile.Resolution,
+            outputFrameSize,
             new FrameRate(frameRate),
             playoutItem.StartOffset,
             playoutItem.StartOffset,
@@ -619,7 +629,7 @@ public class PlayoutItemConverter(
 
         context = await graphicsElementLoader.LoadAll(context, [.. supportedGraphicsElements], cancellationToken);
 
-        foreach (GraphicsElementContext element in context.Elements)
+        foreach (GraphicsElementContext element in context?.Elements ?? [])
         {
             switch (element)
             {
