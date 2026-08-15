@@ -112,4 +112,17 @@ internal static class Mapper
                 return string.Empty;
         }
     }
+
+    internal static Option<PlayoutModeViewModel> ProjectToModeViewModel(Option<Channel> maybeChannel)
+    {
+        foreach (Channel channel in maybeChannel)
+        {
+            foreach (Playout playout in channel.Playouts.HeadOrNone())
+            {
+                return new PlayoutModeViewModel(playout.Id, channel.PlayoutMode);
+            }
+        }
+
+        return Option<PlayoutModeViewModel>.None;
+    }
 }
