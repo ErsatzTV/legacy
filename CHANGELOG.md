@@ -30,6 +30,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Next engine
   - Fix audio dropout/desync when using QSV accel and loudness normalization with certain content
   - Fix anamorphic content scaling (was incorrectly stretched with older builds)
+  - Fix on-demand channel progress (channels would not save checkpoints and would always start at the same spot)
 
 ## [26.7.1] - 2026-07-31
 ### Changed
