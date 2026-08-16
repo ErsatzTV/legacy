@@ -299,7 +299,7 @@ public partial class LocalStatisticsProvider : ILocalStatisticsProvider
         string[] arguments =
         [
             "-hide_banner",
-            "-ss", $"{seek:c}",
+            "-ss", seek.TotalSeconds.ToString(System.Globalization.CultureInfo.InvariantCulture),
             "-i", filePath,
             "-vf", "idet",
             "-frames:v", "200",
