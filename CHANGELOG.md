@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
+
+## [26.8.0] - 2026-08-20
 ### Added
 - Add `Streaming Engine` dropdown to playback troubleshooter to support troubleshooting Next engine playback
 - Next engine
@@ -3349,7 +3351,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Initial release to facilitate testing outside of Docker.
 
 
-[Unreleased]: https://github.com/ErsatzTV/legacy/compare/v26.7.1...HEAD
+[Unreleased]: https://github.com/ErsatzTV/legacy/compare/v26.8.0...HEAD
+[26.8.0]: https://github.com/ErsatzTV/legacy/compare/v26.7.1...v26.8.0
 [26.7.1]: https://github.com/ErsatzTV/legacy/compare/v26.7.0...v26.7.1
 [26.7.0]: https://github.com/ErsatzTV/legacy/compare/v26.6.0...v26.7.0
 [26.6.0]: https://github.com/ErsatzTV/legacy/compare/v26.5.1...v26.6.0
