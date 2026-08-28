@@ -28,6 +28,7 @@ namespace ErsatzTV.Controllers;
 
 [ApiController]
 [ApiExplorerSettings(IgnoreApi = true)]
+[Route("/internal")]
 public class InternalController : StreamingControllerBase
 {
     private readonly ILogger<InternalController> _logger;
@@ -134,7 +135,7 @@ public class InternalController : StreamingControllerBase
         return NotFound();
     }
 
-    [HttpGet("/media/plex/{plexMediaSourceId:int}/{*path}")]
+    [HttpGet("media/plex/{plexMediaSourceId:int}/{*path}")]
     public async Task<IActionResult> GetPlexMedia(
         int plexMediaSourceId,
         string path,
@@ -157,7 +158,7 @@ public class InternalController : StreamingControllerBase
 #endif
     }
 
-    [HttpGet("/media/jellyfin/{*path}")]
+    [HttpGet("media/jellyfin/{*path}")]
     public async Task<IActionResult> GetJellyfinMedia(string path, CancellationToken cancellationToken)
     {
         Either<BaseError, JellyfinConnectionParametersViewModel> connectionParameters =
@@ -187,7 +188,7 @@ public class InternalController : StreamingControllerBase
             });
     }
 
-    [HttpGet("/media/emby/{*path}")]
+    [HttpGet("media/emby/{*path}")]
     public async Task<IActionResult> GetEmbyMedia(string path, CancellationToken cancellationToken)
     {
         Either<BaseError, EmbyConnectionParametersViewModel> connectionParameters =
@@ -219,7 +220,7 @@ public class InternalController : StreamingControllerBase
             });
     }
 
-    [HttpGet("/media/subtitle/{id:int}")]
+    [HttpGet("media/subtitle/{id:int}")]
     public async Task<IActionResult> GetSubtitle(
         int id,
         [FromQuery] long? seekToMs,
@@ -299,7 +300,7 @@ public class InternalController : StreamingControllerBase
         return new NotFoundResult();
     }
 
-    [HttpGet("/media/fallback")]
+    [HttpGet("media/fallback")]
     public async Task<IActionResult> GetFallbackPlayoutJson(CancellationToken cancellationToken)
     {
         if (!Request.Headers.TryGetValue("x-etv-channel", out StringValues channelNumber) || channelNumber.Count != 1)

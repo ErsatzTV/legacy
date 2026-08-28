@@ -85,7 +85,7 @@ public class GetSubtitlePathByIdHandler(IDbContextFactory<TvContext> dbContextFa
         {
             foreach (string subtitlePath in maybeSubtitle.Map(s => s.Path))
             {
-                return $"http://localhost:{Settings.StreamingPort}/media/plex/{plexMediaSourceId}/{subtitlePath}";
+                return $"http://localhost:{Settings.StreamingPort}/internal/media/plex/{plexMediaSourceId}/{subtitlePath}";
             }
         }
 
@@ -126,7 +126,7 @@ public class GetSubtitlePathByIdHandler(IDbContextFactory<TvContext> dbContextFa
                 string extension = Subtitle.ExtensionForCodec(subtitle.Codec);
                 var subtitlePath =
                     $"Videos/{jellyfinItemId}/{jellyfinItemId}/Subtitles/{index}/{index}/Stream.{extension}";
-                return $"http://localhost:{Settings.StreamingPort}/media/jellyfin/{subtitlePath}";
+                return $"http://localhost:{Settings.StreamingPort}/internal/media/jellyfin/{subtitlePath}";
             }
         }
 
@@ -166,7 +166,7 @@ public class GetSubtitlePathByIdHandler(IDbContextFactory<TvContext> dbContextFa
                 string extension = Subtitle.ExtensionForCodec(subtitle.Codec);
                 var subtitlePath =
                     $"Videos/{embyItemId}/{subtitle.Path}/Subtitles/{subtitle.StreamIndex}/Stream.{extension}";
-                return $"http://localhost:{Settings.StreamingPort}/media/emby/{subtitlePath}";
+                return $"http://localhost:{Settings.StreamingPort}/internal/media/emby/{subtitlePath}";
             }
         }
 

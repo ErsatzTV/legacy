@@ -180,7 +180,7 @@ public class FFmpegLibraryProcessService : IFFmpegProcessService
                         { SubtitleKind: SubtitleKind.Embedded, IsImage: false, IsExtracted: true })
                 {
                     // proxy to avoid dealing with escaping
-                    subtitle.Path = $"http://localhost:{Settings.StreamingPort}/media/subtitle/{subtitle.Id}";
+                    subtitle.Path = $"http://localhost:{Settings.StreamingPort}/internal/media/subtitle/{subtitle.Id}";
 
                     foreach (TimeSpan seek in playbackSettings.StreamSeek)
                     {
@@ -986,7 +986,7 @@ public class FFmpegLibraryProcessService : IFFmpegProcessService
         var resolution = new FrameSize(channel.FFmpegProfile.Resolution.Width, channel.FFmpegProfile.Resolution.Height);
 
         var concatInputFile = new ConcatInputFile(
-            $"http://localhost:{Settings.StreamingPort}/ffmpeg/concat/{channel.Number}?mode=ts-legacy",
+            $"http://localhost:{Settings.StreamingPort}/internal/ffmpeg/concat/{channel.Number}?mode=ts-legacy",
             resolution);
 
         IPipelineBuilder pipelineBuilder = await _pipelineBuilderFactory.GetBuilder(

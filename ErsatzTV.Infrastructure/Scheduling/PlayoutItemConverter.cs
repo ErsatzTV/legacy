@@ -245,7 +245,7 @@ public class PlayoutItemConverter(
             return new Core.Next.Source
             {
                 SourceType = Core.Next.SourceType.Dynamic,
-                Uri = $"http://localhost:{Settings.StreamingPort}/media/fallback"
+                Uri = $"http://localhost:{Settings.StreamingPort}/internal/media/fallback"
             };
         }
 
@@ -320,7 +320,7 @@ public class PlayoutItemConverter(
             return new Core.Next.Source
             {
                 SourceType = Core.Next.SourceType.Http,
-                Uri = $"http://localhost:{Settings.StreamingPort}/media/plex/{mediaSourceId}/{pmf.Key}",
+                Uri = $"http://localhost:{Settings.StreamingPort}/internal/media/plex/{mediaSourceId}/{pmf.Key}",
                 KeepAlive = false,
                 Reconnect = true
             };
@@ -338,7 +338,7 @@ public class PlayoutItemConverter(
             return new Core.Next.Source
             {
                 SourceType = Core.Next.SourceType.Http,
-                Uri = $"http://localhost:{Settings.StreamingPort}/media/jellyfin/{itemId}",
+                Uri = $"http://localhost:{Settings.StreamingPort}/internal/media/jellyfin/{itemId}",
                 KeepAlive = false,
                 Reconnect = true
             };
@@ -357,7 +357,7 @@ public class PlayoutItemConverter(
             return new Core.Next.Source
             {
                 SourceType = Core.Next.SourceType.Http,
-                Uri = $"http://localhost:{Settings.StreamingPort}/media/emby/{itemId}",
+                Uri = $"http://localhost:{Settings.StreamingPort}/internal/media/emby/{itemId}",
                 KeepAlive = false,
                 Reconnect = true
             };
@@ -730,7 +730,7 @@ public class PlayoutItemConverter(
                 Forced = true,
                 IsExtracted = false,
                 SubtitleKind = SubtitleKind.Generated,
-                Path = $"http://localhost:{Settings.StreamingPort}/ffmpeg/music-video-credits/{playoutItemId}{seekToMs}",
+                Path = $"http://localhost:{Settings.StreamingPort}/internal/ffmpeg/music-video-credits/{playoutItemId}{seekToMs}",
                 SDH = false
             }
         ];

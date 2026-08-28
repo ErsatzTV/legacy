@@ -5,6 +5,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Fixed
+- Fix case where specifically-crafted requests could access management UI over streaming port
+
 ## [26.8.0] - 2026-08-20
 ### Added
 - Add `Streaming Engine` dropdown to playback troubleshooter to support troubleshooting Next engine playback
