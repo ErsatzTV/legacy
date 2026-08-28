@@ -682,7 +682,7 @@ public partial class LocalStatisticsProvider : ILocalStatisticsProvider
         {
             path = !string.IsNullOrWhiteSpace(remoteStream.Url)
                 ? remoteStream.Url
-                : $"http://localhost:{Settings.StreamingPort}/ffmpeg/remote-stream/{remoteStream.Id}";
+                : $"http://localhost:{Settings.StreamingPort}/internal/ffmpeg/remote-stream/{remoteStream.Id}";
         }
 
         return Task.FromResult(path);

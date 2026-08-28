@@ -307,7 +307,7 @@ public abstract class ExtractEmbeddedSubtitlesHandlerBase(IFileSystem fileSystem
 
                 foreach (int plexMediaSourceId in maybeId)
                 {
-                    return $"http://localhost:{Settings.StreamingPort}/media/plex/{plexMediaSourceId}/{pmf.Key}";
+                    return $"http://localhost:{Settings.StreamingPort}/internal/media/plex/{plexMediaSourceId}/{pmf.Key}";
                 }
 
                 break;
@@ -316,11 +316,11 @@ public abstract class ExtractEmbeddedSubtitlesHandlerBase(IFileSystem fileSystem
         return mediaItem switch
         {
             JellyfinMovie jellyfinMovie =>
-                $"http://localhost:{Settings.StreamingPort}/media/jellyfin/{jellyfinMovie.ItemId}",
+                $"http://localhost:{Settings.StreamingPort}/internal/media/jellyfin/{jellyfinMovie.ItemId}",
             JellyfinEpisode jellyfinEpisode =>
-                $"http://localhost:{Settings.StreamingPort}/media/jellyfin/{jellyfinEpisode.ItemId}",
-            EmbyMovie embyMovie => $"http://localhost:{Settings.StreamingPort}/media/emby/{embyMovie.ItemId}",
-            EmbyEpisode embyEpisode => $"http://localhost:{Settings.StreamingPort}/media/emby/{embyEpisode.ItemId}",
+                $"http://localhost:{Settings.StreamingPort}/internal/media/jellyfin/{jellyfinEpisode.ItemId}",
+            EmbyMovie embyMovie => $"http://localhost:{Settings.StreamingPort}/internal/media/emby/{embyMovie.ItemId}",
+            EmbyEpisode embyEpisode => $"http://localhost:{Settings.StreamingPort}/internal/media/emby/{embyEpisode.ItemId}",
             _ => file.Path
         };
     }

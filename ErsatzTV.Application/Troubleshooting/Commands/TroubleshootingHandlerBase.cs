@@ -115,7 +115,7 @@ public abstract class TroubleshootingHandlerBase(
             {
                 path = !string.IsNullOrWhiteSpace(remoteStream.Url)
                     ? remoteStream.Url
-                    : $"http://localhost:{Settings.StreamingPort}/ffmpeg/remote-stream/{remoteStream.Id}";
+                    : $"http://localhost:{Settings.StreamingPort}/internal/ffmpeg/remote-stream/{remoteStream.Id}";
             }
 
             return path;
@@ -136,7 +136,7 @@ public abstract class TroubleshootingHandlerBase(
 
                 foreach (int plexMediaSourceId in maybeId)
                 {
-                    return $"http://localhost:{Settings.StreamingPort}/media/plex/{plexMediaSourceId}/{pmf.Key}";
+                    return $"http://localhost:{Settings.StreamingPort}/internal/media/plex/{plexMediaSourceId}/{pmf.Key}";
                 }
 
                 break;
@@ -152,7 +152,7 @@ public abstract class TroubleshootingHandlerBase(
 
         foreach (string itemId in jellyfinItemId)
         {
-            return $"http://localhost:{Settings.StreamingPort}/media/jellyfin/{itemId}";
+            return $"http://localhost:{Settings.StreamingPort}/internal/media/jellyfin/{itemId}";
         }
 
         // attempt to remotely stream emby
@@ -165,7 +165,7 @@ public abstract class TroubleshootingHandlerBase(
 
         foreach (string itemId in embyItemId)
         {
-            return $"http://localhost:{Settings.StreamingPort}/media/emby/{itemId}";
+            return $"http://localhost:{Settings.StreamingPort}/internal/media/emby/{itemId}";
         }
 
         return null;

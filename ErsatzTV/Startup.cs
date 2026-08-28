@@ -1,6 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO.Abstractions;
+using System.Net;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -528,6 +529,30 @@ public class Startup
             }
         }
 
+        // keep this before `UseForwardedHeaders`
+        app.Use(async (context, next) =>
+        {
+            if (IsInternalPath(context.Request.Path))
+            {
+                if (context.Connection.RemoteIpAddress is not { } remote || !IPAddress.IsLoopback(remote))
+                {
+                    Log.Warning(
+                        "Blocked internal path {Path} from non-loopback {RemoteIp}",
+                        context.Request.Path,
+                        context.Connection.RemoteIpAddress);
+                    context.Response.StatusCode = 404;
+                    return;
+                }
+            }
+            else if (!IsIptvPath(context.Request.Path) && context.Connection.LocalPort != Settings.UiPort)
+            {
+                context.Response.StatusCode = 404;
+                return;
+            }
+
+            await next(context);
+        });
+
         app.UseCors("AllowAll");
         app.UseForwardedHeaders();
 
@@ -621,21 +646,8 @@ public class Startup
 
         app.UseResponseCompression();
 
-        app.Use(async (context, next) =>
-        {
-            if (!context.Request.Host.Value.StartsWith("localhost", StringComparison.OrdinalIgnoreCase) &&
-                !IsIptvPath(context.Request.Path) &&
-                context.Connection.LocalPort != Settings.UiPort)
-            {
-                context.Response.StatusCode = 404;
-                return;
-            }
-
-            await next(context);
-        });
-
         app.MapWhen(
-            ctx => !IsIptvPath(ctx.Request.Path),
+            ctx => !IsIptvPath(ctx.Request.Path) && !IsInternalPath(ctx.Request.Path),
             blazor =>
             {
                 blazor.UseRouting();
@@ -680,6 +692,14 @@ public class Startup
                 iptv.UseRouting();
                 iptv.UseEndpoints(endpoints => endpoints.MapControllers());
             });
+
+        app.MapWhen(
+            ctx => IsInternalPath(ctx.Request.Path),
+            internalApp =>
+            {
+                internalApp.UseRouting();
+                internalApp.UseEndpoints(endpoints => endpoints.MapControllers());
+            });
         return;
 
         bool IsIptvPath(PathString path)
@@ -690,6 +710,8 @@ public class Startup
                    path.StartsWithSegments("/lineup.json") ||
                    path.StartsWithSegments("/lineup_status.json");
         }
+
+        bool IsInternalPath(PathString path) => path.StartsWithSegments("/internal");
     }
 
     private static void CustomServices(IServiceCollection services)

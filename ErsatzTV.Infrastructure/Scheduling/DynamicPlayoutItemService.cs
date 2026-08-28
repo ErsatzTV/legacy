@@ -237,7 +237,7 @@ public class DynamicPlayoutItemService(
             {
                 path = !string.IsNullOrWhiteSpace(remoteStream.Url)
                     ? remoteStream.Url
-                    : $"http://localhost:{Settings.StreamingPort}/ffmpeg/remote-stream/{remoteStream.Id}";
+                    : $"http://localhost:{Settings.StreamingPort}/internal/ffmpeg/remote-stream/{remoteStream.Id}";
             }
 
             return new PlayoutItemWithPath(playoutItem, path);
@@ -260,7 +260,7 @@ public class DynamicPlayoutItemService(
                 {
                     return new PlayoutItemWithPath(
                         playoutItem,
-                        $"http://localhost:{Settings.StreamingPort}/media/plex/{plexMediaSourceId}/{pmf.Key}");
+                        $"http://localhost:{Settings.StreamingPort}/internal/media/plex/{plexMediaSourceId}/{pmf.Key}");
                 }
 
                 break;
@@ -278,7 +278,7 @@ public class DynamicPlayoutItemService(
         {
             return new PlayoutItemWithPath(
                 playoutItem,
-                $"http://localhost:{Settings.StreamingPort}/media/jellyfin/{itemId}");
+                $"http://localhost:{Settings.StreamingPort}/internal/media/jellyfin/{itemId}");
         }
 
         // attempt to remotely stream emby
@@ -293,7 +293,7 @@ public class DynamicPlayoutItemService(
         {
             return new PlayoutItemWithPath(
                 playoutItem,
-                $"http://localhost:{Settings.StreamingPort}/media/emby/{itemId}");
+                $"http://localhost:{Settings.StreamingPort}/internal/media/emby/{itemId}");
         }
 
         return new PlayoutItemDoesNotExistOnDisk(path);
