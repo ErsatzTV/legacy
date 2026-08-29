@@ -114,6 +114,13 @@ public class ArchiveMediaSampleHandler(
                 }
             }
 
+            bool isRemoteUri = Uri.TryCreate(mediaItemPath, UriKind.Absolute, out Uri uriResult)
+                               && (uriResult.Scheme == Uri.UriSchemeHttp || uriResult.Scheme == Uri.UriSchemeHttps);
+            if (isRemoteUri && extension.Contains('?'))
+            {
+                extension = extension.Split('?')[0];
+            }
+
             string tempPath = Path.GetTempPath();
             string fileName = Path.ChangeExtension(Guid.NewGuid().ToString(), extension);
             string outputPath = Path.Combine(tempPath, fileName);

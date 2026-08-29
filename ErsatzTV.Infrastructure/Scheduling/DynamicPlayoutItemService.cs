@@ -12,6 +12,7 @@ using ErsatzTV.Core.Interfaces.Jellyfin;
 using ErsatzTV.Core.Interfaces.Plex;
 using ErsatzTV.Core.Interfaces.Repositories;
 using ErsatzTV.Core.Scheduling;
+using ErsatzTV.Core.Security;
 using ErsatzTV.Infrastructure.Data;
 using ErsatzTV.Infrastructure.Extensions;
 using Microsoft.EntityFrameworkCore;
@@ -230,14 +231,21 @@ public class DynamicPlayoutItemService(
             return new PlayoutItemWithPath(playoutItem, path);
         }
 
+        DateTimeOffset exp = playoutItem.FinishOffset + TimeSpan.FromHours(2);
+
         // check filesystem first
         if (fileSystem.File.Exists(path))
         {
             if (playoutItem.MediaItem is RemoteStream remoteStream)
             {
+                string sig = InternalUrlSigner.Sign(
+                    exp,
+                    "remote-stream",
+                    $"{remoteStream.Id}");
+
                 path = !string.IsNullOrWhiteSpace(remoteStream.Url)
                     ? remoteStream.Url
-                    : $"http://localhost:{Settings.StreamingPort}/internal/ffmpeg/remote-stream/{remoteStream.Id}";
+                    : $"http://localhost:{Settings.StreamingPort}/internal/ffmpeg/remote-stream/{remoteStream.Id}?exp={exp.ToUnixTimeSeconds()}&sig={sig}";
             }
 
             return new PlayoutItemWithPath(playoutItem, path);
@@ -258,9 +266,15 @@ public class DynamicPlayoutItemService(
 
                 foreach (int plexMediaSourceId in maybeId)
                 {
+                    string sig = InternalUrlSigner.Sign(
+                        exp,
+                        "plex",
+                        $"{plexMediaSourceId}",
+                        $"{pmf.Key}");
+
                     return new PlayoutItemWithPath(
                         playoutItem,
-                        $"http://localhost:{Settings.StreamingPort}/internal/media/plex/{plexMediaSourceId}/{pmf.Key}");
+                        $"http://localhost:{Settings.StreamingPort}/internal/media/plex/{plexMediaSourceId}/{pmf.Key}?exp={exp.ToUnixTimeSeconds()}&sig={sig}");
                 }
 
                 break;
@@ -276,9 +290,11 @@ public class DynamicPlayoutItemService(
 
         foreach (string itemId in jellyfinItemId)
         {
+            string sig = InternalUrlSigner.Sign(exp, "jellyfin", $"{itemId}");
+
             return new PlayoutItemWithPath(
                 playoutItem,
-                $"http://localhost:{Settings.StreamingPort}/internal/media/jellyfin/{itemId}");
+                $"http://localhost:{Settings.StreamingPort}/internal/media/jellyfin/{itemId}?exp={exp.ToUnixTimeSeconds()}&sig={sig}");
         }
 
         // attempt to remotely stream emby
@@ -291,9 +307,11 @@ public class DynamicPlayoutItemService(
 
         foreach (string itemId in embyItemId)
         {
+            string sig = InternalUrlSigner.Sign(exp, "emby", $"{itemId}");
+
             return new PlayoutItemWithPath(
                 playoutItem,
-                $"http://localhost:{Settings.StreamingPort}/internal/media/emby/{itemId}");
+                $"http://localhost:{Settings.StreamingPort}/internal/media/emby/{itemId}?exp={exp.ToUnixTimeSeconds()}&sig={sig}");
         }
 
         return new PlayoutItemDoesNotExistOnDisk(path);

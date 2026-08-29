@@ -14,6 +14,7 @@ using ErsatzTV.Core.Domain;
 using ErsatzTV.Core.FFmpeg;
 using ErsatzTV.Core.Interfaces.Scheduling;
 using ErsatzTV.Core.Interfaces.Streaming;
+using ErsatzTV.Core.Security;
 using ErsatzTV.Extensions;
 using ErsatzTV.FFmpeg;
 using ErsatzTV.Infrastructure.Data;
@@ -81,8 +82,20 @@ public class InternalController : StreamingControllerBase
     }
 
     [HttpGet("ffmpeg/remote-stream/{remoteStreamId}")]
-    public async Task<IActionResult> GetRemoteStream(int remoteStreamId, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetRemoteStream(
+        int remoteStreamId,
+        [FromQuery]
+        string exp,
+        [FromQuery]
+        string sig,
+        CancellationToken cancellationToken)
     {
+        if (string.IsNullOrWhiteSpace(exp) || string.IsNullOrWhiteSpace(sig) ||
+            !InternalUrlSigner.Verify(exp, sig, "remote-stream", $"{remoteStreamId}"))
+        {
+            return NotFound();
+        }
+
         Option<RemoteStreamViewModel> maybeRemoteStream =
             await _mediator.Send(new GetRemoteStreamById(remoteStreamId), cancellationToken);
 
@@ -139,8 +152,16 @@ public class InternalController : StreamingControllerBase
     public async Task<IActionResult> GetPlexMedia(
         int plexMediaSourceId,
         string path,
+        [FromQuery] string exp,
+        [FromQuery] string sig,
         CancellationToken cancellationToken)
     {
+        if (string.IsNullOrWhiteSpace(exp) || string.IsNullOrWhiteSpace(sig) ||
+            !InternalUrlSigner.Verify(exp, sig, "plex", $"{plexMediaSourceId}", path))
+        {
+            return NotFound();
+        }
+
 #if DEBUG_NO_SYNC
         await Task.Delay(100, cancellationToken);
         return NotFound();
@@ -152,15 +173,28 @@ public class InternalController : StreamingControllerBase
             Left: _ => new NotFoundResult(),
             Right: r =>
             {
-                Url fullPath = new Uri(r.Uri, path).SetQueryParam("X-Plex-Token", r.AuthToken);
+                Url fullPath = Flurl.Url.Parse(r.Address)
+                    .AppendPathSegment(path)
+                    .SetQueryParam("X-Plex-Token", r.AuthToken);
+
                 return new RedirectResult(fullPath.ToString());
             });
 #endif
     }
 
     [HttpGet("media/jellyfin/{*path}")]
-    public async Task<IActionResult> GetJellyfinMedia(string path, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetJellyfinMedia(
+        string path,
+        [FromQuery] string exp,
+        [FromQuery] string sig,
+        CancellationToken cancellationToken)
     {
+        if (string.IsNullOrWhiteSpace(exp) || string.IsNullOrWhiteSpace(sig) ||
+            !InternalUrlSigner.Verify(exp, sig, "jellyfin", path))
+        {
+            return NotFound();
+        }
+
         Either<BaseError, JellyfinConnectionParametersViewModel> connectionParameters =
             await _mediator.Send(new GetJellyfinConnectionParameters(), cancellationToken);
 
@@ -189,8 +223,18 @@ public class InternalController : StreamingControllerBase
     }
 
     [HttpGet("media/emby/{*path}")]
-    public async Task<IActionResult> GetEmbyMedia(string path, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetEmbyMedia(
+        string path,
+        [FromQuery] string exp,
+        [FromQuery] string sig,
+        CancellationToken cancellationToken)
     {
+        if (string.IsNullOrWhiteSpace(exp) || string.IsNullOrWhiteSpace(sig) ||
+            !InternalUrlSigner.Verify(exp, sig, "emby", path))
+        {
+            return NotFound();
+        }
+
         Either<BaseError, EmbyConnectionParametersViewModel> connectionParameters =
             await _mediator.Send(new GetEmbyConnectionParameters(), cancellationToken);
 
@@ -223,9 +267,17 @@ public class InternalController : StreamingControllerBase
     [HttpGet("media/subtitle/{id:int}")]
     public async Task<IActionResult> GetSubtitle(
         int id,
+        [FromQuery] string exp,
+        [FromQuery] string sig,
         [FromQuery] long? seekToMs,
         CancellationToken cancellationToken)
     {
+        if (string.IsNullOrWhiteSpace(exp) || string.IsNullOrWhiteSpace(sig) ||
+            !InternalUrlSigner.Verify(exp, sig, "subtitle", $"{id}"))
+        {
+            return NotFound();
+        }
+
         Either<BaseError, SubtitlePathAndCodec> maybePath = await _mediator.Send(
             new GetSubtitlePathById(id),
             cancellationToken);
@@ -301,8 +353,17 @@ public class InternalController : StreamingControllerBase
     }
 
     [HttpGet("media/fallback")]
-    public async Task<IActionResult> GetFallbackPlayoutJson(CancellationToken cancellationToken)
+    public async Task<IActionResult> GetFallbackPlayoutJson(
+        [FromQuery] string exp,
+        [FromQuery] string sig,
+        CancellationToken cancellationToken)
     {
+        if (string.IsNullOrWhiteSpace(exp) || string.IsNullOrWhiteSpace(sig) ||
+            !InternalUrlSigner.Verify(exp, sig, "fallback"))
+        {
+            return NotFound();
+        }
+
         if (!Request.Headers.TryGetValue("x-etv-channel", out StringValues channelNumber) || channelNumber.Count != 1)
         {
             return BadRequest();

@@ -11,6 +11,7 @@ using ErsatzTV.Core.Domain;
 using ErsatzTV.Core.Extensions;
 using ErsatzTV.Core.Interfaces.Metadata;
 using ErsatzTV.Core.Interfaces.Repositories;
+using ErsatzTV.Core.Security;
 using ErsatzTV.FFmpeg.Capabilities;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
@@ -680,9 +681,16 @@ public partial class LocalStatisticsProvider : ILocalStatisticsProvider
 
         if (mediaItem is RemoteStream remoteStream)
         {
+            DateTimeOffset exp = DateTimeOffset.Now + TimeSpan.FromMinutes(15);
+
+            string sig = InternalUrlSigner.Sign(
+                exp,
+                "remote-stream",
+                $"{remoteStream.Id}");
+
             path = !string.IsNullOrWhiteSpace(remoteStream.Url)
                 ? remoteStream.Url
-                : $"http://localhost:{Settings.StreamingPort}/internal/ffmpeg/remote-stream/{remoteStream.Id}";
+                : $"http://localhost:{Settings.StreamingPort}/internal/ffmpeg/remote-stream/{remoteStream.Id}?exp={exp.ToUnixTimeSeconds()}&sig={sig}";
         }
 
         return Task.FromResult(path);

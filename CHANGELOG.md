@@ -5,6 +5,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Security
+- Fix GHSA-h3r4-r2f2-qf59 (CVE-PENDING)
+  - All users should upgrade as soon as possible
+  - After upgrading, it is highly recommended to rotate your Plex token and Emby API key
+    - To rotate Plex token:
+      - In **Media Sources** > **Plex** click **Re-Authenticate With Plex** and complete the sign in to generate a new token
+      - In https://app.plex.tv/ **Account Settings** > **Authorized Devices** delete the old ErsatzTV authorized device
+      - Restart the Plex server to immediately invalidate the token that the old authorized device used
+    - To rotate Emby API key:
+      - Generate new API key in Emby's **Dashboard** > **Advanced** > **API Keys**
+      - Delete the old API key in that same screen
+      - In **Media Sources** > **Emby** click **Edit Emby Connection**, paste the new API key and click **Save Changes**
+- Fix case where specifically-crafted requests could access management UI over streaming port
+
 ### Added
 - Add `Re-authenticate with Plex` button to the Plex media sources page
   - Use this to replace the credentials ErsatzTV uses (after a Plex password reset, or after signing out of all Plex devices) without removing media sources or synchronized content
@@ -24,7 +38,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Troubleshooting playback endpoints are requested directly by the browser, so they authorize with the management UI session instead of the API key
 
 ### Fixed
-- Fix case where specifically-crafted requests could access management UI over streaming port
 - Fix Plex page staying disabled until restart when a sign-in is not completed within two minutes, or when plex.tv cannot be reached
 - Fix Plex page showing no indication that ErsatzTV has been signed out of Plex
 - Fix mirror channels falling out of sync when using the next streaming engine

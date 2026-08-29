@@ -196,7 +196,7 @@ public class ArtworkController : ControllerBase
                     HttpContext.Response.RegisterForDispose(client);
                     client.DefaultRequestHeaders.Add("X-Plex-Token", r.AuthToken);
 
-                    var fullPath = new Uri(r.Uri, transcodePath);
+                    var fullPath = new Uri(new Uri(r.Address), transcodePath);
                     HttpResponseMessage response = await client.GetAsync(
                         fullPath,
                         HttpCompletionOption.ResponseHeadersRead,

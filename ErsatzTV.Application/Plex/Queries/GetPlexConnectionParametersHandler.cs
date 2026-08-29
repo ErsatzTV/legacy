@@ -58,7 +58,7 @@ public class GetPlexConnectionParametersHandler : PlexBaseConnectionHandler,
                     if (await _plexServerApiClient.Ping(activeConnection, token, cancellationToken))
                     {
                         _logger.LogDebug("Plex connection is still active at {Uri}", activeConnection.Uri);
-                        var p = new PlexConnectionParametersViewModel(new Uri(activeConnection.Uri), token.AuthToken);
+                        var p = new PlexConnectionParametersViewModel(activeConnection.Uri, token.AuthToken);
                         _memoryCache.Set(request, p, TimeSpan.FromSeconds(30));
                         return p;
                     }
@@ -70,7 +70,7 @@ public class GetPlexConnectionParametersHandler : PlexBaseConnectionHandler,
                 Option<PlexConnection> maybeConnection = await FindConnectionToActivate(mediaSource, token);
                 foreach (PlexConnection connection in maybeConnection)
                 {
-                    var p = new PlexConnectionParametersViewModel(new Uri(connection.Uri), token.AuthToken);
+                    var p = new PlexConnectionParametersViewModel(connection.Uri, token.AuthToken);
                     _memoryCache.Set(request, p, TimeSpan.FromMinutes(30));
                     return p;
                 }

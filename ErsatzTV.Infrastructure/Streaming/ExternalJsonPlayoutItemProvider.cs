@@ -8,6 +8,7 @@ using ErsatzTV.Core.Interfaces.Metadata;
 using ErsatzTV.Core.Interfaces.Plex;
 using ErsatzTV.Core.Interfaces.Streaming;
 using ErsatzTV.Core.Plex;
+using ErsatzTV.Core.Security;
 using ErsatzTV.Core.Streaming;
 using ErsatzTV.Infrastructure.Data;
 using ErsatzTV.Infrastructure.Extensions;
@@ -223,9 +224,19 @@ public class ExternalJsonPlayoutItemProvider : IExternalJsonPlayoutItemProvider
                         _ => await GetPlexMovie(server, connection, token, program)
                     };
 
+                    PlayoutItem playoutItem = GetPlayoutItem(startTime, mediaItem, program);
+
+                    DateTimeOffset exp = playoutItem.FinishOffset + TimeSpan.FromHours(2);
+
+                    string sig = InternalUrlSigner.Sign(
+                        exp,
+                        "plex",
+                        $"{server.Id}",
+                        $"{program.PlexFile}");
+
                     return new PlayoutItemWithPath(
-                        GetPlayoutItem(startTime, mediaItem, program),
-                        $"http://localhost:{Settings.StreamingPort}/internal/media/plex/{server.Id}/{program.PlexFile}");
+                        playoutItem,
+                        $"http://localhost:{Settings.StreamingPort}/internal/media/plex/{server.Id}/{program.PlexFile}?exp={exp.ToUnixTimeSeconds()}&sig={sig}");
                 }
             }
         }

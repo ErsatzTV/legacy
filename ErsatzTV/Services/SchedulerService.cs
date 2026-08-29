@@ -50,17 +50,25 @@ public class SchedulerService : BackgroundService
     {
         await Task.Yield();
 
-        await _systemStartup.WaitForSearchIndex(stoppingToken);
-        if (stoppingToken.IsCancellationRequested)
-        {
-            return;
-        }
-
         try
         {
+            await _systemStartup.WaitForDatabase(stoppingToken);
+            if (stoppingToken.IsCancellationRequested)
+            {
+                return;
+            }
+
             _logger.LogInformation("Scheduler service started");
 
             DateTime firstRun = DateTime.Now;
+
+            await SyncAllNextPlayouts(stoppingToken);
+
+            await _systemStartup.WaitForSearchIndex(stoppingToken);
+            if (stoppingToken.IsCancellationRequested)
+            {
+                return;
+            }
 
             // run once immediately at startup
             if (!stoppingToken.IsCancellationRequested)
@@ -386,4 +394,26 @@ public class SchedulerService : BackgroundService
 
     private ValueTask QueueFFmpegCapabilitiesRefresh(CancellationToken cancellationToken) =>
         _workerChannel.WriteAsync(new RefreshFFmpegCapabilities(), cancellationToken);
+
+    private async Task SyncAllNextPlayouts(CancellationToken cancellationToken)
+    {
+        try
+        {
+            using IServiceScope scope = _serviceScopeFactory.CreateScope();
+            TvContext dbContext = scope.ServiceProvider.GetRequiredService<TvContext>();
+
+            List<Core.Domain.Channel> channels = await dbContext.Channels
+                .AsNoTracking()
+                .ToListAsync(cancellationToken);
+
+            foreach (Core.Domain.Channel channel in channels)
+            {
+                await _workerChannel.WriteAsync(new SyncNextPlayout(channel.Number), cancellationToken);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error synchronizing all next playouts");
+        }
+    }
 }
