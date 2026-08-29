@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using ErsatzTV.Core.Domain;
 using ErsatzTV.Core.Domain.Filler;
 using ErsatzTV.Core.Domain.Scheduling;
@@ -31,7 +33,11 @@ public class YamlPlayoutContext(Playout playout, YamlPlayoutDefinition definitio
 
     // saved state for each playout list (default keyed by empty string) so switching
     // between schedules resumes each list's position and ambient modifiers cleanly
+    private readonly Dictionary<string, string> _listFingerprints = [];
     private readonly Dictionary<string, ListState> _listStates = [];
+    private readonly System.Collections.Generic.HashSet<string> _staleListStates = [];
+    private Dictionary<string, string> _listFingerprintsToRestore;
+    private Dictionary<string, List<SequenceOrder>> _sequenceOrdersToRestore;
 
     public Playout Playout { get; } = playout;
 
@@ -59,6 +65,203 @@ public class YamlPlayoutContext(Playout playout, YamlPlayoutDefinition definitio
     public List<YamlPlayoutInstruction> CurrentInstructions => _currentInstructions ?? Definition.Playout;
 
     public string ActiveSchedule => _activeSchedule;
+
+    public void RestoreSequenceOrders()
+    {
+        _listFingerprints.Clear();
+        _staleListStates.Clear();
+        foreach ((string listKey, List<YamlPlayoutInstruction> instructions) in GetInstructionLists())
+        {
+            string fingerprint = GetListFingerprint(instructions);
+            _listFingerprints[listKey] = fingerprint;
+
+            if (_listFingerprintsToRestore is not null &&
+                (!_listFingerprintsToRestore.TryGetValue(listKey, out string savedFingerprint) ||
+                 !string.Equals(savedFingerprint, fingerprint, StringComparison.Ordinal)))
+            {
+                _staleListStates.Add(listKey);
+                ResetInstructionIndex(listKey);
+            }
+        }
+
+        if (_sequenceOrdersToRestore is not null)
+        {
+            if (_listFingerprintsToRestore is null)
+            {
+                foreach (string listKey in _sequenceOrdersToRestore.Keys)
+                {
+                    _staleListStates.Add(listKey);
+                    ResetInstructionIndex(listKey);
+                }
+            }
+
+            foreach ((string listKey, List<YamlPlayoutInstruction> instructions) in GetInstructionLists())
+            {
+                RestoreSequenceOrders(listKey, instructions);
+            }
+        }
+
+        _listFingerprintsToRestore = null;
+        _sequenceOrdersToRestore = null;
+    }
+
+    private IEnumerable<(string ListKey, List<YamlPlayoutInstruction> Instructions)> GetInstructionLists()
+    {
+        yield return (string.Empty, Definition.Playout);
+        foreach (YamlPlayoutScheduleItem schedule in Definition.Schedules)
+        {
+            yield return (schedule.Name ?? string.Empty, schedule.Playout);
+        }
+    }
+
+    private static string GetListFingerprint(List<YamlPlayoutInstruction> instructions)
+    {
+        var normalizedInstructions = instructions.ToList();
+        foreach (SequenceGroup sequenceGroup in GetSequenceGroups(instructions, false))
+        {
+            List<YamlPlayoutInstruction> declarationOrder = sequenceGroup.Items
+                .Select(x => x.Instruction)
+                .OrderBy(i => i.SequenceIndex)
+                .ToList();
+            for (var index = 0; index < sequenceGroup.Items.Count; index++)
+            {
+                normalizedInstructions[sequenceGroup.Items[index].Index] = declarationOrder[index];
+            }
+        }
+
+        IEnumerable<object> instructionState = normalizedInstructions.Select(instruction =>
+            string.IsNullOrWhiteSpace(instruction.SequenceKey)
+                ? new
+                {
+                    Kind = "instruction",
+                    Instruction = JsonConvert.SerializeObject(instruction, Formatting.None)
+                }
+                : new
+                {
+                    Kind = "sequence",
+                    Instruction = JsonConvert.SerializeObject(new
+                    {
+                        Type = instruction.GetType().FullName,
+                        instruction.SequenceKey,
+                        instruction.SequenceFingerprint,
+                        instruction.SequenceIndex,
+                        instruction.CustomTitle
+                    }, Formatting.None)
+                });
+        string serializedState = JsonConvert.SerializeObject(instructionState, Formatting.None);
+        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(serializedState)));
+    }
+
+    private void RestoreSequenceOrders(string listKey, List<YamlPlayoutInstruction> instructions)
+    {
+        string normalizedListKey = listKey ?? string.Empty;
+        if (_staleListStates.Contains(normalizedListKey) ||
+            !_sequenceOrdersToRestore.TryGetValue(normalizedListKey, out List<SequenceOrder> savedOrders))
+        {
+            return;
+        }
+
+        if (savedOrders is null ||
+            savedOrders.Count == 0 ||
+            savedOrders.Any(o => o is null || string.IsNullOrWhiteSpace(o.Sequence) || o.Order is null))
+        {
+            ResetInstructionIndex(normalizedListKey);
+            return;
+        }
+
+        Dictionary<string, Queue<SequenceGroup>> groupsBySequence = GetSequenceGroups(instructions, false)
+            .GroupBy(g => g.Sequence)
+            .ToDictionary(g => g.Key, g => new Queue<SequenceGroup>(g));
+        var restorations = new List<(SequenceGroup Group, List<YamlPlayoutInstruction> Instructions)>();
+
+        foreach (SequenceOrder savedOrder in savedOrders)
+        {
+            if (!groupsBySequence.TryGetValue(savedOrder.Sequence, out Queue<SequenceGroup> groups) ||
+                !groups.TryDequeue(out SequenceGroup sequenceGroup) ||
+                !TryRestoreSequenceOrder(savedOrder, sequenceGroup, out List<YamlPlayoutInstruction> restoredItems))
+            {
+                ResetInstructionIndex(normalizedListKey);
+                return;
+            }
+
+            restorations.Add((sequenceGroup, restoredItems));
+        }
+
+        if (savedOrders.Select(o => o.Sequence).Distinct().Any(sequence => groupsBySequence[sequence].Count > 0))
+        {
+            ResetInstructionIndex(normalizedListKey);
+            return;
+        }
+
+        foreach ((SequenceGroup sequenceGroup, List<YamlPlayoutInstruction> restoredItems) in restorations)
+        {
+            for (var index = 0; index < sequenceGroup.Items.Count; index++)
+            {
+                restoredItems[index].SequenceShuffled = true;
+                instructions[sequenceGroup.Items[index].Index] = restoredItems[index];
+            }
+        }
+    }
+
+    private static bool TryRestoreSequenceOrder(
+        SequenceOrder savedOrder,
+        SequenceGroup sequenceGroup,
+        out List<YamlPlayoutInstruction> restoredItems)
+    {
+        restoredItems = [];
+        if (savedOrder.Order.Count != sequenceGroup.Items.Count)
+        {
+            return false;
+        }
+
+        Dictionary<int, Queue<YamlPlayoutInstruction>> instructionsByIndex = sequenceGroup.Items
+            .GroupBy(x => x.Instruction.SequenceIndex)
+            .ToDictionary(
+                g => g.Key,
+                g => new Queue<YamlPlayoutInstruction>(g.Select(x => x.Instruction)));
+
+        foreach (int sequenceIndex in savedOrder.Order)
+        {
+            if (!instructionsByIndex.TryGetValue(sequenceIndex, out Queue<YamlPlayoutInstruction> candidates) ||
+                !candidates.TryDequeue(out YamlPlayoutInstruction restoredInstruction))
+            {
+                restoredItems = [];
+                return false;
+            }
+
+            restoredItems.Add(restoredInstruction);
+        }
+
+        return instructionsByIndex.Values.All(q => q.Count == 0);
+    }
+
+    private void ResetInstructionIndex(string listKey)
+    {
+        if (string.Equals(listKey, _activeSchedule ?? string.Empty, StringComparison.Ordinal))
+        {
+            _instructionIndex = 0;
+        }
+
+        if (_listStates.TryGetValue(listKey, out ListState savedState))
+        {
+            _listStates[listKey] = savedState with { InstructionIndex = 0 };
+        }
+    }
+
+    private static List<SequenceGroup> GetSequenceGroups(
+        List<YamlPlayoutInstruction> instructions,
+        bool shuffledOnly) =>
+        instructions
+            .Select((instruction, index) => new IndexedInstruction(instruction, index))
+            .Where(x =>
+                !string.IsNullOrWhiteSpace(x.Instruction.SequenceKey) &&
+                (!shuffledOnly || x.Instruction.SequenceShuffled))
+            .GroupBy(x => x.Instruction.SequenceGuid)
+            .OrderBy(g => g.Min(x => x.Index))
+            .Select(g => new SequenceGroup(
+                g.First().Instruction.SequenceKey,
+                g.OrderBy(x => x.Index).ToList()))
+            .ToList();
 
     // switch to the playout list for the given schedule (null => default playout)
     public void SwitchToSchedule(string scheduleName)
@@ -105,10 +308,10 @@ public class YamlPlayoutContext(Playout playout, YamlPlayoutDefinition definitio
     private ListState CaptureState() =>
         new(
             _instructionIndex,
-            [.._visitedInstructions],
-            [.._channelWatermarkIds],
+            [.. _visitedInstructions],
+            [.. _channelWatermarkIds],
             new Dictionary<int, string>(_graphicsElements),
-            [.._fillerKind],
+            [.. _fillerKind],
             _preRollSequence,
             _postRollSequence,
             _midRollSequence);
@@ -117,7 +320,7 @@ public class YamlPlayoutContext(Playout playout, YamlPlayoutDefinition definitio
     {
         _instructionIndex = state.InstructionIndex;
 
-        _visitedInstructions = [..state.VisitedInstructions];
+        _visitedInstructions = [.. state.VisitedInstructions];
 
         _channelWatermarkIds.Clear();
         foreach (int id in state.ChannelWatermarkIds)
@@ -232,7 +435,9 @@ public class YamlPlayoutContext(Playout playout, YamlPlayoutDefinition definitio
             _channelWatermarkIds.ToList(),
             preRollSequence,
             _activeSchedule,
-            scheduleIndices);
+            scheduleIndices,
+            CaptureSequenceOrders(),
+            _listFingerprints.Count > 0 ? new Dictionary<string, string>(_listFingerprints) : null);
 
         return JsonConvert.SerializeObject(state, Formatting.None, JsonSettings);
     }
@@ -277,6 +482,9 @@ public class YamlPlayoutContext(Playout playout, YamlPlayoutDefinition definitio
             _preRollSequence = preRollSequence;
         }
 
+        _listFingerprintsToRestore = state.ListFingerprints;
+        _sequenceOrdersToRestore = state.SequenceOrders;
+
         // restore saved instruction indices for each playout list
         if (state.ScheduleIndices is not null)
         {
@@ -306,6 +514,35 @@ public class YamlPlayoutContext(Playout playout, YamlPlayoutDefinition definitio
         }
     }
 
+    private Dictionary<string, List<SequenceOrder>> CaptureSequenceOrders()
+    {
+        var result = new Dictionary<string, List<SequenceOrder>>();
+        CaptureSequenceOrders(result, string.Empty, Definition.Playout);
+        foreach (YamlPlayoutScheduleItem schedule in Definition.Schedules)
+        {
+            CaptureSequenceOrders(result, schedule.Name, schedule.Playout);
+        }
+
+        return result.Count > 0 ? result : null;
+    }
+
+    private static void CaptureSequenceOrders(
+        Dictionary<string, List<SequenceOrder>> result,
+        string listKey,
+        List<YamlPlayoutInstruction> instructions)
+    {
+        List<SequenceOrder> sequenceOrders = GetSequenceGroups(instructions, true)
+            .Select(g => new SequenceOrder(
+                g.Sequence,
+                g.Items.Select(x => x.Instruction.SequenceIndex).ToList()))
+            .ToList();
+
+        if (sequenceOrders.Count > 0)
+        {
+            result[listKey ?? string.Empty] = sequenceOrders;
+        }
+    }
+
     public record State(
         int? InstructionIndex,
         int? GuideGroup,
@@ -313,9 +550,17 @@ public class YamlPlayoutContext(Playout playout, YamlPlayoutDefinition definitio
         List<int> ChannelWatermarkIds,
         string PreRollSequence,
         string ActiveSchedule = null,
-        Dictionary<string, int> ScheduleIndices = null);
+        Dictionary<string, int> ScheduleIndices = null,
+        Dictionary<string, List<SequenceOrder>> SequenceOrders = null,
+        Dictionary<string, string> ListFingerprints = null);
+
+    public record SequenceOrder(string Sequence, List<int> Order);
 
     public record MidRollSequence(string Sequence, string Expression);
+
+    private sealed record IndexedInstruction(YamlPlayoutInstruction Instruction, int Index);
+
+    private sealed record SequenceGroup(string Sequence, List<IndexedInstruction> Items);
 
     // in-memory snapshot of a playout list's position and ambient modifier state,
     // used to resume each list cleanly when switching between schedules during a build

@@ -31,23 +31,28 @@ public class YamlPlayoutShuffleSequenceHandler : IYamlPlayoutHandler
         List<YamlPlayoutInstruction> playout = context.CurrentInstructions;
 
         var groupedSequenceItems = playout
-            .Where(i => i.SequenceKey == sequenceKey)
-            .GroupBy(i => i.SequenceGuid)
+            .Select((instruction, index) => new { Instruction = instruction, Index = index })
+            .Where(x => x.Instruction.SequenceKey == sequenceKey)
+            .GroupBy(x => x.Instruction.SequenceGuid)
             .ToList();
 
-        foreach (IGrouping<Guid, YamlPlayoutInstruction> grouping in groupedSequenceItems)
+        foreach (var grouping in groupedSequenceItems)
         {
+            var currentGroup = grouping.OrderBy(x => x.Index).ToList();
+
             // shuffle, avoiding starting with the tail of the last shuffle
-            YamlPlayoutInstruction tail = grouping.Last();
-            var shuffledGroup = grouping.OrderBy(_ => Guid.NewGuid()).ToList();
+            YamlPlayoutInstruction tail = currentGroup.Last().Instruction;
+            var shuffledGroup = currentGroup.Select(x => x.Instruction).OrderBy(_ => Guid.NewGuid()).ToList();
             while (shuffledGroup.Count > 1 && shuffledGroup.Head() == tail)
             {
-                shuffledGroup = grouping.OrderBy(_ => Guid.NewGuid()).ToList();
+                shuffledGroup = currentGroup.Select(x => x.Instruction).OrderBy(_ => Guid.NewGuid()).ToList();
             }
 
-            int firstIndex = playout.FindIndex(i => i.SequenceGuid == grouping.Key);
-            playout.RemoveRange(firstIndex, shuffledGroup.Count);
-            playout.InsertRange(firstIndex, shuffledGroup);
+            for (var index = 0; index < currentGroup.Count; index++)
+            {
+                shuffledGroup[index].SequenceShuffled = true;
+                playout[currentGroup[index].Index] = shuffledGroup[index];
+            }
         }
 
         return Task.FromResult(true);
