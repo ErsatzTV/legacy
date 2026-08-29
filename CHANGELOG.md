@@ -5,6 +5,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Fixed
+- Fix block scheduler deleting the current hour's playout items, taking the channel offline until the next block
+
 ## [26.8.1] - 2026-08-29
 ### Security
 - Fix GHSA-h3r4-r2f2-qf59 (CVE-PENDING)

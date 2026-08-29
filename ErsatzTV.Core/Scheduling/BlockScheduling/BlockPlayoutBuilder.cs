@@ -75,7 +75,11 @@ public class BlockPlayoutBuilder(
         }
 
         // always start at the beginning of the block
-        start = blocksToSchedule.Min(b => b.Start);
+        DateTimeOffset firstBlockStart = blocksToSchedule.Min(b => b.Start);
+        if (firstBlockStart < start)
+        {
+            start = firstBlockStart;
+        }
 
         // get all collection items for the playout
         Map<CollectionKey, List<MediaItem>> collectionMediaItems =
