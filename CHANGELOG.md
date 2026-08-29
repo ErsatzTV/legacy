@@ -5,8 +5,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+- Add `Re-authenticate with Plex` button to the Plex media sources page
+  - Use this to replace the credentials ErsatzTV uses (after a Plex password reset, or after signing out of all Plex devices) without removing media sources or synchronized content
+  - This registers ErsatzTV with Plex as a new device, so Plex issues a new token; signing in again previously returned the same token
+  - To revoke the old token, remove the old `ErsatzTV` entry from `Authorized Devices` at plex.tv
+
+### Changed
+- Plex servers that are no longer listed at plex.tv are now flagged instead of deleted
+  - Previously, re-authenticating before re-claiming a server at app.plex.tv would delete that server along with its libraries and all of its media
+  - Flagged servers are skipped during scans, and are removed only when you choose to remove them
+
 ### Fixed
 - Fix case where specifically-crafted requests could access management UI over streaming port
+- Fix Plex page staying disabled until restart when a sign-in is not completed within two minutes, or when plex.tv cannot be reached
+- Fix Plex page showing no indication that ErsatzTV has been signed out of Plex
 
 ## [26.8.0] - 2026-08-20
 ### Added
