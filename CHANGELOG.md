@@ -1,4 +1,4 @@
-# Changelog
+﻿# Changelog
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
@@ -9,12 +9,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Add `Re-authenticate with Plex` button to the Plex media sources page
   - Use this to replace the credentials ErsatzTV uses (after a Plex password reset, or after signing out of all Plex devices) without removing media sources or synchronized content
   - This registers ErsatzTV with Plex as a new device, so Plex issues a new token; signing in again previously returned the same token
-  - To revoke the old token, remove the old `ErsatzTV` entry from `Authorized Devices` at plex.tv
+  - To revoke the old token, remove the old `ErsatzTV` entry from `Authorized Devices` at plex.tv and restart your Plex server
 
 ### Changed
 - Plex servers that are no longer listed at plex.tv are now flagged instead of deleted
   - Previously, re-authenticating before re-claiming a server at app.plex.tv would delete that server along with its libraries and all of its media
   - Flagged servers are skipped during scans, and are removed only when you choose to remove them
+- **BREAKING CHANGE**: require `X-Etv-Api-Key` header for all API requests under `/api`
+  - The API key is automatically created at startup and can be found in the `api-secrets.json` file in the config folder
+  - Scripted schedule scripts are passed the API key in the `ETV_API_KEY` environment variable, and must send it in the `X-Etv-Api-Key` header on every call
+    - The key is not passed as a command line argument, so it does not appear in the process list or in logs
+    - Scripts that use the bundled docker entrypoint (`/app/scripted-schedules/entrypoint.py`) need no changes
+    - Hand-written scripts and generated clients must be updated; the API key security scheme is now included in the OpenAPI descriptions
+  - Troubleshooting playback endpoints are requested directly by the browser, so they authorize with the management UI session instead of the API key
 
 ### Fixed
 - Fix case where specifically-crafted requests could access management UI over streaming port
