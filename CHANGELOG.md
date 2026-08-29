@@ -5,9 +5,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [26.8.1] - 2026-08-29
 ### Security
 - Fix GHSA-h3r4-r2f2-qf59 (CVE-PENDING)
-  - All users should upgrade as soon as possible
+  - All users who link Plex or Emby media servers should upgrade as soon as possible
   - After upgrading, it is highly recommended to rotate your Plex token and Emby API key
     - To rotate Plex token:
       - In **Media Sources** > **Plex** click **Re-Authenticate With Plex** and complete the sign in to generate a new token
@@ -3388,7 +3389,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Initial release to facilitate testing outside of Docker.
 
 
-[Unreleased]: https://github.com/ErsatzTV/legacy/compare/v26.8.0...HEAD
+[Unreleased]: https://github.com/ErsatzTV/legacy/compare/v26.8.1...HEAD
+[26.8.1]: https://github.com/ErsatzTV/legacy/compare/v26.8.0...v26.8.1
 [26.8.0]: https://github.com/ErsatzTV/legacy/compare/v26.7.1...v26.8.0
 [26.7.1]: https://github.com/ErsatzTV/legacy/compare/v26.7.0...v26.7.1
 [26.7.0]: https://github.com/ErsatzTV/legacy/compare/v26.6.0...v26.7.0
