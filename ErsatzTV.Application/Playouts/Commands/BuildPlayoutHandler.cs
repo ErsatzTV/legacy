@@ -312,6 +312,12 @@ public class BuildPlayoutHandler : IRequestHandler<BuildPlayout, Either<BaseErro
                         new CheckForOverlappingPlayoutItems(request.PlayoutId),
                         cancellationToken);
 
+                    List<string> maybeMirrors = await dbContext.Channels
+                        .AsNoTracking()
+                        .Filter(c => c.MirrorSourceChannelId == referenceData.Channel.Id)
+                        .Map(c => c.Number)
+                        .ToListAsync(cancellationToken);
+
                     string fileName = Path.Combine(FileSystemLayout.ChannelGuideCacheFolder, $"{channelNumber}.xml");
                     if (hasChanges || !File.Exists(fileName) ||
                         playout.ScheduleKind is PlayoutScheduleKind.ExternalJson)
@@ -319,11 +325,6 @@ public class BuildPlayoutHandler : IRequestHandler<BuildPlayout, Either<BaseErro
                         await _workerChannel.WriteAsync(new RefreshChannelData(channelNumber), cancellationToken);
 
                         // refresh guide data for all mirror channels, too
-                        List<string> maybeMirrors = await dbContext.Channels
-                            .AsNoTracking()
-                            .Filter(c => c.MirrorSourceChannelId == referenceData.Channel.Id)
-                            .Map(c => c.Number)
-                            .ToListAsync(cancellationToken);
                         foreach (string mirror in maybeMirrors)
                         {
                             await _workerChannel.WriteAsync(new RefreshChannelData(mirror), cancellationToken);
@@ -331,6 +332,10 @@ public class BuildPlayoutHandler : IRequestHandler<BuildPlayout, Either<BaseErro
                     }
 
                     await _workerChannel.WriteAsync(new SyncNextPlayout(channelNumber), cancellationToken);
+                    foreach (string mirror in maybeMirrors)
+                    {
+                        await _workerChannel.WriteAsync(new SyncNextPlayout(mirror), cancellationToken);
+                    }
 
                     await _workerChannel.WriteAsync(new ExtractEmbeddedSubtitles(playout.Id), cancellationToken);
 

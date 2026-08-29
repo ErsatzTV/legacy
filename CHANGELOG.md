@@ -27,6 +27,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Fix case where specifically-crafted requests could access management UI over streaming port
 - Fix Plex page staying disabled until restart when a sign-in is not completed within two minutes, or when plex.tv cannot be reached
 - Fix Plex page showing no indication that ErsatzTV has been signed out of Plex
+- Fix mirror channels falling out of sync when using the next streaming engine
 
 ## [26.8.0] - 2026-08-20
 ### Added
