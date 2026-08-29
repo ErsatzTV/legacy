@@ -1,4 +1,4 @@
-using System.Diagnostics.CodeAnalysis;
+﻿using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO.Abstractions;
 using System.Net;
@@ -44,6 +44,7 @@ using ErsatzTV.Core.Scheduling.Engine;
 using ErsatzTV.Core.Scheduling.ScriptedScheduling;
 using ErsatzTV.Core.Scheduling.YamlScheduling;
 using ErsatzTV.Core.Search;
+using ErsatzTV.Core.Security;
 using ErsatzTV.Core.Trakt;
 using ErsatzTV.Core.Troubleshooting;
 using ErsatzTV.FFmpeg.Capabilities;
@@ -73,6 +74,7 @@ using ErsatzTV.Infrastructure.Sqlite.Data;
 using ErsatzTV.Infrastructure.Streaming;
 using ErsatzTV.Infrastructure.Streaming.Graphics;
 using ErsatzTV.Infrastructure.Trakt;
+using ErsatzTV.Security;
 using ErsatzTV.Serialization;
 using ErsatzTV.Services;
 using ErsatzTV.Services.RunOnce;
@@ -95,6 +97,7 @@ using Microsoft.Extensions.Primitives;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.IO;
+using Microsoft.AspNetCore.OpenApi;
 using Microsoft.OpenApi;
 using MudBlazor.Services;
 using Newtonsoft.Json;
@@ -122,8 +125,6 @@ public class Startup
     [SuppressMessage("Performance", "CA1861:Avoid constant arrays as arguments")]
     public void ConfigureServices(IServiceCollection services)
     {
-        BugsnagConfiguration bugsnagConfig = Configuration.GetSection("Bugsnag").Get<BugsnagConfiguration>();
-        services.Configure<BugsnagConfiguration>(Configuration.GetSection("Bugsnag"));
         services.Configure<ForwardedHeadersOptions>(options =>
         {
             options.ForwardedHeaders = ForwardedHeaders.All;
@@ -134,17 +135,28 @@ public class Startup
 
         services.AddDataProtection().PersistKeysToFileSystem(new DirectoryInfo(FileSystemLayout.DataProtectionFolder));
 
-        services.AddOpenApi("v1", options => { options.ShouldInclude += a => a.GroupName == "general"; });
+        services.AddOpenApi(
+            "v1",
+            options =>
+            {
+                options.ShouldInclude += a => a.GroupName == "general";
+                AddApiKeySecurity(options);
+            });
 
         services.AddOpenApi(
             "scripted-schedule-tagged",
-            options => { options.ShouldInclude += a => a.GroupName == "scripted-schedule"; });
+            options =>
+            {
+                options.ShouldInclude += a => a.GroupName == "scripted-schedule";
+                AddApiKeySecurity(options);
+            });
 
         services.AddOpenApi(
             "scripted-schedule",
             options =>
             {
                 options.ShouldInclude += a => a.GroupName == "scripted-schedule";
+                AddApiKeySecurity(options);
                 var tag = new OpenApiTag { Name = "ScriptedSchedule" };
                 var tagReference = new OpenApiTagReference("ScriptedSchedule");
                 options.AddOperationTransformer((operation, _, _) =>
@@ -160,6 +172,12 @@ public class Startup
                     return Task.CompletedTask;
                 });
             });
+
+        services
+            .AddAuthentication(ApiKeyAuthenticationOptions.DefaultScheme)
+            .AddScheme<ApiKeyAuthenticationOptions, ApiKeyAuthenticationHandler>(
+                ApiKeyAuthenticationOptions.DefaultScheme,
+                _ => { });
 
         services.ConfigureHttpJsonOptions(o => o.SerializerOptions.NumberHandling = JsonNumberHandling.Strict);
 
@@ -309,6 +327,7 @@ public class Startup
             });
 
         services.AddScoped(_ => new ConditionalIptvAuthorizeFilter("JwtOnlyScheme"));
+        services.AddScoped<ConditionalUiAuthorizeFilter>();
 
         services.AddFluentValidationAutoValidation();
         services.AddValidatorsFromAssemblyContaining<Startup>();
@@ -647,7 +666,7 @@ public class Startup
         app.UseResponseCompression();
 
         app.MapWhen(
-            ctx => !IsIptvPath(ctx.Request.Path) && !IsInternalPath(ctx.Request.Path),
+            ctx => !IsIptvPath(ctx.Request.Path) && !IsInternalPath(ctx.Request.Path) && !IsApiPath(ctx.Request.Path),
             blazor =>
             {
                 blazor.UseRouting();
@@ -686,20 +705,29 @@ public class Startup
             });
 
         app.MapWhen(
-            ctx => IsIptvPath(ctx.Request.Path),
-            iptv =>
+            ctx => IsIptvPath(ctx.Request.Path) || IsInternalPath(ctx.Request.Path),
+            api =>
             {
-                iptv.UseRouting();
-                iptv.UseEndpoints(endpoints => endpoints.MapControllers());
+                api.UseRouting();
+                api.UseEndpoints(endpoints => endpoints.MapControllers());
             });
 
         app.MapWhen(
-            ctx => IsInternalPath(ctx.Request.Path),
-            internalApp =>
+            ctx => IsApiPath(ctx.Request.Path),
+            api =>
             {
-                internalApp.UseRouting();
-                internalApp.UseEndpoints(endpoints => endpoints.MapControllers());
+                api.UseRouting();
+                api.UseAuthentication();
+#pragma warning disable ASP0001
+                api.UseAuthorization();
+#pragma warning restore ASP0001
+                api.UseEndpoints(endpoints => endpoints
+                    .MapControllers()
+                    .RequireAuthorization(
+                        new AuthorizationPolicyBuilder(ApiKeyAuthenticationOptions.DefaultScheme)
+                            .RequireAuthenticatedUser().Build()));
             });
+
         return;
 
         bool IsIptvPath(PathString path)
@@ -712,7 +740,38 @@ public class Startup
         }
 
         bool IsInternalPath(PathString path) => path.StartsWithSegments("/internal");
+
+        // troubleshooting endpoints are requested directly by the browser, so they stay on the blazor
+        // branch and authorize with the ui cookie instead of the api key
+        bool IsApiPath(PathString path) => path.StartsWithSegments("/api") && !IsTroubleshootPath(path);
+
+        bool IsTroubleshootPath(PathString path) => path.StartsWithSegments("/api/troubleshoot");
     }
+
+    private static void AddApiKeySecurity(OpenApiOptions options) =>
+        options.AddDocumentTransformer((document, _, _) =>
+        {
+            document.Components ??= new OpenApiComponents();
+            document.Components.SecuritySchemes ??= new Dictionary<string, IOpenApiSecurityScheme>();
+            document.Components.SecuritySchemes[ApiKeyAuthenticationOptions.DefaultScheme] =
+                new OpenApiSecurityScheme
+                {
+                    Type = SecuritySchemeType.ApiKey,
+                    In = ParameterLocation.Header,
+                    Name = ApiHelper.HeaderName,
+                    Description = "API key from api-secrets.json in the ErsatzTV config folder"
+                };
+
+            document.Security =
+            [
+                new OpenApiSecurityRequirement
+                {
+                    [new OpenApiSecuritySchemeReference(ApiKeyAuthenticationOptions.DefaultScheme, document)] = []
+                }
+            ];
+
+            return Task.CompletedTask;
+        });
 
     private static void CustomServices(IServiceCollection services)
     {
@@ -880,6 +939,7 @@ public class Startup
         services.AddTransient<SlowQueryInterceptor>();
 
         // run-once/blocking startup services
+        services.AddHostedService<CreateApiKeyService>();
         services.AddHostedService<EndpointValidatorService>();
         services.AddHostedService<DatabaseMigratorService>();
         services.AddHostedService<DatabaseCleanerService>();

@@ -28,7 +28,7 @@ namespace ErsatzTV.Controllers;
 
 [ApiController]
 [ApiExplorerSettings(IgnoreApi = true)]
-[Route("/internal")]
+[Route("internal")]
 public class InternalController : StreamingControllerBase
 {
     private readonly ILogger<InternalController> _logger;

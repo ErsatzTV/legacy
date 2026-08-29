@@ -1,4 +1,4 @@
-using System.CommandLine.Parsing;
+﻿using System.CommandLine.Parsing;
 using System.IO.Abstractions;
 using CliWrap;
 using CliWrap.Buffered;
@@ -6,6 +6,7 @@ using ErsatzTV.Core.Domain;
 using ErsatzTV.Core.Interfaces.Repositories;
 using ErsatzTV.Core.Interfaces.Scheduling;
 using ErsatzTV.Core.Scheduling.Engine;
+using ErsatzTV.Core.Security;
 using Microsoft.Extensions.Logging;
 
 namespace ErsatzTV.Core.Scheduling.ScriptedScheduling;
@@ -61,7 +62,7 @@ public class ScriptedPlayoutBuilder(
             logger.LogInformation(
                 "Building scripted playout {Script} with arguments {Arguments}",
                 scriptFile,
-                arguments);
+                scriptArgs);
 
             int daysToBuild = await GetDaysToBuild(cancellationToken);
             DateTimeOffset finish = start.AddDays(daysToBuild);
@@ -88,6 +89,7 @@ public class ScriptedPlayoutBuilder(
 
             Command command = Cli.Wrap(scriptFile)
                 .WithArguments(arguments)
+                .WithEnvironmentVariables(env => env.Set(ApiHelper.EnvironmentVariableName, ApiHelper.ApiKey))
                 .WithValidation(CommandResultValidation.None);
 
             var commandResult = await command.ExecuteBufferedAsync(linkedCts.Token);
