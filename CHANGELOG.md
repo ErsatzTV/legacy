@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Fixed
+- Next engine:
+  - Properly detect QSV capabilities for Intel 10th gen and older devices; previously they always used software transcoding
 - Fix block scheduler deleting the current hour's playout items, taking the channel offline until the next block
 
 ## [26.8.1] - 2026-08-29
