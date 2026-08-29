@@ -5,18 +5,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Fixed
+- Next engine:
+  - Properly detect QSV capabilities for Intel 10th gen and older devices; previously they always used software transcoding
+- Fix block scheduler deleting the current hour's playout items, taking the channel offline until the next block
+
+## [26.8.1] - 2026-08-29
 ### Security
 - Fix GHSA-h3r4-r2f2-qf59 (CVE-PENDING)
-  - All users should upgrade as soon as possible
-  - After upgrading, it is highly recommended to rotate your Plex token and Emby API key
+  - All users who link Plex or Emby media servers should upgrade as soon as possible
+  - **After upgrading, it is highly recommended to rotate your Plex token and Emby API key**
     - To rotate Plex token:
-      - In **Media Sources** > **Plex** click **Re-Authenticate With Plex** and complete the sign in to generate a new token
+      - In **Media Sources** > **Plex** click **Re-authenticate with Plex** and complete the sign in to generate a new token
+      - Restart ErsatzTV so it picks up the new token immediately; connection details are cached for up to 30 minutes
       - In https://app.plex.tv/ **Account Settings** > **Authorized Devices** delete the old ErsatzTV authorized device
       - Restart the Plex server to immediately invalidate the token that the old authorized device used
     - To rotate Emby API key:
       - Generate new API key in Emby's **Dashboard** > **Advanced** > **API Keys**
-      - Delete the old API key in that same screen
       - In **Media Sources** > **Emby** click **Edit Emby Connection**, paste the new API key and click **Save Changes**
+      - Delete the old API key in Emby's **API Keys** screen
+  - Jellyfin users are not affected and have no reason to rotate the API key
 - Fix case where specifically-crafted requests could access management UI over streaming port
 
 ### Added
@@ -26,9 +34,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - To revoke the old token, remove the old `ErsatzTV` entry from `Authorized Devices` at plex.tv and restart your Plex server
 
 ### Changed
-- Plex servers that are no longer listed at plex.tv are now flagged instead of deleted
-  - Previously, re-authenticating before re-claiming a server at app.plex.tv would delete that server along with its libraries and all of its media
-  - Flagged servers are skipped during scans, and are removed only when you choose to remove them
 - **BREAKING CHANGE**: require `X-Etv-Api-Key` header for all API requests under `/api`
   - The API key is automatically created at startup and can be found in the `api-secrets.json` file in the config folder
   - Scripted schedule scripts are passed the API key in the `ETV_API_KEY` environment variable, and must send it in the `X-Etv-Api-Key` header on every call
@@ -36,6 +41,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
     - Scripts that use the bundled docker entrypoint (`/app/scripted-schedules/entrypoint.py`) need no changes
     - Hand-written scripts and generated clients must be updated; the API key security scheme is now included in the OpenAPI descriptions
   - Troubleshooting playback endpoints are requested directly by the browser, so they authorize with the management UI session instead of the API key
+- Plex servers that are no longer listed at plex.tv are now flagged instead of deleted
+  - Previously, re-authenticating before re-claiming a server at app.plex.tv would delete that server along with its libraries and all of its media
+  - Flagged servers are skipped during scans, and are removed only when you choose to remove them
 
 ### Fixed
 - Fix Plex page staying disabled until restart when a sign-in is not completed within two minutes, or when plex.tv cannot be reached
@@ -3388,7 +3396,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Initial release to facilitate testing outside of Docker.
 
 
-[Unreleased]: https://github.com/ErsatzTV/legacy/compare/v26.8.0...HEAD
+[Unreleased]: https://github.com/ErsatzTV/legacy/compare/v26.8.1...HEAD
+[26.8.1]: https://github.com/ErsatzTV/legacy/compare/v26.8.0...v26.8.1
 [26.8.0]: https://github.com/ErsatzTV/legacy/compare/v26.7.1...v26.8.0
 [26.7.1]: https://github.com/ErsatzTV/legacy/compare/v26.7.0...v26.7.1
 [26.7.0]: https://github.com/ErsatzTV/legacy/compare/v26.6.0...v26.7.0
