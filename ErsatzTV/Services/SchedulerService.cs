@@ -224,8 +224,20 @@ public class SchedulerService : BackgroundService
 
         var mediaSourceIds = new System.Collections.Generic.HashSet<int>();
 
+        // servers that plex.tv no longer lists cannot be reached, so don't queue scans for them
+        List<int> missingMediaSourceIds = await dbContext.PlexMediaSources
+            .AsNoTracking()
+            .Filter(s => s.MissingSince != null)
+            .Map(s => s.Id)
+            .ToListAsync(cancellationToken);
+
         foreach (PlexLibrary library in dbContext.PlexLibraries.AsNoTracking().Filter(l => l.ShouldSyncItems))
         {
+            if (missingMediaSourceIds.Contains(library.MediaSourceId))
+            {
+                continue;
+            }
+
             mediaSourceIds.Add(library.MediaSourceId);
 
             if (_entityLocker.LockLibrary(library.Id))

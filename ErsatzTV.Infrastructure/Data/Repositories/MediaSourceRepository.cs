@@ -990,4 +990,12 @@ public class MediaSourceRepository(IDbContextFactory<TvContext> dbContextFactory
             "UPDATE PlexMediaSource SET LastCollectionsScan = @LastCollectionsScan WHERE Id = @Id",
             new { plexMediaSource.LastCollectionsScan, plexMediaSource.Id }).ToUnit();
     }
+
+    public async Task<Unit> SetPlexMissingSince(int plexMediaSourceId, DateTime? missingSince)
+    {
+        await using TvContext dbContext = await dbContextFactory.CreateDbContextAsync();
+        return await dbContext.Connection.ExecuteAsync(
+            "UPDATE PlexMediaSource SET MissingSince = @MissingSince WHERE Id = @Id",
+            new { MissingSince = missingSince, Id = plexMediaSourceId }).ToUnit();
+    }
 }

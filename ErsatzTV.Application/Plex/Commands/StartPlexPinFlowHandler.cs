@@ -20,7 +20,7 @@ public class StartPlexPinFlowHandler : IRequestHandler<StartPlexPinFlow, Either<
     public Task<Either<BaseError, string>> Handle(
         StartPlexPinFlow request,
         CancellationToken cancellationToken) =>
-        _plexTvApiClient.StartPinFlow().Bind(result => result.Match(
+        _plexTvApiClient.StartPinFlow(request.ForceNewCredentials).Bind(result => result.Match(
             Left: error => Task.FromResult(Left<BaseError, string>(error)),
             Right: async pin =>
             {
