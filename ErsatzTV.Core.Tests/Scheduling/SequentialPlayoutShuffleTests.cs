@@ -12,7 +12,6 @@ using NSubstitute;
 using NUnit.Framework;
 using Shouldly;
 using Testably.Abstractions.Testing;
-using static LanguageExt.Prelude;
 
 namespace ErsatzTV.Core.Tests.Scheduling;
 
@@ -61,6 +60,62 @@ public class SequentialPlayoutShuffleTests
         definition.Playout[2].ShouldBeSameAs(nested);
         definition.Playout.Where(i => i.SequenceKey == "outer").Select(i => i.Content).Order()
             .ShouldBe(["first", "second"]);
+    }
+
+    [Test]
+    public void Shuffle_Should_Give_Up_When_Every_Draw_Starts_With_The_Tail()
+    {
+        // a group of repeated objects can never draw a head that differs from the tail by reference
+        (YamlPlayoutDefinition definition, YamlPlayoutShuffleSequenceInstruction shuffle) =
+            CreateRepeatedInstructionDefinition();
+        var handler = new YamlPlayoutShuffleSequenceHandler();
+
+        Task<bool> handle = Task.Run(() => handler.Handle(
+            new YamlPlayoutContext(new Playout(), definition, 1),
+            shuffle,
+            PlayoutBuildMode.Reset,
+            _ => Task.CompletedTask,
+            NullLogger<SequentialPlayoutBuilder>.Instance,
+            CancellationToken.None));
+
+        handle.Wait(TimeSpan.FromSeconds(5)).ShouldBeTrue("the shuffle must not retry forever");
+        handle.Result.ShouldBeTrue();
+        definition.Playout.Count.ShouldBe(4);
+    }
+
+    [Test]
+    public void Shuffle_Should_Stop_Retrying_When_Cancelled()
+    {
+        (YamlPlayoutDefinition definition, YamlPlayoutShuffleSequenceInstruction shuffle) =
+            CreateRepeatedInstructionDefinition();
+        var handler = new YamlPlayoutShuffleSequenceHandler();
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        Task<bool> handle = Task.Run(() => handler.Handle(
+            new YamlPlayoutContext(new Playout(), definition, 1),
+            shuffle,
+            PlayoutBuildMode.Reset,
+            _ => Task.CompletedTask,
+            NullLogger<SequentialPlayoutBuilder>.Instance,
+            cts.Token));
+
+        handle.Wait(TimeSpan.FromSeconds(5)).ShouldBeTrue("a cancelled build must interrupt the shuffle");
+        handle.Result.ShouldBeTrue();
+    }
+
+    private static (YamlPlayoutDefinition Definition, YamlPlayoutShuffleSequenceInstruction Shuffle)
+        CreateRepeatedInstructionDefinition()
+    {
+        var shuffle = new YamlPlayoutShuffleSequenceInstruction { ShuffleSequence = "shows" };
+        var repeated = new YamlPlayoutInstruction
+        {
+            Content = "show",
+            SequenceKey = "shows",
+            SequenceGuid = Guid.NewGuid()
+        };
+
+        return (new YamlPlayoutDefinition { Playout = [shuffle, repeated, repeated, repeated] }, shuffle);
     }
 
     [Test]

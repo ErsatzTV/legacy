@@ -5,6 +5,8 @@ namespace ErsatzTV.Core.Scheduling.YamlScheduling.Handlers;
 
 public class YamlPlayoutShuffleSequenceHandler : IYamlPlayoutHandler
 {
+    private const int MaxShuffleAttempts = 10;
+
     public bool Reset => false;
 
     public Task<bool> Handle(
@@ -40,10 +42,15 @@ public class YamlPlayoutShuffleSequenceHandler : IYamlPlayoutHandler
         {
             var currentGroup = grouping.OrderBy(x => x.Index).ToList();
 
-            // shuffle, avoiding starting with the tail of the last shuffle
+            // shuffle, try to avoid starting with the tail of the last shuffle
             YamlPlayoutInstruction tail = currentGroup.Last().Instruction;
             var shuffledGroup = currentGroup.Select(x => x.Instruction).OrderBy(_ => Guid.NewGuid()).ToList();
-            while (shuffledGroup.Count > 1 && shuffledGroup.Head() == tail)
+
+            var attempts = 0;
+            while (shuffledGroup.Count > 1
+                   && shuffledGroup.Head() == tail
+                   && attempts++ < MaxShuffleAttempts
+                   && !cancellationToken.IsCancellationRequested)
             {
                 shuffledGroup = currentGroup.Select(x => x.Instruction).OrderBy(_ => Guid.NewGuid()).ToList();
             }
