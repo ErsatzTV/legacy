@@ -9,6 +9,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Next engine:
   - Properly detect QSV capabilities for Intel 10th gen and older devices; previously they always used software transcoding
 - Fix block scheduler deleting the current hour's playout items, taking the channel offline until the next block
+- Sequential schedules:
+  - Fix `shuffle_sequence` losing the shuffled order at the end of each build; previously the next build continued in schedule file order
+  - Fix `shuffle_sequence` deleting the instructions between two uses of the same sequence
+  - Fix a sequence that is used two times giving the `custom_title` of the last use to every use
+  - Fix a shuffled sequence with `repeat` making the build run with no end; this stopped all other background work
 
 ## [26.8.1] - 2026-08-29
 ### Security
