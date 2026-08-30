@@ -22,4 +22,15 @@ public class YamlPlayoutInstruction
 
     [YamlIgnore]
     public Guid SequenceGuid { get; set; }
+
+    [YamlIgnore]
+    public int SequenceIndex { get; set; }
+
+    [YamlIgnore]
+    public bool SequenceShuffled { get; set; }
+
+    [YamlIgnore]
+    public string SequenceFingerprint { get; set; }
+
+    public YamlPlayoutInstruction Clone() => (YamlPlayoutInstruction)MemberwiseClone();
 }
