@@ -105,12 +105,19 @@ public class YamlPlayoutContext(Playout playout, YamlPlayoutDefinition definitio
         _sequenceOrdersToRestore = null;
     }
 
+    // only return first instance of name; ignore unnamed schedules
+    // this matches SwitchToSchedule (null is default, otherwise find first matching name)
     private IEnumerable<(string ListKey, List<YamlPlayoutInstruction> Instructions)> GetInstructionLists()
     {
         yield return (string.Empty, Definition.Playout);
+
+        var seen = new System.Collections.Generic.HashSet<string>(StringComparer.Ordinal);
         foreach (YamlPlayoutScheduleItem schedule in Definition.Schedules)
         {
-            yield return (schedule.Name ?? string.Empty, schedule.Playout);
+            if (!string.IsNullOrWhiteSpace(schedule.Name) && seen.Add(schedule.Name))
+            {
+                yield return (schedule.Name, schedule.Playout);
+            }
         }
     }
 
@@ -517,10 +524,9 @@ public class YamlPlayoutContext(Playout playout, YamlPlayoutDefinition definitio
     private Dictionary<string, List<SequenceOrder>> CaptureSequenceOrders()
     {
         var result = new Dictionary<string, List<SequenceOrder>>();
-        CaptureSequenceOrders(result, string.Empty, Definition.Playout);
-        foreach (YamlPlayoutScheduleItem schedule in Definition.Schedules)
+        foreach ((string listKey, List<YamlPlayoutInstruction> instructions) in GetInstructionLists())
         {
-            CaptureSequenceOrders(result, schedule.Name, schedule.Playout);
+            CaptureSequenceOrders(result, listKey, instructions);
         }
 
         return result.Count > 0 ? result : null;
@@ -539,7 +545,7 @@ public class YamlPlayoutContext(Playout playout, YamlPlayoutDefinition definitio
 
         if (sequenceOrders.Count > 0)
         {
-            result[listKey ?? string.Empty] = sequenceOrders;
+            result[listKey] = sequenceOrders;
         }
     }
 

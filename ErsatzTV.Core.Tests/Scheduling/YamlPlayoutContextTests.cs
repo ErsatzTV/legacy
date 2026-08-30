@@ -266,6 +266,74 @@ public static class YamlPlayoutContextTests
             context.InstructionIndex.ShouldBe(2);
         }
 
+        [Test]
+        public void Restoring_Should_Ignore_A_Schedule_With_No_Name()
+        {
+            YamlPlayoutDefinition savedDefinition = CreateDefinition([2, 0, 3, 1], true, (null, [1, 0]));
+            var savedContext = new YamlPlayoutContext(new Playout(), savedDefinition, 1)
+            {
+                InstructionIndex = 3
+            };
+            savedContext.RestoreSequenceOrders();
+            var anchor = new PlayoutAnchor
+            {
+                NextStart = DateTime.UtcNow,
+                Context = savedContext.Serialize()
+            };
+
+            YamlPlayoutDefinition restoredDefinition = CreateDefinition([0, 1, 2, 3], false, (null, [0, 1]));
+            var restoredContext = new YamlPlayoutContext(new Playout(), restoredDefinition, 1);
+            restoredContext.Reset(anchor, DateTimeOffset.Now);
+            restoredContext.RestoreSequenceOrders();
+
+            restoredDefinition.Playout.Select(i => i.Content).ShouldBe(["show-2", "show-0", "show-3", "show-1"]);
+            restoredContext.InstructionIndex.ShouldBe(3);
+        }
+
+        [Test]
+        public void Restoring_Should_Ignore_A_Duplicate_Schedule_Name()
+        {
+            YamlPlayoutDefinition savedDefinition =
+                CreateDefinition([0, 1, 2, 3], true, ("Christmas", [2, 0, 3, 1]), ("Christmas", [1, 0]));
+            var savedContext = new YamlPlayoutContext(new Playout(), savedDefinition, 1);
+            savedContext.RestoreSequenceOrders();
+            savedContext.SwitchToSchedule("Christmas");
+            savedContext.InstructionIndex = 3;
+            var anchor = new PlayoutAnchor
+            {
+                NextStart = DateTime.UtcNow,
+                Context = savedContext.Serialize()
+            };
+
+            YamlPlayoutDefinition restoredDefinition =
+                CreateDefinition([0, 1, 2, 3], false, ("Christmas", [0, 1, 2, 3]), ("Christmas", [0, 1]));
+            var restoredContext = new YamlPlayoutContext(new Playout(), restoredDefinition, 1);
+            restoredContext.Reset(anchor, DateTimeOffset.Now);
+            restoredContext.RestoreSequenceOrders();
+
+            restoredDefinition.Schedules[0].Playout.Select(i => i.Content)
+                .ShouldBe(["show-2", "show-0", "show-3", "show-1"]);
+            restoredContext.InstructionIndex.ShouldBe(3);
+        }
+
+        private static YamlPlayoutDefinition CreateDefinition(
+            int[] defaultOrder,
+            bool shuffled,
+            params (string Name, int[] Order)[] schedules) =>
+            new()
+            {
+                Playout = CreateInstructions(defaultOrder, shuffled, "fingerprint"),
+                Schedules = schedules
+                    .Select(s => new YamlPlayoutScheduleItem
+                    {
+                        Name = s.Name,
+                        StartDate = "12-25",
+                        EndDate = "12-25",
+                        Playout = CreateInstructions(s.Order, shuffled, "fingerprint")
+                    })
+                    .ToList()
+            };
+
         private static YamlPlayoutDefinition CreateDefinition(
             int[] defaultOrder,
             int[] scheduleOrder,
