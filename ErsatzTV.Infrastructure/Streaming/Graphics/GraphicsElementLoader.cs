@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.IO.Abstractions;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -23,6 +24,8 @@ public partial class GraphicsElementLoader(
     ILogger<GraphicsElementLoader> logger)
     : IGraphicsElementLoader
 {
+    private readonly ConcurrentDictionary<string, string> _yamlCache = new();
+
     public async Task<GraphicsEngineContext> LoadAll(
         GraphicsEngineContext context,
         List<PlayoutItemGraphicsElement> elements,
@@ -31,7 +34,7 @@ public partial class GraphicsElementLoader(
         try
         {
             // get max epg entries
-            int epgEntries = await GetMaxEpgEntries(elements);
+            int epgEntries = await GetMaxEpgEntries(elements, cancellationToken);
 
             // init template element variables once
             Dictionary<string, object> templateVariables =
@@ -49,7 +52,8 @@ public partial class GraphicsElementLoader(
                     {
                         Option<TextGraphicsElement> maybeElement = await LoadText(
                             reference.GraphicsElement.Path,
-                            templateVariables);
+                            templateVariables,
+                            cancellationToken);
                         if (maybeElement.IsNone)
                         {
                             logger.LogWarning(
@@ -68,7 +72,8 @@ public partial class GraphicsElementLoader(
                     {
                         Option<ImageGraphicsElement> maybeElement = await LoadImage(
                             reference.GraphicsElement.Path,
-                            templateVariables);
+                            templateVariables,
+                            cancellationToken);
                         if (maybeElement.IsNone)
                         {
                             logger.LogWarning(
@@ -87,7 +92,8 @@ public partial class GraphicsElementLoader(
                     {
                         Option<MotionGraphicsElement> maybeElement = await LoadMotion(
                             reference.GraphicsElement.Path,
-                            templateVariables);
+                            templateVariables,
+                            cancellationToken);
                         if (maybeElement.IsNone)
                         {
                             logger.LogWarning(
@@ -106,7 +112,8 @@ public partial class GraphicsElementLoader(
                     {
                         Option<SubtitleGraphicsElement> maybeElement = await LoadSubtitle(
                             reference.GraphicsElement.Path,
-                            templateVariables);
+                            templateVariables,
+                            cancellationToken);
                         if (maybeElement.IsNone)
                         {
                             logger.LogWarning(
@@ -132,7 +139,8 @@ public partial class GraphicsElementLoader(
                     {
                         Option<ScriptGraphicsElement> maybeElement = await LoadScript(
                             reference.GraphicsElement.Path,
-                            templateVariables);
+                            templateVariables,
+                            cancellationToken);
                         if (maybeElement.IsNone)
                         {
                             logger.LogWarning(
@@ -169,7 +177,7 @@ public partial class GraphicsElementLoader(
     {
         try
         {
-            string yaml = await fileSystem.File.ReadAllTextAsync(fileName, cancellationToken);
+            string yaml = await ReadFile(fileName, cancellationToken);
             var template = Template.Parse(yaml);
 
             var builder = new StringBuilder();
@@ -200,7 +208,7 @@ public partial class GraphicsElementLoader(
         return Option<string>.None;
     }
 
-    private async Task<int> GetMaxEpgEntries(List<PlayoutItemGraphicsElement> elements)
+    private async Task<int> GetMaxEpgEntries(List<PlayoutItemGraphicsElement> elements, CancellationToken cancellationToken)
     {
         var epgEntries = 0;
 
@@ -212,7 +220,8 @@ public partial class GraphicsElementLoader(
         {
             try
             {
-                foreach (string line in await fileSystem.File.ReadAllLinesAsync(reference.GraphicsElement.Path))
+                string text = await ReadFile(reference.GraphicsElement.Path, cancellationToken);
+                foreach (string line in text.Split("\n"))
                 {
                     Match match = EpgEntriesRegex().Match(line);
                     if (!match.Success || !int.TryParse(match.Groups[1].Value, out int value))
@@ -235,20 +244,35 @@ public partial class GraphicsElementLoader(
         return epgEntries;
     }
 
-    private Task<Option<ImageGraphicsElement>> LoadImage(string fileName, Dictionary<string, object> variables) =>
-        GetTemplatedYaml(fileName, variables).BindT(FromYaml<ImageGraphicsElement>);
+    private Task<Option<ImageGraphicsElement>> LoadImage(
+        string fileName,
+        Dictionary<string, object> variables,
+        CancellationToken cancellationToken) =>
+        GetTemplatedYaml(fileName, variables, cancellationToken).BindT(FromYaml<ImageGraphicsElement>);
 
-    private Task<Option<TextGraphicsElement>> LoadText(string fileName, Dictionary<string, object> variables) =>
-        GetTemplatedYaml(fileName, variables).BindT(FromYaml<TextGraphicsElement>);
+    private Task<Option<TextGraphicsElement>> LoadText(
+        string fileName,
+        Dictionary<string, object> variables,
+        CancellationToken cancellationToken) =>
+        GetTemplatedYaml(fileName, variables, cancellationToken).BindT(FromYaml<TextGraphicsElement>);
 
-    private Task<Option<MotionGraphicsElement>> LoadMotion(string fileName, Dictionary<string, object> variables) =>
-        GetTemplatedYaml(fileName, variables).BindT(FromYaml<MotionGraphicsElement>);
+    private Task<Option<MotionGraphicsElement>> LoadMotion(
+        string fileName,
+        Dictionary<string, object> variables,
+        CancellationToken cancellationToken) =>
+        GetTemplatedYaml(fileName, variables, cancellationToken).BindT(FromYaml<MotionGraphicsElement>);
 
-    private Task<Option<SubtitleGraphicsElement>> LoadSubtitle(string fileName, Dictionary<string, object> variables) =>
-        GetTemplatedYaml(fileName, variables).BindT(FromYaml<SubtitleGraphicsElement>);
+    private Task<Option<SubtitleGraphicsElement>> LoadSubtitle(
+        string fileName,
+        Dictionary<string, object> variables,
+        CancellationToken cancellationToken) =>
+        GetTemplatedYaml(fileName, variables, cancellationToken).BindT(FromYaml<SubtitleGraphicsElement>);
 
-    private Task<Option<ScriptGraphicsElement>> LoadScript(string fileName, Dictionary<string, object> variables) =>
-        GetTemplatedYaml(fileName, variables).BindT(FromYaml<ScriptGraphicsElement>);
+    private Task<Option<ScriptGraphicsElement>> LoadScript(
+        string fileName,
+        Dictionary<string, object> variables,
+        CancellationToken cancellationToken) =>
+        GetTemplatedYaml(fileName, variables, cancellationToken).BindT(FromYaml<ScriptGraphicsElement>);
 
     private async Task<Dictionary<string, object>> InitTemplateVariables(
         GraphicsEngineContext context,
@@ -280,23 +304,29 @@ public partial class GraphicsElementLoader(
         }
 
         // epg variables
-        DateTimeOffset startTime = context.ContentStartTime + context.Seek;
-        Option<Dictionary<string, object>> maybeEpgData =
-            await templateDataRepository.GetEpgTemplateData(context.ChannelNumber, startTime, epgEntries);
-        foreach (Dictionary<string, object> templateData in maybeEpgData)
+        if (epgEntries > 0)
         {
-            foreach (KeyValuePair<string, object> variable in templateData)
+            DateTimeOffset startTime = context.ContentStartTime + context.Seek;
+            Option<Dictionary<string, object>> maybeEpgData =
+                await templateDataRepository.GetEpgTemplateData(context.ChannelNumber, startTime, epgEntries);
+            foreach (Dictionary<string, object> templateData in maybeEpgData)
             {
-                result.Add(variable.Key, variable.Value);
+                foreach (KeyValuePair<string, object> variable in templateData)
+                {
+                    result.Add(variable.Key, variable.Value);
+                }
             }
         }
 
         return result;
     }
 
-    private async Task<Option<TemplatedYaml>> GetTemplatedYaml(string fileName, Dictionary<string, object> variables)
+    private async Task<Option<TemplatedYaml>> GetTemplatedYaml(
+        string fileName,
+        Dictionary<string, object> variables,
+        CancellationToken cancellationToken)
     {
-        string yaml = await fileSystem.File.ReadAllTextAsync(fileName);
+        string yaml = await ReadFile(fileName, cancellationToken);
         try
         {
             var scriptObject = new ScriptObject();
@@ -304,7 +334,9 @@ public partial class GraphicsElementLoader(
             scriptObject.Import("convert_timezone", templateFunctions.ConvertTimeZone);
             scriptObject.Import("format_datetime", templateFunctions.FormatDateTime);
             scriptObject.Import("get_directory_name", (string path) => Path.GetDirectoryName(path));
-            scriptObject.Import("get_filename_without_extension", (string path) => Path.GetFileNameWithoutExtension(path));
+            scriptObject.Import(
+                "get_filename_without_extension",
+                (string path) => Path.GetFileNameWithoutExtension(path));
 
             var context = new TemplateContext { MemberRenamer = member => member.Name };
             context.PushGlobal(scriptObject);
@@ -359,6 +391,20 @@ public partial class GraphicsElementLoader(
         {
             return Option<T>.None;
         }
+    }
+
+    private async Task<string> ReadFile(string fileName, CancellationToken cancellationToken)
+    {
+        string key = fileSystem.Path.GetFullPath(fileName);
+        if (_yamlCache.TryGetValue(key, out string cached))
+        {
+            return cached;
+        }
+
+        string yaml = await fileSystem.File.ReadAllTextAsync(key, cancellationToken);
+        _yamlCache.TryAdd(key, yaml);
+
+        return yaml;
     }
 
     [GeneratedRegex(@"epg_entries:\s*(\d+)")]

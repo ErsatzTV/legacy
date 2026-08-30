@@ -692,7 +692,11 @@ public partial class PlexTelevisionLibraryScanner :
             result.IsUpdated = true;
         }
 
-        if (await _metadataRepository.UpdateSubtitles(existingMetadata, fullMetadata.Subtitles, cancellationToken))
+        if (await _metadataRepository.UpdateSubtitles(
+                existingMetadata,
+                fullMetadata.Subtitles,
+                SidecarSubtitleIdentity.StreamIndex,
+                cancellationToken))
         {
             result.IsUpdated = true;
         }

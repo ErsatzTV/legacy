@@ -368,7 +368,8 @@ public class GraphicsElementSelectorTests
         List<PlayoutItemGraphicsElement> result = GraphicsElementSelector.SelectGraphicsElements(
             testCase.channel,
             testCase.playoutItem,
-            Now);
+            Now,
+            shouldLogMessages: true);
 
         result.Map(pige => pige.GraphicsElement).ShouldBe(testCase.expected);
     }

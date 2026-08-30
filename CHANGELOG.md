@@ -1,17 +1,111 @@
-# Changelog
+﻿# Changelog
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
+
 ### Fixed
-- Fix regression from `v26.2.0` that caused channel logo watermarks to be ignored when the logo is a url
-  - This affected external logo urls and generated channel logos
+- Next engine:
+  - Properly detect QSV capabilities for Intel 10th gen and older devices; previously they always used software transcoding
+- Fix block scheduler deleting the current hour's playout items, taking the channel offline until the next block
+- Sequential schedules:
+  - Fix `shuffle_sequence` losing the shuffled order at the end of each build; previously the next build continued in schedule file order
+  - Fix `shuffle_sequence` deleting the instructions between two uses of the same sequence
+  - Fix a sequence that is used two times giving the `custom_title` of the last use to every use
+  - Fix a shuffled sequence with `repeat` making the build run with no end; this stopped all other background work
 - Return a retry response instead of `404` when an HLS segmenter playlist is temporarily unavailable
   - Previously, a client that requested the playlist before the session had written it was told the stream did not exist
 - Treat a playlist that fails to trim as unavailable instead of serving an empty playlist
   - Previously, a malformed playlist produced an empty response with a reset media sequence, which could glitch or stall players
   - The failed trim also no longer overwrites the playlist on disk, so the session can recover on the next cycle
+
+## [26.8.1] - 2026-08-29
+### Security
+- Fix GHSA-h3r4-r2f2-qf59 (CVE-PENDING)
+  - All users who link Plex or Emby media servers should upgrade as soon as possible
+  - **After upgrading, it is highly recommended to rotate your Plex token and Emby API key**
+    - To rotate Plex token:
+      - In **Media Sources** > **Plex** click **Re-authenticate with Plex** and complete the sign in to generate a new token
+      - Restart ErsatzTV so it picks up the new token immediately; connection details are cached for up to 30 minutes
+      - In https://app.plex.tv/ **Account Settings** > **Authorized Devices** delete the old ErsatzTV authorized device
+      - Restart the Plex server to immediately invalidate the token that the old authorized device used
+    - To rotate Emby API key:
+      - Generate new API key in Emby's **Dashboard** > **Advanced** > **API Keys**
+      - In **Media Sources** > **Emby** click **Edit Emby Connection**, paste the new API key and click **Save Changes**
+      - Delete the old API key in Emby's **API Keys** screen
+  - Jellyfin users are not affected and have no reason to rotate the API key
+- Fix case where specifically-crafted requests could access management UI over streaming port
+
+### Added
+- Add `Re-authenticate with Plex` button to the Plex media sources page
+  - Use this to replace the credentials ErsatzTV uses (after a Plex password reset, or after signing out of all Plex devices) without removing media sources or synchronized content
+  - This registers ErsatzTV with Plex as a new device, so Plex issues a new token; signing in again previously returned the same token
+  - To revoke the old token, remove the old `ErsatzTV` entry from `Authorized Devices` at plex.tv and restart your Plex server
+
+### Changed
+- **BREAKING CHANGE**: require `X-Etv-Api-Key` header for all API requests under `/api`
+  - The API key is automatically created at startup and can be found in the `api-secrets.json` file in the config folder
+  - Scripted schedule scripts are passed the API key in the `ETV_API_KEY` environment variable, and must send it in the `X-Etv-Api-Key` header on every call
+    - The key is not passed as a command line argument, so it does not appear in the process list or in logs
+    - Scripts that use the bundled docker entrypoint (`/app/scripted-schedules/entrypoint.py`) need no changes
+    - Hand-written scripts and generated clients must be updated; the API key security scheme is now included in the OpenAPI descriptions
+  - Troubleshooting playback endpoints are requested directly by the browser, so they authorize with the management UI session instead of the API key
+- Plex servers that are no longer listed at plex.tv are now flagged instead of deleted
+  - Previously, re-authenticating before re-claiming a server at app.plex.tv would delete that server along with its libraries and all of its media
+  - Flagged servers are skipped during scans, and are removed only when you choose to remove them
+
+### Fixed
+- Fix Plex page staying disabled until restart when a sign-in is not completed within two minutes, or when plex.tv cannot be reached
+- Fix Plex page showing no indication that ErsatzTV has been signed out of Plex
+- Fix mirror channels falling out of sync when using the next streaming engine
+
+## [26.8.0] - 2026-08-20
+### Added
+- Add `Streaming Engine` dropdown to playback troubleshooter to support troubleshooting Next engine playback
+- Next engine
+  - Use `overlay_qsv` for hardware-accelerated watermarks and image subtitles
+  - Support multiple watermarks (still only `permanent` and `intermittent` modes, not `opacity expression`)
+  - Support image graphics elements that do not use an opacity expression
+
+### Changed
+- Upgrade Mesa driver in docker from 25.2.8 to 26.0.3 to fix issues with hevc_vaapi encoder when using radeonsi driver
+
+### Fixed
+- Bundle new ffmpeg 8.1.2 build on Windows that is patched to fix
+  - Vulkan/CUDA interop (libplacebo tonemapping)
+  - Unexpected slow performance with image subtitles
+- Enable Vulkan/CUDA interop (libplacebo tonemapping) in Docker, using Legacy and Next streaming engines
+- Fix regression from `v26.6.0` that caused external (sidecar) subtitles from Jellyfin and Emby to go missing
+  - All Jellyfin external subtitles were deleted by hourly maintenance, so they were missing from **Troubleshooting** > **Playback** and were never burned in
+  - Jellyfin and Emby items with multiple external subtitles would keep only one of them after a scan
+  - External subtitles will be restored automatically the next time each Jellyfin or Emby library is scanned
+- Fix regression from `v26.6.0` that broke `MPEG-TS` channels on Windows when the channel name or the ffmpeg path contains non-english characters (like `Télévision`)
+  - Affected channels would connect but never send any data
+  - `MPEG-TS (Legacy)` and channel preview were not affected
+  - Custom MPEG-TS scripts can now use the `ETV_CHANNEL_NAME`, `ETV_HLS_URL` and `ETV_FFMPEG_PATH` environment variables, which are not affected by this issue; the `{{ ChannelName }}`, `{{ HlsUrl }}` and `{{ FFmpegPath }}` template variables continue to work but remain affected
+- Next engine
+  - Fix audio dropout/desync when using QSV accel and loudness normalization with certain content
+  - Fix anamorphic content scaling (was incorrectly stretched with older builds)
+  - Fix on-demand channel progress (channels would not save checkpoints and would always start at the same spot)
+
+## [26.7.1] - 2026-07-31
+### Changed
+- Change rule for how `Flexible` fixed start times work in classic schedules
+  - Previously, flexible waited only for start times later in the same *calendar day*
+    - This caused undesired behavior near midnight
+      - A flexible start time of 23:55 when the current playout is at 00:05 would wait nearly a full day
+      - A flexible start time of 00:30 when the current playout is at 23:50 would start immediately instead of waiting 40 minutes
+  - Now, flexible will only wait when the desired start time is <= 12 hours after the current time, otherwise it will start immediately
+  - `Strict` behavior is unchanged
+
+### Fixed
+- Bundle new ffmpeg 8.1.2 build that is patched to fix QSV on Windows
+- Fix regression from `v26.2.0` that caused channel logo watermarks to be ignored when the logo is a url
+  - This affected external logo urls and generated channel logos
+- Maintain collection progress when refreshing a classic playout containing playlists
+- Fix UI bug where on-demand channels would always show out of date gaps (unscheduled time)
+- Fix UI bug where gaps (unscheduled time) would be shown from previous playout build, not current build
 
 ## [26.7.0] - 2026-07-27
 ### Added
@@ -3312,7 +3406,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Initial release to facilitate testing outside of Docker.
 
 
-[Unreleased]: https://github.com/ErsatzTV/legacy/compare/v26.7.0...HEAD
+[Unreleased]: https://github.com/ErsatzTV/legacy/compare/v26.8.1...HEAD
+[26.8.1]: https://github.com/ErsatzTV/legacy/compare/v26.8.0...v26.8.1
+[26.8.0]: https://github.com/ErsatzTV/legacy/compare/v26.7.1...v26.8.0
+[26.7.1]: https://github.com/ErsatzTV/legacy/compare/v26.7.0...v26.7.1
 [26.7.0]: https://github.com/ErsatzTV/legacy/compare/v26.6.0...v26.7.0
 [26.6.0]: https://github.com/ErsatzTV/legacy/compare/v26.5.1...v26.6.0
 [26.5.1]: https://github.com/ErsatzTV/legacy/compare/v26.5.0...v26.5.1

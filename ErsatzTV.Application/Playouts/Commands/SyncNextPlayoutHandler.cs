@@ -129,7 +129,12 @@ public partial class SyncNextPlayoutHandler(
             .ThenInclude(d => d.DecoGraphicsElements)
             .ThenInclude(d => d.GraphicsElement)
 
+            // get watermarks
             .Include(i => i.Watermarks)
+
+            // get graphics elements
+            .Include(i => i.PlayoutItemGraphicsElements)
+            .ThenInclude(pige => pige.GraphicsElement)
 
             // get playout templates (and deco templates/decos)
             .Include(i => i.Playout)
@@ -139,6 +144,15 @@ public partial class SyncNextPlayoutHandler(
             .ThenInclude(i => i.Deco)
             .ThenInclude(d => d.DecoWatermarks)
             .ThenInclude(d => d.Watermark)
+
+            // get playout templates (and deco templates/decos)
+            .Include(i => i.Playout)
+            .ThenInclude(p => p.Templates)
+            .ThenInclude(t => t.DecoTemplate)
+            .ThenInclude(t => t.Items)
+            .ThenInclude(i => i.Deco)
+            .ThenInclude(d => d.DecoGraphicsElements)
+            .ThenInclude(d => d.GraphicsElement)
 
             .Include(i => i.MediaItem)
             .ThenInclude(mi => mi.LibraryPath)
@@ -232,6 +246,8 @@ public partial class SyncNextPlayoutHandler(
             .AsNoTracking()
             .Include(c => c.Watermark)
             .Include(c => c.Artwork)
+            .Include(c => c.FFmpegProfile)
+            .ThenInclude(ff => ff.Resolution)
             .SingleOrDefaultAsync(c => c.Number == channelNumber, cancellationToken)
             .Map(Optional);
 
@@ -245,7 +261,7 @@ public partial class SyncNextPlayoutHandler(
                 targetFolder,
                 $"{first.StartOffset.ToUnixTimeMilliseconds()}_{last.FinishOffset.ToUnixTimeMilliseconds()}.json");
 
-            var playout = new Core.Next.Playout { Version = "https://ersatztv.org/playout/version/0.0.2", Items = [] };
+            var playout = new Core.Next.Playout { Version = "https://ersatztv.org/playout/version/0.0.3", Items = [] };
             foreach (PlayoutItem playoutItem in group)
             {
                 Option<Core.Next.PlayoutItem> maybeNextPlayoutItem = await playoutItemConverter.ToNext(
@@ -253,6 +269,8 @@ public partial class SyncNextPlayoutHandler(
                     maybeGlobalWatermark,
                     playoutOffset,
                     playoutItem,
+                    Option<List<Subtitle>>.None,
+                    shouldLogMessages: false,
                     cancellationToken);
 
                 foreach (var nextPlayoutItem in maybeNextPlayoutItem)

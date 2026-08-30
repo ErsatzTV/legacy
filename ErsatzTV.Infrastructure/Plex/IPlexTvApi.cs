@@ -10,6 +10,8 @@ public interface IPlexTvApi
     Task<PlexPinResponse> StartPinFlow(
         [Query] [AliasAs("X-Plex-Product")]
         string product,
+        [Query] [AliasAs("X-Plex-Version")]
+        string version,
         [Query] [AliasAs("X-Plex-Client-Identifier")]
         string clientIdentifier,
         [Query]
@@ -27,6 +29,8 @@ public interface IPlexTvApi
     Task<PlexUserResponse> GetUser(
         [Query] [AliasAs("X-Plex-Product")]
         string product,
+        [Query] [AliasAs("X-Plex-Version")]
+        string version,
         [Query] [AliasAs("X-Plex-Client-Identifier")]
         string clientIdentifier,
         [Query] [AliasAs("X-Plex-Token")]

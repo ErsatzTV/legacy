@@ -9,6 +9,7 @@ using ErsatzTV.Core.Interfaces.FFmpeg;
 using ErsatzTV.Core.Interfaces.Metadata;
 using ErsatzTV.Core.Interfaces.Repositories;
 using ErsatzTV.Core.Interfaces.Streaming;
+using ErsatzTV.Core.Security;
 using ErsatzTV.FFmpeg;
 using ErsatzTV.FFmpeg.Environment;
 using ErsatzTV.FFmpeg.Format;
@@ -179,8 +180,11 @@ public class FFmpegLibraryProcessService : IFFmpegProcessService
                 if (subtitle.SubtitleKind == SubtitleKind.Sidecar || subtitle is
                         { SubtitleKind: SubtitleKind.Embedded, IsImage: false, IsExtracted: true })
                 {
+                    DateTimeOffset exp = finish + TimeSpan.FromHours(2);
+                    string sig = InternalUrlSigner.Sign(exp, "subtitle", $"{subtitle.Id}");
+
                     // proxy to avoid dealing with escaping
-                    subtitle.Path = $"http://localhost:{Settings.StreamingPort}/media/subtitle/{subtitle.Id}";
+                    subtitle.Path = $"http://localhost:{Settings.StreamingPort}/internal/media/subtitle/{subtitle.Id}?exp={exp.ToUnixTimeSeconds()}&sig={sig}";
 
                     foreach (TimeSpan seek in playbackSettings.StreamSeek)
                     {
@@ -986,7 +990,7 @@ public class FFmpegLibraryProcessService : IFFmpegProcessService
         var resolution = new FrameSize(channel.FFmpegProfile.Resolution.Width, channel.FFmpegProfile.Resolution.Height);
 
         var concatInputFile = new ConcatInputFile(
-            $"http://localhost:{Settings.StreamingPort}/ffmpeg/concat/{channel.Number}?mode=ts-legacy",
+            $"http://localhost:{Settings.StreamingPort}/internal/ffmpeg/concat/{channel.Number}?mode=ts-legacy",
             resolution);
 
         IPipelineBuilder pipelineBuilder = await _pipelineBuilderFactory.GetBuilder(

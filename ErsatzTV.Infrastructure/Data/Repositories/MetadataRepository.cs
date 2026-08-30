@@ -530,10 +530,11 @@ public class MetadataRepository(IDbContextFactory<TvContext> dbContextFactory) :
     public async Task<bool> UpdateSubtitles(
         Core.Domain.Metadata metadata,
         List<Subtitle> subtitles,
+        SidecarSubtitleIdentity sidecarIdentity,
         CancellationToken cancellationToken)
     {
         await using TvContext dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
-        return await UpdateSubtitles(dbContext, metadata, subtitles, cancellationToken);
+        return await UpdateSubtitles(dbContext, metadata, subtitles, sidecarIdentity, cancellationToken);
     }
 
     public async Task<bool> UpdateChapters(
@@ -627,6 +628,7 @@ public class MetadataRepository(IDbContextFactory<TvContext> dbContextFactory) :
         TvContext dbContext,
         Core.Domain.Metadata metadata,
         List<Subtitle> subtitles,
+        SidecarSubtitleIdentity sidecarIdentity,
         CancellationToken cancellationToken)
     {
         // _logger.LogDebug(
@@ -675,7 +677,7 @@ public class MetadataRepository(IDbContextFactory<TvContext> dbContextFactory) :
                 existing,
                 incoming: subtitles.Filter(s => s.SubtitleKind is SubtitleKind.Sidecar),
                 SubtitleKind.Sidecar,
-                keyOf: s => $"file:{Path.GetFileName(s.Path)?.ToLowerInvariant()}",
+                keyOf: SidecarKey(sidecarIdentity),
                 applyUpdate: ApplySidecarUpdate,
                 dbContext);
 
@@ -775,6 +777,15 @@ public class MetadataRepository(IDbContextFactory<TvContext> dbContextFactory) :
         existingSubtitle.DateUpdated = incomingSubtitle.DateUpdated;
         existingSubtitle.Title = incomingSubtitle.Title;
     }
+
+    // media servers give us a stream index but often no usable path (jellyfin sends none at all, emby sends the
+    // same media source id for every stream), so keying those on file name collapses them all into one subtitle
+    private static Func<Subtitle, string> SidecarKey(SidecarSubtitleIdentity identity) =>
+        identity switch
+        {
+            SidecarSubtitleIdentity.StreamIndex => s => $"idx:{s.StreamIndex}",
+            _ => s => $"file:{Path.GetFileName(s.Path)?.ToLowerInvariant()}"
+        };
 
     private static void ApplySidecarUpdate(Subtitle existingSubtitle, Subtitle incomingSubtitle)
     {

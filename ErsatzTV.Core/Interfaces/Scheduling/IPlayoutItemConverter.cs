@@ -14,5 +14,7 @@ public interface IPlayoutItemConverter
         Option<ChannelWatermark> maybeGlobalWatermark,
         TimeSpan playoutOffset,
         PlayoutItem playoutItem,
+        Option<List<Subtitle>> subtitles,
+        bool shouldLogMessages,
         CancellationToken cancellationToken);
 }

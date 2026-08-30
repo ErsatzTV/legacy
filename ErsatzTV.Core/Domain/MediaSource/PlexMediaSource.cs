@@ -12,4 +12,6 @@ public class PlexMediaSource : MediaSource
     public List<PlexConnection> Connections { get; set; }
     public List<PlexPathReplacement> PathReplacements { get; set; }
     public DateTime? LastCollectionsScan { get; set; }
+
+    public DateTime? MissingSince { get; set; }
 }

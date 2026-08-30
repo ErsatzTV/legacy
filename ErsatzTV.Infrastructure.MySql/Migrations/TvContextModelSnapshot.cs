@@ -4115,6 +4115,9 @@ namespace ErsatzTV.Infrastructure.MySql.Migrations
                     b.Property<DateTime?>("LastCollectionsScan")
                         .HasColumnType("datetime(6)");
 
+                    b.Property<DateTime?>("MissingSince")
+                        .HasColumnType("datetime(6)");
+
                     b.Property<string>("Platform")
                         .HasColumnType("longtext");
 

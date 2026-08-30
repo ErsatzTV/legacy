@@ -2134,4 +2134,126 @@ public class NewPlayoutTests : PlayoutBuilderTestBase
 
         playout.Anchor.NextStartOffset.ShouldBe(start + TimeSpan.FromHours(48));
     }
+
+    [Test]
+    public async Task OneContent_Should_Wait_For_Flexible_Midnight_Start_Time()
+    {
+        var lateCollection = new Collection
+        {
+            Id = 1,
+            Name = "Late Items",
+            MediaItems = [TestMovie(1, TimeSpan.FromMinutes(25), new DateTime(2020, 1, 1))]
+        };
+
+        var midnightCollection = new Collection
+        {
+            Id = 2,
+            Name = "Midnight Items",
+            MediaItems = [TestMovie(2, TimeSpan.FromMinutes(25), new DateTime(2020, 1, 2))]
+        };
+
+        var earlyCollection = new Collection
+        {
+            Id = 3,
+            Name = "Early Items",
+            MediaItems = [TestMovie(3, TimeSpan.FromMinutes(25), new DateTime(2020, 1, 3))]
+        };
+
+        var fakeRepository = new FakeMediaCollectionRepository(
+            Map(
+                (lateCollection.Id, lateCollection.MediaItems.ToList()),
+                (midnightCollection.Id, midnightCollection.MediaItems.ToList()),
+                (earlyCollection.Id, earlyCollection.MediaItems.ToList())));
+
+        var items = new List<ProgramScheduleItem>
+        {
+            OneAt(1, lateCollection, TimeSpan.FromHours(23.5)),
+            OneAt(2, midnightCollection, TimeSpan.Zero),
+            OneAt(3, earlyCollection, TimeSpan.FromMinutes(30))
+        };
+
+        var playout = new Playout
+        {
+            ProgramSchedule = new ProgramSchedule { Items = items },
+            Channel = new Channel(Guid.Empty) { Id = 1, Name = "Test Channel" },
+            ProgramScheduleAnchors = [],
+            Items = [],
+            ProgramScheduleAlternates = [],
+            FillGroupIndices = []
+        };
+
+        var referenceData = new PlayoutReferenceData(
+            playout.Channel,
+            Option<Deco>.None,
+            [],
+            [],
+            playout.ProgramSchedule,
+            [],
+            [],
+            TimeSpan.Zero);
+
+        IConfigElementRepository configRepo = Substitute.For<IConfigElementRepository>();
+        var televisionRepo = new FakeTelevisionRepository();
+        IArtistRepository artistRepo = Substitute.For<IArtistRepository>();
+        IMultiEpisodeShuffleCollectionEnumeratorFactory factory =
+            Substitute.For<IMultiEpisodeShuffleCollectionEnumeratorFactory>();
+        IRerunHelper rerunHelper = Substitute.For<IRerunHelper>();
+        var builder = new PlayoutBuilder(
+            configRepo,
+            fakeRepository,
+            televisionRepo,
+            artistRepo,
+            factory,
+            new MockFileSystem(),
+            rerunHelper,
+            Logger);
+
+        DateTimeOffset start = HoursAfterMidnight(23);
+        DateTimeOffset finish = start + TimeSpan.FromHours(2.5);
+
+        Either<BaseError, PlayoutBuildResult> buildResult = await builder.Build(
+            playout,
+            referenceData,
+            PlayoutBuildResult.Empty,
+            PlayoutBuildMode.Reset,
+            start,
+            finish,
+            CancellationToken);
+
+        buildResult.IsRight.ShouldBeTrue();
+        foreach (var result in buildResult.RightToSeq())
+        {
+            result.AddedItems.Count.ShouldBe(5);
+
+            result.AddedItems[0].MediaItemId.ShouldBe(1);
+            result.AddedItems[0].StartOffset.ShouldBe(start + TimeSpan.FromMinutes(30));
+
+            // the 11:30 pm item finishes at 11:55 pm, but the midnight item must still wait for midnight
+            result.AddedItems[1].MediaItemId.ShouldBe(2);
+            result.AddedItems[1].StartOffset.ShouldBe(start + TimeSpan.FromHours(1));
+
+            result.AddedItems[2].MediaItemId.ShouldBe(3);
+            result.AddedItems[2].StartOffset.ShouldBe(start + TimeSpan.FromHours(1.5));
+
+            // wrapping back to the 11:30 pm item means the nearest 11:30 pm is almost a day behind, so
+            // these start immediately rather than waiting out the rest of the day
+            result.AddedItems[3].MediaItemId.ShouldBe(1);
+            result.AddedItems[3].StartOffset.ShouldBe(result.AddedItems[2].FinishOffset);
+
+            result.AddedItems[4].MediaItemId.ShouldBe(2);
+            result.AddedItems[4].StartOffset.ShouldBe(result.AddedItems[3].FinishOffset);
+        }
+    }
+
+    private static ProgramScheduleItem OneAt(int id, Collection collection, TimeSpan startTime) =>
+        new ProgramScheduleItemOne
+        {
+            Id = id,
+            Index = id,
+            Collection = collection,
+            CollectionId = collection.Id,
+            StartTime = startTime,
+            FixedStartTimeBehavior = FixedStartTimeBehavior.Flexible,
+            PlaybackOrder = PlaybackOrder.Chronological
+        };
 }

@@ -1,4 +1,4 @@
-using System.IO.Abstractions;
+﻿using System.IO.Abstractions;
 using System.Threading.Channels;
 using ErsatzTV.Application;
 using ErsatzTV.Application.MediaItems;
@@ -9,6 +9,7 @@ using ErsatzTV.Core.Domain;
 using ErsatzTV.Core.Interfaces.FFmpeg;
 using ErsatzTV.Core.Interfaces.Repositories;
 using ErsatzTV.Core.Interfaces.Troubleshooting;
+using ErsatzTV.Filters;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using Serilog.Context;
@@ -16,6 +17,7 @@ using Serilog.Context;
 namespace ErsatzTV.Controllers.Api;
 
 [ApiController]
+[ServiceFilter(typeof(ConditionalUiAuthorizeFilter))]
 public class TroubleshootController(
     ChannelWriter<IFFmpegWorkerRequest> channelWriter,
     IFileSystem fileSystem,
@@ -30,6 +32,8 @@ public class TroubleshootController(
         int mediaItem,
         [FromQuery]
         int channel,
+        [FromQuery]
+        StreamingEngine streamingEngine,
         [FromQuery]
         int ffmpegProfile,
         [FromQuery]
@@ -61,6 +65,7 @@ public class TroubleshootController(
                     streamingMode,
                     mediaItem,
                     channel,
+                    streamingEngine,
                     ffmpegProfile,
                     streamSelector,
                     watermark,
@@ -97,13 +102,18 @@ public class TroubleshootController(
                     await channelWriter.WriteAsync(
                         new StartTroubleshootingPlayback(
                             sessionId,
+                            streamingEngine,
                             streamSelector,
                             playoutItemResult,
                             maybeMediaInfo.ToOption(),
                             troubleshootingInfo),
                         cancellationToken);
 
-                    string playlistFile = Path.Combine(FileSystemLayout.TranscodeTroubleshootingFolder, "live.m3u8");
+                    string playlistName = streamingEngine is StreamingEngine.Next
+                        ? "ffmpeg.m3u8"
+                        : "live.m3u8";
+
+                    string playlistFile = Path.Combine(FileSystemLayout.TranscodeTroubleshootingFolder, playlistName);
                     while (!fileSystem.File.Exists(playlistFile))
                     {
                         await Task.Delay(TimeSpan.FromMilliseconds(100), cancellationToken);
@@ -140,7 +150,7 @@ public class TroubleshootController(
 
                     if (!notifier.IsFailed(sessionId))
                     {
-                        return Redirect("~/iptv/session/.troubleshooting/live.m3u8");
+                        return Redirect($"~/iptv/session/.troubleshooting/{playlistName}");
                     }
                 }
                 finally

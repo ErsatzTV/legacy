@@ -2,4 +2,4 @@
 
 namespace ErsatzTV.Application.Plex;
 
-public record StartPlexPinFlow : IRequest<Either<BaseError, string>>;
+public record StartPlexPinFlow(bool ForceNewCredentials) : IRequest<Either<BaseError, string>>;

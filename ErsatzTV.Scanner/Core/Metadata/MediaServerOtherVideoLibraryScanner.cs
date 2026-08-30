@@ -464,7 +464,11 @@ public abstract class MediaServerOtherVideoLibraryScanner<TConnectionParameters,
                     .Map(Subtitle.FromMediaStream)
                     .ToList();
 
-                if (await _metadataRepository.UpdateSubtitles(metadata, subtitles, cancellationToken))
+                if (await _metadataRepository.UpdateSubtitles(
+                        metadata,
+                        subtitles,
+                        SidecarSubtitleIdentity.StreamIndex,
+                        cancellationToken))
                 {
                     return existing;
                 }

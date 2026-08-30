@@ -8,7 +8,8 @@ internal static class Mapper
         new(
             plexMediaSource.Id,
             plexMediaSource.ServerName,
-            Optional(plexMediaSource.Connections.SingleOrDefault(c => c.IsActive)).Match(c => c.Uri, string.Empty));
+            Optional(plexMediaSource.Connections.SingleOrDefault(c => c.IsActive)).Match(c => c.Uri, string.Empty),
+            plexMediaSource.MissingSince);
 
     internal static PlexLibraryViewModel ProjectToViewModel(PlexLibrary library) =>
         new(library.Id, library.Name, library.MediaKind, library.ShouldSyncItems);

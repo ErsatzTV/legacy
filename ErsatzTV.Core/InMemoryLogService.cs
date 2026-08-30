@@ -2,12 +2,17 @@ using Serilog.Core;
 using Serilog.Events;
 using System.Collections.Concurrent;
 using System.Globalization;
+using Serilog.Formatting.Display;
 
 namespace ErsatzTV.Core;
 
 public class InMemorySink : ILogEventSink
 {
     private readonly ConcurrentDictionary<Guid, ConcurrentQueue<string>> _logs = new();
+
+    private static readonly MessageTemplateTextFormatter Formatter = new(
+        "[{Timestamp:HH:mm:ss} {Level}] {Message:lj}{NewLine}{Exception}",
+        CultureInfo.InvariantCulture);
 
     public void Emit(LogEvent logEvent)
     {
@@ -18,15 +23,8 @@ public class InMemorySink : ILogEventSink
 
             using (var writer = new StringWriter())
             {
-                writer.Write($"[{logEvent.Timestamp:HH:mm:ss} {logEvent.Level}] ");
-                logEvent.RenderMessage(writer, CultureInfo.CurrentCulture);
-                if (logEvent.Exception != null)
-                {
-                    writer.WriteLine();
-                    writer.Write(logEvent.Exception);
-                }
-
-                logQueue.Enqueue(writer.ToString());
+                Formatter.Format(logEvent, writer);
+                logQueue.Enqueue(writer.ToString().TrimEnd());
             }
 
             while (logQueue.Count > 100)

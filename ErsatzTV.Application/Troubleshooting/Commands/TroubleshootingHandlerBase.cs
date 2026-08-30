@@ -1,5 +1,6 @@
 using System.IO.Abstractions;
 using Dapper;
+using ErsatzTV.Application.Streaming;
 using ErsatzTV.Core;
 using ErsatzTV.Core.Domain;
 using ErsatzTV.Core.Errors;
@@ -7,6 +8,7 @@ using ErsatzTV.Core.Extensions;
 using ErsatzTV.Core.Interfaces.Emby;
 using ErsatzTV.Core.Interfaces.Jellyfin;
 using ErsatzTV.Core.Interfaces.Plex;
+using ErsatzTV.Core.Security;
 using ErsatzTV.Infrastructure.Data;
 using ErsatzTV.Infrastructure.Extensions;
 using Microsoft.EntityFrameworkCore;
@@ -18,13 +20,18 @@ public abstract class TroubleshootingHandlerBase(
     IJellyfinPathReplacementService jellyfinPathReplacementService,
     IEmbyPathReplacementService embyPathReplacementService,
     IFileSystem fileSystem)
+    : NextChannelHandlerBase(fileSystem)
 {
+    private readonly IFileSystem _fileSystem = fileSystem;
+
     protected static async Task<Validation<BaseError, MediaItem>> MediaItemMustExist(
         TvContext dbContext,
         int mediaItemId,
         CancellationToken cancellationToken) =>
         await dbContext.MediaItems
             .AsNoTracking()
+            .Include(mi => mi.LibraryPath)
+            .ThenInclude(mi => mi.Library)
             .Include(mi => (mi as Episode).EpisodeMetadata)
             .ThenInclude(em => em.Subtitles)
             .Include(mi => (mi as Episode).MediaVersions)
@@ -102,14 +109,21 @@ public abstract class TroubleshootingHandlerBase(
     {
         string path = await GetLocalPath(mediaItem, cancellationToken);
 
+        DateTimeOffset exp = DateTimeOffset.Now + TimeSpan.FromMinutes(15);
+
         // check filesystem first
-        if (fileSystem.File.Exists(path))
+        if (_fileSystem.File.Exists(path))
         {
             if (mediaItem is RemoteStream remoteStream)
             {
+                string sig = InternalUrlSigner.Sign(
+                    exp,
+                    "remote-stream",
+                    $"{remoteStream.Id}");
+
                 path = !string.IsNullOrWhiteSpace(remoteStream.Url)
                     ? remoteStream.Url
-                    : $"http://localhost:{Settings.StreamingPort}/ffmpeg/remote-stream/{remoteStream.Id}";
+                    : $"http://localhost:{Settings.StreamingPort}/internal/ffmpeg/remote-stream/{remoteStream.Id}?exp={exp.ToUnixTimeSeconds()}&sig={sig}";
             }
 
             return path;
@@ -130,7 +144,13 @@ public abstract class TroubleshootingHandlerBase(
 
                 foreach (int plexMediaSourceId in maybeId)
                 {
-                    return $"http://localhost:{Settings.StreamingPort}/media/plex/{plexMediaSourceId}/{pmf.Key}";
+                    string sig = InternalUrlSigner.Sign(
+                        exp,
+                        "plex",
+                        $"{plexMediaSourceId}",
+                        $"{pmf.Key}");
+
+                    return $"http://localhost:{Settings.StreamingPort}/internal/media/plex/{plexMediaSourceId}/{pmf.Key}?exp={exp.ToUnixTimeSeconds()}&sig={sig}";
                 }
 
                 break;
@@ -146,7 +166,8 @@ public abstract class TroubleshootingHandlerBase(
 
         foreach (string itemId in jellyfinItemId)
         {
-            return $"http://localhost:{Settings.StreamingPort}/media/jellyfin/{itemId}";
+            string sig = InternalUrlSigner.Sign(exp, "jellyfin", $"{itemId}");
+            return $"http://localhost:{Settings.StreamingPort}/internal/media/jellyfin/{itemId}?exp={exp.ToUnixTimeSeconds()}&sig={sig}";
         }
 
         // attempt to remotely stream emby
@@ -159,7 +180,8 @@ public abstract class TroubleshootingHandlerBase(
 
         foreach (string itemId in embyItemId)
         {
-            return $"http://localhost:{Settings.StreamingPort}/media/emby/{itemId}";
+            string sig = InternalUrlSigner.Sign(exp, "emby", $"{itemId}");
+            return $"http://localhost:{Settings.StreamingPort}/internal/media/emby/{itemId}?exp={exp.ToUnixTimeSeconds()}&sig={sig}";
         }
 
         return null;

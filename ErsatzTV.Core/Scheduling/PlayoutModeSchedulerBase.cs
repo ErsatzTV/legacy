@@ -15,6 +15,11 @@ namespace ErsatzTV.Core.Scheduling;
 public abstract class PlayoutModeSchedulerBase<T>(ILogger logger) : IPlayoutModeScheduler<T>
     where T : ProgramScheduleItem
 {
+    // half a day, so that a flexible item always moves to whichever occurrence of its start time
+    // is nearest; waiting longer than this would mean the start time is one we already missed
+    // ReSharper disable once StaticMemberInGenericType
+    private static readonly TimeSpan MaximumFlexibleWait = TimeSpan.FromHours(12);
+
     // ReSharper disable once StaticMemberInGenericType
     private static readonly JsonSerializerOptions Options = new()
     {
@@ -82,6 +87,13 @@ public abstract class PlayoutModeSchedulerBase<T>(ILogger logger) : IPlayoutMode
 
             DateTimeOffset result = new DateTimeOffset(withStartTime, TimeZoneInfo.Local.GetUtcOffset(withStartTime));
 
+            // tomorrow's occurrence of the same start time; the offset has to be re-derived rather than
+            // carried over from result, or a DST change between the two shifts the wall clock by the delta
+            DateTime tomorrowWithStartTime = withStartTime.AddDays(1);
+            DateTimeOffset tomorrowResult = new DateTimeOffset(
+                tomorrowWithStartTime,
+                TimeZoneInfo.Local.GetUtcOffset(tomorrowWithStartTime));
+
             // Serilog.Log.Logger.Debug(
             //     "StartTimeOfDay: {StartTimeOfDay} Item Start Time: {ItemStartTime}",
             //     startTime.TimeOfDay.TotalMilliseconds,
@@ -101,12 +113,18 @@ public abstract class PlayoutModeSchedulerBase<T>(ILogger logger) : IPlayoutMode
                     // we should use the next day's time to allow the flood to continue.
                     if (isPeek && state.InFlood && startTime > result)
                     {
-                        startTime = result.AddDays(1);
+                        startTime = tomorrowResult;
                     }
-                    // otherwise, only wait for times on the same day
-                    else if (result.Day == startTime.Day && result.TimeOfDay > startTime.TimeOfDay)
+                    else
                     {
-                        startTime = result;
+                        // wait for the next occurrence of the start time, unless it is far enough away
+                        // that the occurrence we just missed is the nearer one - waiting for that would
+                        // add most of a day of unscheduled time, which is what flexible exists to avoid
+                        DateTimeOffset nextOccurrence = result >= startTime ? result : tomorrowResult;
+                        if (nextOccurrence - startTime <= MaximumFlexibleWait)
+                        {
+                            startTime = nextOccurrence;
+                        }
                     }
 
                     break;

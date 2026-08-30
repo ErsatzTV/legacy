@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.IO.Abstractions;
 using System.Runtime.InteropServices;
 using CliWrap;
+using CliWrap.Builders;
 using ErsatzTV.Core;
 using ErsatzTV.Core.Domain;
 using ErsatzTV.Core.FFmpeg;
@@ -50,6 +51,11 @@ public class MpegTsScriptService(
             scriptFolder = kvp.Key;
         }
 
+        // the values below are passed through the environment (which the OS delivers as utf-16)
+        // rather than templated into the script; cmd.exe decodes batch files using the console
+        // code page, and at 65001 it aborts entirely on any multi-byte character
+        string channelName = channel.Name.Replace("\"", string.Empty);
+
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
             string scriptInput = Path.Combine(scriptFolder, script.WindowsScript);
@@ -64,7 +70,8 @@ public class MpegTsScriptService(
                 {
                     var fileName = $"{tempFilePool.GetNextTempFile(TempFileCategory.MpegTsScript)}.bat";
                     await File.WriteAllTextAsync(fileName, finalScript);
-                    return Cli.Wrap(fileName);
+                    return Cli.Wrap(fileName)
+                        .WithEnvironmentVariables(WithScriptVariables(hlsUrl, channelName, ffmpegPath));
                 }
             }
         }
@@ -82,13 +89,24 @@ public class MpegTsScriptService(
                 {
                     string fileName = tempFilePool.GetNextTempFile(TempFileCategory.MpegTsScript);
                     await File.WriteAllTextAsync(fileName, finalScript);
-                    return Cli.Wrap("bash").WithArguments([fileName]);
+                    return Cli.Wrap("bash")
+                        .WithArguments([fileName])
+                        .WithEnvironmentVariables(WithScriptVariables(hlsUrl, channelName, ffmpegPath));
                 }
             }
         }
 
         return [];
     }
+
+    private static Action<EnvironmentVariablesBuilder> WithScriptVariables(
+        string hlsUrl,
+        string channelName,
+        string ffmpegPath) =>
+        builder => builder
+            .Set("ETV_HLS_URL", hlsUrl)
+            .Set("ETV_CHANNEL_NAME", channelName)
+            .Set("ETV_FFMPEG_PATH", ffmpegPath);
 
     private async Task<Option<string>> GetTemplatedScript(
         string fileName,

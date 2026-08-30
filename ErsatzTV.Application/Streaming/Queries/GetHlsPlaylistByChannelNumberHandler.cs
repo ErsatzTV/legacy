@@ -48,7 +48,7 @@ public class GetHlsPlaylistByChannelNumberHandler :
             _ => string.Empty
         };
 
-        string endpoint = "ffmpeg/stream";
+        string endpoint = "internal/ffmpeg/stream";
         string extension = string.Empty;
 
         if (request.Mode is "hls-direct")

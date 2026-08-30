@@ -63,6 +63,15 @@
             <MudDivider Class="mb-6"/>
             <MudStack Row="true" Breakpoint="Breakpoint.SmAndDown" Class="form-field-stack gap-md-8 mb-5">
                 <div class="d-flex">
+                    <MudText>Streaming Engine</MudText>
+                </div>
+                <MudSelect @bind-Value="_streamingEngine" For="@(() => _streamingEngine)">
+                    <MudSelectItem Value="StreamingEngine.Legacy">Legacy</MudSelectItem>
+                    <MudSelectItem Value="StreamingEngine.Next">Next</MudSelectItem>
+                </MudSelect>
+            </MudStack>
+            <MudStack Row="true" Breakpoint="Breakpoint.SmAndDown" Class="form-field-stack gap-md-8 mb-5">
+                <div class="d-flex">
                     <MudText>FFmpeg Profile</MudText>
                 </div>
                 <MudSelect @bind-Value="_ffmpegProfileId" For="@(() => _ffmpegProfileId)">
@@ -121,10 +130,12 @@
                     <div class="d-flex">
                         <MudText>Graphics Elements</MudText>
                     </div>
-                    <MudSelect T="string" @bind-SelectedValues="_graphicsElementNames" Clearable="true" MultiSelection="true">
+                    <MudSelect T="string" @bind-SelectedValues="_graphicsElementNames" Clearable="true"
+                               MultiSelection="true">
                         @foreach (GraphicsElementViewModel graphicsElement in _graphicsElements)
                         {
-                            <MudSelectItem T="string" Value="@graphicsElement.Name">@graphicsElement.Name</MudSelectItem>
+                            <MudSelectItem T="string"
+                                           Value="@graphicsElement.Name">@graphicsElement.Name</MudSelectItem>
                         }
                     </MudSelect>
                 </MudStack>
@@ -204,6 +215,7 @@
     private readonly StreamingMode _streamingMode = StreamingMode.HttpLiveStreamingSegmenter;
     private int _ffmpegProfileId;
     private bool _channelMode;
+    private StreamingEngine _streamingEngine = StreamingEngine.Legacy;
     private string _streamSelector;
     private IReadOnlyCollection<string> _watermarkNames = new System.Collections.Generic.HashSet<string>();
     private IReadOnlyCollection<string> _graphicsElementNames = new System.Collections.Generic.HashSet<string>();
@@ -349,6 +361,8 @@
         {
             queryString.Add(new KeyValuePair<string, string>("subtitleId", _subtitleId.Value.ToString()));
         }
+
+        queryString.Add(new KeyValuePair<string, string>("streamingEngine", _streamingEngine.ToString()));
 
         string uriWithQuery = QueryHelpers.AddQueryString(apiUri, queryString);
         await JsRuntime.InvokeVoidAsync("previewChannel", uriWithQuery);

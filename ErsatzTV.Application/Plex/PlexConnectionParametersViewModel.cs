@@ -1,3 +1,3 @@
 ﻿namespace ErsatzTV.Application.Plex;
 
-public record PlexConnectionParametersViewModel(Uri Uri, string AuthToken);
+public record PlexConnectionParametersViewModel(string Address, string AuthToken);

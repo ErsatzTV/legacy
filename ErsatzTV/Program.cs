@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
@@ -103,6 +103,9 @@ public class Program
 
             // http
             .MinimumLevel.Override("Serilog.AspNetCore.RequestLoggingMiddleware", LoggingLevelSwitches.HttpLevelSwitch)
+
+            // api key handler logs debug on every authenticated api request
+            .MinimumLevel.Override("ErsatzTV.Security", LogEventLevel.Warning)
             .Destructure.UsingAttributes()
             .Enrich.FromLogContext()
             .WriteTo.Sink(InMemoryLogService.Sink)
