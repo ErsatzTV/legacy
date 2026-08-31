@@ -87,6 +87,64 @@ public class PlaylistHistoryTests
             $"build 1 played [{string.Join(", ", playedInBuildOne)}]");
     }
 
+    // a shuffled playlist gets a new seed at the end of each cycle.
+    // 6 shows with 2 episodes give a cycle of 12 items, and build 1 stops in cycle 2.
+    // the test needs 4 groups or more, because ShufflePlaylistItems refuses an order that starts with
+    // the last group of the previous order.
+    [Test]
+    public async Task Marathon_Should_Resume_Inside_A_Later_Cycle()
+    {
+        const int BUILD_ONE_COUNT = 14;
+        const int COMPARE_COUNT = 12;
+
+        IMediaCollectionRepository repo = FakeShowRepository(shows: 6, episodesPerShow: 2);
+        YamlPlayoutContentMarathonItem marathon = MarathonContent(shows: 6);
+        var definition = new YamlPlayoutDefinition { Content = [marathon] };
+        var playout = new Playout { Id = 1, Seed = PlayoutSeed, PlayoutHistory = [] };
+
+        var buildOneContext = new YamlPlayoutContext(playout, definition, 1) { CurrentTime = Start };
+        var buildOneCache = new EnumeratorCache(repo, NullLogger.Instance);
+        PlaylistEnumerator buildOne = await GetPlaylistEnumerator(buildOneCache, buildOneContext, marathon.Key);
+
+        int seedAtStart = buildOne.State.Seed;
+
+        var playedInBuildOne = new List<int>();
+        var history = new List<PlayoutHistory>();
+        DateTimeOffset currentTime = Start;
+        for (var i = 0; i < BUILD_ONE_COUNT; i++)
+        {
+            playedInBuildOne.Add(CurrentId(buildOne));
+            history.AddRange(RecordHistory(buildOneContext, marathon.Key, buildOne, currentTime));
+            buildOne.MoveNext(currentTime);
+            currentTime += ItemDuration;
+        }
+
+        // the build must cross a cycle end, or the seed does not change and the test shows nothing
+        buildOne.State.Seed.ShouldNotBe(seedAtStart);
+
+        List<int> expected = Take(buildOne, COMPARE_COUNT);
+
+        var buildTwoContext = new YamlPlayoutContext(playout, definition, 1) { CurrentTime = currentTime };
+        var buildTwoCache = new EnumeratorCache(repo, NullLogger.Instance);
+        var applyHistory = new YamlPlayoutApplyHistoryHandler(buildTwoCache);
+
+        bool applied = await applyHistory.Handle(
+            history,
+            buildTwoContext,
+            marathon,
+            NullLogger<SequentialPlayoutBuilder>.Instance,
+            _cancellationToken);
+
+        applied.ShouldBeTrue();
+
+        PlaylistEnumerator buildTwo = await GetPlaylistEnumerator(buildTwoCache, buildTwoContext, marathon.Key);
+        List<int> actual = Take(buildTwo, COMPARE_COUNT);
+
+        actual.ShouldBe(
+            expected,
+            $"build 1 played [{string.Join(", ", playedInBuildOne)}]");
+    }
+
     // the block scheduler restores playlist filler with its own copy of the same 3 lines
     [Test]
     public async Task Block_Playlist_Filler_Should_Resume_Where_The_Previous_Build_Stopped()
@@ -231,6 +289,98 @@ public class PlaylistHistoryTests
         ApplyScriptedHistory(engine, history, currentTime, HISTORY_KEY, itemMap, buildTwo);
 
         Take(buildTwo, COMPARE_COUNT).ShouldBe(expected);
+    }
+
+    // with uneven collection sizes, a cycle can end while a child is part way through its own list.
+    // a rewind to the cycle start does not make that position again.
+    // item_order is shuffle by default for a marathon.
+    // a shuffled child gets a new seed each time it wraps, so the replay cannot make that order again.
+    [Test]
+    [TestCase(PlaybackOrder.Chronological)]
+    [TestCase(PlaybackOrder.Shuffle)]
+    public async Task Shuffled_Playlist_Of_Uneven_Collections_Should_Resume_Inside_A_Later_Cycle(
+        PlaybackOrder itemPlaybackOrder)
+    {
+        const string HISTORY_KEY = "uneven-playlist";
+
+        IMediaCollectionRepository repo = FakeUnevenPlaylistRepository(itemPlaybackOrder);
+        Dictionary<PlaylistItem, List<MediaItem>> itemMap = await repo.GetPlaylistItemMap(1, _cancellationToken);
+
+        SchedulingEngine engine = CreateEngine(repo);
+        PlaylistEnumerator buildOne = await CreateShuffledPlaylistEnumerator(repo, itemMap, _cancellationToken);
+
+        int seedAtStart = buildOne.State.Seed;
+
+        DateTimeOffset currentTime = Start;
+        var history = new List<PlayoutHistory>();
+        var cycles = 0;
+        var played = 0;
+
+        // stop part way into the third cycle
+        while (cycles < 2 || played < 5)
+        {
+            history.Clear();
+            history.AddRange(ScriptedHistoryFor(engine, buildOne, HISTORY_KEY, currentTime));
+            buildOne.MoveNext(currentTime);
+            currentTime += ItemDuration;
+
+            if (cycles >= 2)
+            {
+                played++;
+            }
+            else if (buildOne.State.Index == 0)
+            {
+                cycles++;
+            }
+        }
+
+        buildOne.State.Seed.ShouldNotBe(seedAtStart, "the playlist should have reshuffled");
+
+        List<int> expected = Take(buildOne, 10);
+
+        PlaylistEnumerator buildTwo = await CreateShuffledPlaylistEnumerator(repo, itemMap, _cancellationToken);
+        ApplyScriptedHistory(engine, history, currentTime, HISTORY_KEY, itemMap, buildTwo);
+
+        Take(buildTwo, 10).ShouldBe(expected);
+    }
+
+    private static async Task<PlaylistEnumerator> CreateShuffledPlaylistEnumerator(
+        IMediaCollectionRepository repo,
+        Dictionary<PlaylistItem, List<MediaItem>> itemMap,
+        CancellationToken cancellationToken) =>
+        await PlaylistEnumerator.Create(
+            repo,
+            itemMap,
+            new CollectionEnumeratorState { Seed = PlayoutSeed, Index = 0 },
+            shufflePlaylistItems: true,
+            batchSize: Option<int>.None,
+            randomStartPoint: false,
+            cancellationToken);
+
+    private static IMediaCollectionRepository FakeUnevenPlaylistRepository(PlaybackOrder itemPlaybackOrder)
+    {
+        int[] sizes = [2, 3, 2, 4];
+
+        Dictionary<PlaylistItem, List<MediaItem>> itemMap = Enumerable.Range(1, sizes.Length)
+            .ToDictionary(
+                collectionId => new PlaylistItem
+                {
+                    Id = collectionId,
+                    Index = collectionId - 1,
+                    PlaybackOrder = itemPlaybackOrder,
+                    PlayAll = false,
+                    CollectionType = CollectionType.Collection,
+                    CollectionId = collectionId,
+                    IncludeInProgramGuide = true
+                },
+                collectionId => Enumerable.Range(0, sizes[collectionId - 1])
+                    .Map(i => (MediaItem)FakeMovie(collectionId * 100 + i))
+                    .ToList());
+
+        IMediaCollectionRepository repo = Substitute.For<IMediaCollectionRepository>();
+        repo.GetPlaylistItemMap(1, Arg.Any<CancellationToken>()).Returns(_ => Task.FromResult(itemMap));
+
+        return repo;
     }
 
     private static async Task<PlaylistEnumerator> CreatePlaylistEnumerator(

@@ -67,11 +67,10 @@ public class YamlPlayoutApplyHistoryHandler(EnumeratorCache enumeratorCache)
                     playlistEnumerator.ResetState(
                         new CollectionEnumeratorState
                         {
-                            Seed = playlistEnumerator.State.Seed,
+                            Seed = primaryHistory.Seed ?? playlistEnumerator.State.Seed,
                             Index = primaryHistory.Index
                         });
 
-                    var childEnumeratorKeys = playlistEnumerator.ChildEnumerators.Map(x => x.CollectionKey).ToList();
                     foreach ((IMediaCollectionEnumerator childEnumerator, CollectionKey collectionKey) in
                              playlistEnumerator.ChildEnumerators)
                     {
@@ -103,6 +102,19 @@ public class YamlPlayoutApplyHistoryHandler(EnumeratorCache enumeratorCache)
                             //     h.Details,
                             //     h.IsCurrentChild);
 
+                            // a shuffled child gets a new seed each time it wraps.
+                            // the replay from the cycle start cannot make that order again.
+                            if (itemPlaybackOrder is PlaybackOrder.Shuffle)
+                            {
+                                childEnumerator.ResetState(
+                                    new CollectionEnumeratorState
+                                    {
+                                        Seed = h.Seed ?? childEnumerator.State.Seed,
+                                        Index = h.Index,
+                                        Started = childEnumerator.State.Started
+                                    });
+                            }
+
                             // the collection may have changed since the last build, so the replayed
                             // position can point at the wrong item
                             if (itemPlaybackOrder is PlaybackOrder.Chronological)
@@ -118,7 +130,7 @@ public class YamlPlayoutApplyHistoryHandler(EnumeratorCache enumeratorCache)
                             // the playlist order may have changed since the last build
                             if (h.IsCurrentChild)
                             {
-                                playlistEnumerator.SetEnumeratorIndex(childEnumeratorKeys.IndexOf(collectionKey));
+                                playlistEnumerator.EnsureCurrentChild(collectionKey);
                             }
                         }
                     }

@@ -8,7 +8,7 @@ public record ContentMarathon
     public required string Key { get; set; }
 
     [Description(
-        "Tells the scheduler how to group the combined content (returned from all guids and searches). Valid values are show, season, artist and album.")]
+        "Tells the scheduler how to group the combined content (returned from all guids and searches). Valid values are show, season, artist, album and director.")]
     public required string GroupBy { get; set; }
 
     [Description("Playback order within each group; only chronological and shuffle are currently supported")]

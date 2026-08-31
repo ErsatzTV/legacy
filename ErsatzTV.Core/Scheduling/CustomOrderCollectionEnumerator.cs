@@ -35,7 +35,7 @@ public class CustomOrderCollectionEnumerator : IMediaCollectionEnumerator
     public void ResetState(CollectionEnumeratorState state)
     {
         // seed doesn't matter here
-        State.Index = state.Index;
+        State.Index = ClampIndex(state.Index);
         State.Started = state.Started;
     }
 
@@ -55,4 +55,8 @@ public class CustomOrderCollectionEnumerator : IMediaCollectionEnumerator
     public Option<TimeSpan> MinimumDuration => _lazyMinimumDuration.Value;
 
     public int Count => _sortedMediaItems.Count;
+
+    // the history can give an index that this collection does not have
+    private int ClampIndex(int index) =>
+        _sortedMediaItems.Count == 0 || index < 0 ? 0 : index % _sortedMediaItems.Count;
 }

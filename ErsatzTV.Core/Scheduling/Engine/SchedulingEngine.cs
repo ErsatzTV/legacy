@@ -175,6 +175,15 @@ public class SchedulingEngine(
             state,
             CancellationToken.None);
 
+        if (maybeResult.IsNone)
+        {
+            logger.LogWarning(
+                "Unable to add marathon with key {Key}; group by {GroupBy} is not one of {ValidValues}",
+                key,
+                groupBy,
+                MarathonHelper.ValidGroupByValues);
+        }
+
         foreach (PlaylistContentResult result in maybeResult)
         {
             foreach (PlaylistEnumerator enumerator in Optional(result.PlaylistEnumerator))
@@ -1273,11 +1282,10 @@ public class SchedulingEngine(
             playlistEnumerator.ResetState(
                 new CollectionEnumeratorState
                 {
-                    Seed = playlistEnumerator.State.Seed,
+                    Seed = primaryHistory.Seed ?? playlistEnumerator.State.Seed,
                     Index = primaryHistory.Index
                 });
 
-            var childEnumeratorKeys = playlistEnumerator.ChildEnumerators.Map(x => x.CollectionKey).ToList();
             foreach ((IMediaCollectionEnumerator childEnumerator, CollectionKey collectionKey) in
                      playlistEnumerator.ChildEnumerators)
             {
@@ -1308,6 +1316,19 @@ public class SchedulingEngine(
                     //     h.Details,
                     //     h.IsCurrentChild);
 
+                    // a shuffled child gets a new seed each time it wraps.
+                    // the replay from the cycle start cannot make that order again.
+                    if (itemPlaybackOrder is PlaybackOrder.Shuffle)
+                    {
+                        childEnumerator.ResetState(
+                            new CollectionEnumeratorState
+                            {
+                                Seed = h.Seed ?? childEnumerator.State.Seed,
+                                Index = h.Index,
+                                Started = childEnumerator.State.Started
+                            });
+                    }
+
                     // the collection may have changed since the last build, so the replayed
                     // position can point at the wrong item
                     if (itemPlaybackOrder is PlaybackOrder.Chronological)
@@ -1323,7 +1344,7 @@ public class SchedulingEngine(
                     // the playlist order may have changed since the last build
                     if (h.IsCurrentChild)
                     {
-                        playlistEnumerator.SetEnumeratorIndex(childEnumeratorKeys.IndexOf(collectionKey));
+                        playlistEnumerator.EnsureCurrentChild(collectionKey);
                     }
                 }
             }
@@ -1401,6 +1422,7 @@ public class SchedulingEngine(
                 PlayoutId = _state.PlayoutId,
                 PlaybackOrder = enumeratorDetails.PlaybackOrder,
                 Index = playlistEnumerator.State.Index,
+                Seed = playlistEnumerator.State.Seed,
                 When = playoutItem.StartOffset.UtcDateTime,
                 Finish = playoutItem.FinishOffset.UtcDateTime,
                 Key = enumeratorDetails.HistoryKey,
@@ -1422,6 +1444,7 @@ public class SchedulingEngine(
                         PlayoutId = _state.PlayoutId,
                         PlaybackOrder = enumeratorDetails.PlaybackOrder,
                         Index = childEnumerator.State.Index,
+                        Seed = childEnumerator.State.Seed,
                         When = playoutItem.StartOffset.UtcDateTime,
                         Finish = playoutItem.FinishOffset.UtcDateTime,
                         Key = enumeratorDetails.HistoryKey,

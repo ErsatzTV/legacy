@@ -196,11 +196,10 @@ public static class BlockPlayoutEnumerator
             enumerator.ResetState(
                 new CollectionEnumeratorState
                 {
-                    Seed = enumerator.State.Seed,
+                    Seed = primaryHistory.Seed ?? enumerator.State.Seed,
                     Index = primaryHistory.Index
                 });
 
-            var childEnumeratorKeys = enumerator.ChildEnumerators.Map(x => x.CollectionKey).ToList();
             foreach ((IMediaCollectionEnumerator childEnumerator, CollectionKey collectionKey) in
                      enumerator.ChildEnumerators)
             {
@@ -231,6 +230,19 @@ public static class BlockPlayoutEnumerator
                     //     h.Details,
                     //     h.IsCurrentChild);
 
+                    // a shuffled child gets a new seed each time it wraps.
+                    // the replay from the cycle start cannot make that order again.
+                    if (itemPlaybackOrder is PlaybackOrder.Shuffle)
+                    {
+                        childEnumerator.ResetState(
+                            new CollectionEnumeratorState
+                            {
+                                Seed = h.Seed ?? childEnumerator.State.Seed,
+                                Index = h.Index,
+                                Started = childEnumerator.State.Started
+                            });
+                    }
+
                     // the collection may have changed since the last build, so the replayed
                     // position can point at the wrong item
                     if (itemPlaybackOrder is PlaybackOrder.Chronological)
@@ -246,7 +258,7 @@ public static class BlockPlayoutEnumerator
                     // the playlist order may have changed since the last build
                     if (h.IsCurrentChild)
                     {
-                        enumerator.SetEnumeratorIndex(childEnumeratorKeys.IndexOf(collectionKey));
+                        enumerator.EnsureCurrentChild(collectionKey);
                     }
                 }
             }

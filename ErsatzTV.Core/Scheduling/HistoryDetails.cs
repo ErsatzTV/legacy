@@ -161,14 +161,26 @@ internal static class HistoryDetails
         }
 
         Option<MediaItem> maybeMatchedItem = Option<MediaItem>.None;
-        var copy = collectionItems.ToList();
+
+        // the index must agree with the list that the enumerator sorted.
+        // that enumerator removes season 0, so this list must remove it too.
+        List<MediaItem> copy = enumerator is SeasonEpisodeMediaCollectionEnumerator
+            ? SeasonEpisodeMediaCollectionEnumerator.Playable(collectionItems)
+            : collectionItems.ToList();
+
+        if (copy.Count == 0)
+        {
+            return;
+        }
 
         Details details = JsonConvert.DeserializeObject<Details>(detailsString);
+
+        MediaItem placeholder = null;
 
         // try for an exact match first
         if (details.MediaItemId != null)
         {
-            maybeMatchedItem = collectionItems.Find(mi => mi.Id == details.MediaItemId);
+            maybeMatchedItem = copy.Find(mi => mi.Id == details.MediaItemId);
         }
 
         if (maybeMatchedItem.IsNone && details.SeasonNumber.HasValue && details.EpisodeNumber.HasValue)
@@ -176,7 +188,7 @@ internal static class HistoryDetails
             int season = details.SeasonNumber.Value;
             int episode = details.EpisodeNumber.Value;
 
-            maybeMatchedItem = Optional(collectionItems.Find(ci => MatchSeasonAndEpisode(ci, season, episode)));
+            maybeMatchedItem = Optional(copy.Find(ci => MatchSeasonAndEpisode(ci, season, episode)));
 
             if (maybeMatchedItem.IsNone)
             {
@@ -195,18 +207,20 @@ internal static class HistoryDetails
 
                 copy.Add(fakeItem);
                 maybeMatchedItem = fakeItem;
+                placeholder = fakeItem;
             }
         }
         else if (maybeMatchedItem.IsNone && playbackOrder is PlaybackOrder.Chronological &&
                  details.ReleaseDate.HasValue)
         {
-            maybeMatchedItem = Optional(collectionItems.Find(ci => MatchReleaseDate(ci, details.ReleaseDate.Value)));
+            maybeMatchedItem = Optional(copy.Find(ci => MatchReleaseDate(ci, details.ReleaseDate.Value)));
 
             if (maybeMatchedItem.IsNone)
             {
                 var fakeItem = new Movie { MovieMetadata = [new MovieMetadata { ReleaseDate = details.ReleaseDate }] };
                 copy.Add(fakeItem);
                 maybeMatchedItem = fakeItem;
+                placeholder = fakeItem;
             }
         }
 
@@ -220,10 +234,19 @@ internal static class HistoryDetails
 
             copy.Sort(comparer);
 
+            int index = copy.IndexOf(matchedItem);
+            if (placeholder is not null)
+            {
+                // the enumerator does not hold the placeholder.
+                // its position is where the next real item is, and that position can be past the end.
+                copy.Remove(placeholder);
+                index %= copy.Count;
+            }
+
             var state = new CollectionEnumeratorState
             {
                 Seed = enumerator.State.Seed,
-                Index = copy.IndexOf(matchedItem)
+                Index = index
             };
             enumerator.ResetState(state);
 

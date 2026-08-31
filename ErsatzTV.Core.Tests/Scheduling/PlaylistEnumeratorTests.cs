@@ -1,5 +1,6 @@
 using ErsatzTV.Core.Domain;
 using ErsatzTV.Core.Interfaces.Repositories;
+using ErsatzTV.Core.Interfaces.Scheduling;
 using ErsatzTV.Core.Scheduling;
 using NSubstitute;
 using NUnit.Framework;
@@ -523,6 +524,134 @@ public class PlaylistEnumeratorTests
 
         continued.ShouldBe(expected);
     }
+
+    // callers use EnumeratorIndex on ChildEnumerators, and each cycle end changes the shuffled order
+    [Test]
+    public async Task ChildEnumerators_Should_Follow_The_Shuffle()
+    {
+        IMediaCollectionRepository repo = Substitute.For<IMediaCollectionRepository>();
+
+        Dictionary<PlaylistItem, List<MediaItem>> BuildMap() => new()
+        {
+            { PlaylistItemFor(1), [FakeMovie(1), FakeMovie(2)] },
+            { PlaylistItemFor(2), [FakeMovie(3), FakeMovie(4)] },
+            { PlaylistItemFor(3), [FakeMovie(5), FakeMovie(6)] },
+            { PlaylistItemFor(4), [FakeMovie(7), FakeMovie(8)] }
+        };
+
+        PlaylistEnumerator enumerator = await PlaylistEnumerator.Create(
+            repo,
+            BuildMap(),
+            new CollectionEnumeratorState { Seed = 12345, Index = 0 },
+            shufflePlaylistItems: true,
+            batchSize: Option<int>.None,
+            randomStartPoint: false,
+            CancellationToken.None);
+
+        var sawSecondCycle = false;
+
+        for (var i = 0; i < 40; i++)
+        {
+            IMediaCollectionEnumerator currentChild = enumerator.ChildEnumerators[enumerator.EnumeratorIndex]
+                .Enumerator;
+
+            currentChild.Current.Map(mi => mi.Id)
+                .ShouldBe(enumerator.Current.Map(mi => mi.Id), $"after {i} items");
+
+            enumerator.MoveNext(Option<DateTimeOffset>.None);
+            sawSecondCycle |= enumerator.State.Index == 0;
+        }
+
+        sawSecondCycle.ShouldBeTrue("the playlist should have reshuffled at least once");
+    }
+
+    // EnumeratorPlayAllCount is a record. Playlist items with one collection and equal settings
+    // compare equal, and the retry in ShufflePlaylistItems cannot end.
+    [Test]
+    public async Task Shuffled_Playlist_Of_Equal_Items_Should_Not_Hang()
+    {
+        IMediaCollectionRepository repo = Substitute.For<IMediaCollectionRepository>();
+
+        var playlistItemMap = new Dictionary<PlaylistItem, List<MediaItem>>
+        {
+            { PlaylistItemFor(1, collectionId: 1), [FakeMovie(1), FakeMovie(2)] },
+            { PlaylistItemFor(2, collectionId: 1), [FakeMovie(1), FakeMovie(2)] },
+            { PlaylistItemFor(3, collectionId: 1), [FakeMovie(1), FakeMovie(2)] }
+        };
+
+        // a token with a limit, so a fault fails the test and does not stop the test host
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+
+        PlaylistEnumerator enumerator = await PlaylistEnumerator.Create(
+            repo,
+            playlistItemMap,
+            new CollectionEnumeratorState { Seed = 12345, Index = 0 },
+            shufflePlaylistItems: true,
+            batchSize: Option<int>.None,
+            randomStartPoint: false,
+            cts.Token);
+
+        cts.IsCancellationRequested.ShouldBeFalse("ShufflePlaylistItems did not return on its own");
+        enumerator.Current.IsSome.ShouldBeTrue();
+    }
+
+    // Create can remove every playlist item, and the callers do not check Current first
+    [Test]
+    public async Task Empty_Playlist_Should_Not_Throw()
+    {
+        IMediaCollectionRepository repo = Substitute.For<IMediaCollectionRepository>();
+
+        var playlistItemMap = new Dictionary<PlaylistItem, List<MediaItem>>
+        {
+            {
+                new PlaylistItem
+                {
+                    Id = 1,
+                    Index = 0,
+                    PlaybackOrder = PlaybackOrder.SeasonEpisode,
+                    PlayAll = false,
+                    CollectionType = CollectionType.Collection,
+                    CollectionId = 1
+                },
+                [SpecialEpisode(1), SpecialEpisode(2)]
+            }
+        };
+
+        PlaylistEnumerator enumerator = await PlaylistEnumerator.Create(
+            repo,
+            playlistItemMap,
+            new CollectionEnumeratorState { Seed = 12345, Index = 0 },
+            shufflePlaylistItems: false,
+            batchSize: Option<int>.None,
+            randomStartPoint: false,
+            CancellationToken.None);
+
+        enumerator.ChildEnumerators.ShouldBeEmpty();
+        enumerator.Current.IsNone.ShouldBeTrue();
+
+        Should.NotThrow(() => enumerator.MoveNext(Option<DateTimeOffset>.None));
+        Should.NotThrow(() => _ = enumerator.CurrentEnumeratorPlayAll);
+        Should.NotThrow(() => enumerator.SetEnumeratorIndex(0));
+    }
+
+    private static PlaylistItem PlaylistItemFor(int id, int? collectionId = null) => new()
+    {
+        Id = id,
+        Index = id - 1,
+        PlaybackOrder = PlaybackOrder.Chronological,
+        PlayAll = false,
+        CollectionType = CollectionType.Collection,
+        CollectionId = collectionId ?? id
+    };
+
+    private static Episode SpecialEpisode(int id) => new()
+    {
+        Id = id,
+        Season = new Season { Id = 1, SeasonNumber = 0 },
+        SeasonId = 1,
+        EpisodeMetadata = [new EpisodeMetadata { EpisodeNumber = id }],
+        MediaVersions = []
+    };
 
     private static Movie FakeMovie(int id) => new()
     {
