@@ -3076,6 +3076,9 @@ namespace ErsatzTV.Infrastructure.MySql.Migrations
                     b.Property<int>("PlayoutId")
                         .HasColumnType("int");
 
+                    b.Property<int?>("Seed")
+                        .HasColumnType("int");
+
                     b.Property<DateTime>("When")
                         .HasColumnType("datetime(6)");
 

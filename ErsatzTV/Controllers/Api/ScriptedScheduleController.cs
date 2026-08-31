@@ -68,6 +68,12 @@ public class ScriptedScheduleController(IScriptedPlayoutBuilderService scriptedP
             return BadRequest("Invalid item playback order.");
         }
 
+        if (!MarathonHelper.ValidGroupByValues.Contains(request.GroupBy, StringComparer.OrdinalIgnoreCase))
+        {
+            return BadRequest(
+                $"Invalid group by; valid values are {string.Join(", ", MarathonHelper.ValidGroupByValues)}.");
+        }
+
         await engine.AddMarathon(
             request.Key,
             request.Guids ?? [],

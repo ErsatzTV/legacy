@@ -1309,6 +1309,16 @@ public class PlayoutBuilder : IPlayoutBuilder
                     ? await _mediaCollectionRepository.GetPlaylistItemMap(DebugPlaylist, cancellationToken)
                     : await _mediaCollectionRepository.GetPlaylistItemMap(playlistId, cancellationToken);
 
+                // this reads the item map again, so the items that CheckForEmptyCollections removed are back
+                if (DebugPlaylist is null && mediaItems.Count > 0 && !mediaItems.Any(i => i is ChapterMediaItem))
+                {
+                    var allowedIds = mediaItems.Map(i => i.Id).ToHashSet();
+                    playlistItemMap = playlistItemMap
+                        .Map(kvp => (kvp.Key, Items: kvp.Value.Filter(i => allowedIds.Contains(i.Id)).ToList()))
+                        .Filter(x => x.Items.Count > 0)
+                        .ToDictionary(x => x.Key, x => x.Items);
+                }
+
                 return await PlaylistEnumerator.Create(
                     _mediaCollectionRepository,
                     playlistItemMap,
@@ -1370,6 +1380,7 @@ public class PlayoutBuilder : IPlayoutBuilder
                     await GetCollectionItemsForShuffleInOrder(
                         _mediaCollectionRepository,
                         collectionKey,
+                        mediaItems,
                         cancellationToken),
                     state,
                     activeSchedule.RandomStartPoint,
@@ -1445,6 +1456,27 @@ public class PlayoutBuilder : IPlayoutBuilder
         }
     }
 
+    // the callers read the collections again, so the items that CheckForEmptyCollections removed
+    // from the playout list come back
+    private static List<CollectionWithItems> RestrictToPlayoutItems(
+        List<CollectionWithItems> collections,
+        List<MediaItem> playoutItems)
+    {
+        // UseChaptersAsMediaItems gives the playout list new ids that no collection has.
+        // an empty list is a caller with no filter, not a filter that removes everything.
+        if (playoutItems.Count == 0 || playoutItems.Any(i => i is ChapterMediaItem))
+        {
+            return collections;
+        }
+
+        var allowedIds = playoutItems.Map(i => i.Id).ToHashSet();
+
+        return collections
+            .Map(c => c with { MediaItems = c.MediaItems.Filter(i => allowedIds.Contains(i.Id)).ToList() })
+            .Filter(c => c.MediaItems.Count > 0)
+            .ToList();
+    }
+
     internal static async Task<List<GroupedMediaItem>> GetGroupedMediaItemsForShuffle(
         IMediaCollectionRepository mediaCollectionRepository,
         ProgramSchedule activeSchedule,
@@ -1457,7 +1489,7 @@ public class PlayoutBuilder : IPlayoutBuilder
             List<CollectionWithItems> collections = await mediaCollectionRepository
                 .GetMultiCollectionCollections(collectionKey.MultiCollectionId.Value, cancellationToken);
 
-            return MultiCollectionGrouper.GroupMediaItems(collections);
+            return MultiCollectionGrouper.GroupMediaItems(RestrictToPlayoutItems(collections, mediaItems));
         }
 
         return activeSchedule.KeepMultiPartEpisodesTogether
@@ -1468,6 +1500,7 @@ public class PlayoutBuilder : IPlayoutBuilder
     internal static async Task<List<CollectionWithItems>> GetCollectionItemsForShuffleInOrder(
         IMediaCollectionRepository mediaCollectionRepository,
         CollectionKey collectionKey,
+        List<MediaItem> mediaItems,
         CancellationToken cancellationToken)
     {
         List<CollectionWithItems> result;
@@ -1486,7 +1519,7 @@ public class PlayoutBuilder : IPlayoutBuilder
                 cancellationToken);
         }
 
-        return result;
+        return RestrictToPlayoutItems(result, mediaItems);
     }
 
     internal static string DisplayTitle(MediaItem mediaItem)
