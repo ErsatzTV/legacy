@@ -1239,7 +1239,7 @@ public class SchedulingEngine(
         return Option<IMediaCollectionEnumerator>.None;
     }
 
-    private void ApplyPlaylistHistory(
+    internal void ApplyPlaylistHistory(
         string historyKey,
         ImmutableDictionary<CollectionKey, List<MediaItem>> itemMap,
         PlaylistEnumerator playlistEnumerator)
@@ -1268,7 +1268,14 @@ public class SchedulingEngine(
 
         foreach (PlayoutHistory primaryHistory in maybePrimaryHistory)
         {
-            var hasSetEnumeratorIndex = false;
+            // the primary row holds the playlist index; a child index counts the items of one
+            // collection, so it does not describe a playlist position
+            playlistEnumerator.ResetState(
+                new CollectionEnumeratorState
+                {
+                    Seed = playlistEnumerator.State.Seed,
+                    Index = primaryHistory.Index
+                });
 
             var childEnumeratorKeys = playlistEnumerator.ChildEnumerators.Map(x => x.CollectionKey).ToList();
             foreach ((IMediaCollectionEnumerator childEnumerator, CollectionKey collectionKey) in
@@ -1301,13 +1308,8 @@ public class SchedulingEngine(
                     //     h.Details,
                     //     h.IsCurrentChild);
 
-                    playlistEnumerator.ResetState(
-                        new CollectionEnumeratorState
-                        {
-                            Seed = playlistEnumerator.State.Seed,
-                            Index = h.Index + (h.IsCurrentChild ? 1 : 0)
-                        });
-
+                    // the collection may have changed since the last build, so the replayed
+                    // position can point at the wrong item
                     if (itemPlaybackOrder is PlaybackOrder.Chronological)
                     {
                         HistoryDetails.MoveToNextItem(
@@ -1318,19 +1320,12 @@ public class SchedulingEngine(
                             true);
                     }
 
+                    // the playlist order may have changed since the last build
                     if (h.IsCurrentChild)
                     {
-                        // try to find enumerator based on collection key
                         playlistEnumerator.SetEnumeratorIndex(childEnumeratorKeys.IndexOf(collectionKey));
-                        hasSetEnumeratorIndex = true;
                     }
                 }
-            }
-
-            if (!hasSetEnumeratorIndex)
-            {
-                // falling back to enumerator based on index
-                playlistEnumerator.SetEnumeratorIndex(primaryHistory.Index);
             }
 
             // only move next at the end, because that may also move
@@ -1391,7 +1386,7 @@ public class SchedulingEngine(
         }
     }
 
-    private List<PlayoutHistory> GetHistoryForItem(
+    internal List<PlayoutHistory> GetHistoryForItem(
         EnumeratorDetails enumeratorDetails,
         PlayoutItem playoutItem,
         MediaItem mediaItem)
@@ -1405,7 +1400,7 @@ public class SchedulingEngine(
             {
                 PlayoutId = _state.PlayoutId,
                 PlaybackOrder = enumeratorDetails.PlaybackOrder,
-                Index = playlistEnumerator.EnumeratorIndex,
+                Index = playlistEnumerator.State.Index,
                 When = playoutItem.StartOffset.UtcDateTime,
                 Finish = playoutItem.FinishOffset.UtcDateTime,
                 Key = enumeratorDetails.HistoryKey,

@@ -62,7 +62,14 @@ public class YamlPlayoutApplyHistoryHandler(EnumeratorCache enumeratorCache)
 
                 foreach (PlayoutHistory primaryHistory in maybePrimaryHistory)
                 {
-                    var hasSetEnumeratorIndex = false;
+                    // the primary row holds the playlist index; a child index counts the items of one
+                    // collection, so it does not describe a playlist position
+                    playlistEnumerator.ResetState(
+                        new CollectionEnumeratorState
+                        {
+                            Seed = playlistEnumerator.State.Seed,
+                            Index = primaryHistory.Index
+                        });
 
                     var childEnumeratorKeys = playlistEnumerator.ChildEnumerators.Map(x => x.CollectionKey).ToList();
                     foreach ((IMediaCollectionEnumerator childEnumerator, CollectionKey collectionKey) in
@@ -96,13 +103,8 @@ public class YamlPlayoutApplyHistoryHandler(EnumeratorCache enumeratorCache)
                             //     h.Details,
                             //     h.IsCurrentChild);
 
-                            enumerator.ResetState(
-                                new CollectionEnumeratorState
-                                {
-                                    Seed = enumerator.State.Seed,
-                                    Index = h.Index + (h.IsCurrentChild ? 1 : 0)
-                                });
-
+                            // the collection may have changed since the last build, so the replayed
+                            // position can point at the wrong item
                             if (itemPlaybackOrder is PlaybackOrder.Chronological)
                             {
                                 HistoryDetails.MoveToNextItem(
@@ -113,19 +115,12 @@ public class YamlPlayoutApplyHistoryHandler(EnumeratorCache enumeratorCache)
                                     true);
                             }
 
+                            // the playlist order may have changed since the last build
                             if (h.IsCurrentChild)
                             {
-                                // try to find enumerator based on collection key
                                 playlistEnumerator.SetEnumeratorIndex(childEnumeratorKeys.IndexOf(collectionKey));
-                                hasSetEnumeratorIndex = true;
                             }
                         }
-                    }
-
-                    if (!hasSetEnumeratorIndex)
-                    {
-                        // falling back to enumerator based on index
-                        playlistEnumerator.SetEnumeratorIndex(primaryHistory.Index);
                     }
 
                     // only move next at the end, because that may also move
