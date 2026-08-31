@@ -20,6 +20,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Fix `shuffle_sequence` deleting the instructions between two uses of the same sequence
   - Fix a sequence that is used two times giving the `custom_title` of the last use to every use
   - Fix a shuffled sequence with `repeat` making the build run with no end; this stopped all other background work
+- Return a retry response instead of `404` when an HLS segmenter playlist is temporarily unavailable
+  - Previously, a client that requested the playlist before the session had written it was told the stream did not exist
+- Treat a playlist that fails to trim as unavailable instead of serving an empty playlist
+  - Previously, a malformed playlist produced an empty response with a reset media sequence, which could glitch or stall players
+  - The failed trim also no longer overwrites the playlist on disk, so the session can recover on the next cycle
 
 ## [26.8.1] - 2026-08-29
 ### Security

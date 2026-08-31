@@ -42,7 +42,7 @@ live_1760874038_001138.m4s
 #EXT-X-PROGRAM-DATE-TIME:2021-10-08T08:34:57.320-0500
 live_1760874038_001139.m4s").Split(Environment.NewLine);
 
-        TrimPlaylistResult result = _hlsPlaylistFilter.TrimPlaylist(
+        TrimPlaylistResult result = Unwrap(_hlsPlaylistFilter.TrimPlaylist(
             new Dictionary<long, int>
             {
                 [1760874038] = 1
@@ -52,7 +52,7 @@ live_1760874038_001139.m4s").Split(Environment.NewLine);
             start.AddSeconds(-30),
             new FakeHlsInitSegmentCache(),
             input,
-            maybeMaxSegments: 10);
+            maybeMaxSegments: 10));
 
         result.PlaylistStart.ShouldBe(start);
         result.Sequence.ShouldBe(1137);
@@ -99,7 +99,7 @@ live_1760874038_001138.m4s
 #EXT-X-PROGRAM-DATE-TIME:2021-10-08T08:34:57.320-0500
 live_1760874038_001139.m4s").Split(Environment.NewLine);
 
-        TrimPlaylistResult result = _hlsPlaylistFilter.TrimPlaylist(
+        TrimPlaylistResult result = Unwrap(_hlsPlaylistFilter.TrimPlaylist(
             new Dictionary<long, int>
             {
                 [1760874038] = 1
@@ -109,7 +109,7 @@ live_1760874038_001139.m4s").Split(Environment.NewLine);
             start.AddSeconds(-30),
             new FakeHlsInitSegmentCache(),
             input,
-            2);
+            2));
 
         result.PlaylistStart.ShouldBe(start);
         result.Sequence.ShouldBe(1137);
@@ -153,7 +153,7 @@ live_1760874038_001138.m4s
 #EXT-X-PROGRAM-DATE-TIME:2021-10-08T08:34:57.320-0500
 live_1760874038_001139.m4s").Split(Environment.NewLine);
 
-        TrimPlaylistResult result = _hlsPlaylistFilter.TrimPlaylistWithDiscontinuity(
+        TrimPlaylistResult result = Unwrap(_hlsPlaylistFilter.TrimPlaylistWithDiscontinuity(
             new Dictionary<long, int>
             {
                 [1760874038] = 1
@@ -162,7 +162,7 @@ live_1760874038_001139.m4s").Split(Environment.NewLine);
             start,
             start.AddSeconds(-30),
             new FakeHlsInitSegmentCache(),
-            input);
+            input));
 
         result.PlaylistStart.ShouldBe(start);
         result.Sequence.ShouldBe(1137);
@@ -210,7 +210,7 @@ live_1760874038_001138.m4s
 #EXT-X-PROGRAM-DATE-TIME:2021-10-08T08:34:57.320-0500
 live_1760874038_001139.m4s").Split(Environment.NewLine);
 
-        TrimPlaylistResult result = _hlsPlaylistFilter.TrimPlaylist(
+        TrimPlaylistResult result = Unwrap(_hlsPlaylistFilter.TrimPlaylist(
             new Dictionary<long, int>
             {
                 [1760874038] = 1
@@ -220,7 +220,7 @@ live_1760874038_001139.m4s").Split(Environment.NewLine);
             start.AddSeconds(6),
             new FakeHlsInitSegmentCache(),
             input,
-            1);
+            1));
 
         result.PlaylistStart.ShouldBe(start.AddSeconds(8));
         result.Sequence.ShouldBe(1139);
@@ -262,7 +262,7 @@ live_1760874042_001138.m4s
 #EXT-X-PROGRAM-DATE-TIME:2021-10-08T08:34:57.320-0500
 live_1760874042_001139.m4s").Split(Environment.NewLine);
 
-        TrimPlaylistResult result = _hlsPlaylistFilter.TrimPlaylist(
+        TrimPlaylistResult result = Unwrap(_hlsPlaylistFilter.TrimPlaylist(
             new Dictionary<long, int>
             {
                 [1760874038] = 1,
@@ -273,7 +273,7 @@ live_1760874042_001139.m4s").Split(Environment.NewLine);
             start.AddSeconds(6),
             new FakeHlsInitSegmentCache(),
             input,
-            maybeMaxSegments: 10);
+            maybeMaxSegments: 10));
 
         result.PlaylistStart.ShouldBe(start);
         result.Sequence.ShouldBe(1137);
@@ -564,7 +564,7 @@ live_1760874138_000081.m4s
 #EXT-X-PROGRAM-DATE-TIME:2022-05-25T20:13:26.007-0500
 live_1760874138_000082.m4s").Split(Environment.NewLine);
 
-        TrimPlaylistResult result = _hlsPlaylistFilter.TrimPlaylist(
+        TrimPlaylistResult result = Unwrap(_hlsPlaylistFilter.TrimPlaylist(
             new Dictionary<long, int>
             {
                 [1760874038] = 1,
@@ -575,7 +575,7 @@ live_1760874138_000082.m4s").Split(Environment.NewLine);
             start.AddSeconds(220),
             new FakeHlsInitSegmentCache(),
             input,
-            maybeMaxSegments: 10);
+            maybeMaxSegments: 10));
 
         // result.PlaylistStart.ShouldBe(start);
         result.Sequence.ShouldBe(56);
@@ -648,7 +648,7 @@ live_1760874040_000048.m4s
         // filter 'live000046.m4s'
         var filterBefore = start.AddSeconds(2);
 
-        TrimPlaylistResult result = _hlsPlaylistFilter.TrimPlaylist(
+        TrimPlaylistResult result = Unwrap(_hlsPlaylistFilter.TrimPlaylist(
             new Dictionary<long, int>
             {
                 [1760874038] = 2,
@@ -659,7 +659,7 @@ live_1760874040_000048.m4s
             filterBefore,
             new FakeHlsInitSegmentCache(),
             input,
-            2);
+            2));
 
         result.Sequence.ShouldBe(47);
 
@@ -782,7 +782,7 @@ live_1760874038_000064.m4s
         // filter 'live000046.m4s'
         var filterBefore = start.AddSeconds(32);
 
-        TrimPlaylistResult result = _hlsPlaylistFilter.TrimPlaylist(
+        TrimPlaylistResult result = Unwrap(_hlsPlaylistFilter.TrimPlaylist(
             new Dictionary<long, int>
             {
                 [1760874038] = 2
@@ -792,7 +792,7 @@ live_1760874038_000064.m4s
             filterBefore,
             new FakeHlsInitSegmentCache(),
             input,
-            10);
+            10));
 
         result.Sequence.ShouldBe(46);
 
@@ -939,7 +939,7 @@ live_1760874038_000064.m4s
         // filter 'live000046.m4s'
         var filterBefore = start.AddSeconds(36);
 
-        TrimPlaylistResult result = _hlsPlaylistFilter.TrimPlaylist(
+        TrimPlaylistResult result = Unwrap(_hlsPlaylistFilter.TrimPlaylist(
             new Dictionary<long, int>
             {
                 [1760874038] = 2
@@ -949,7 +949,7 @@ live_1760874038_000064.m4s
             filterBefore,
             new FakeHlsInitSegmentCache(),
             input,
-            10);
+            10));
 
         result.Sequence.ShouldBe(47);
 
@@ -1021,7 +1021,7 @@ live_1760874038_001138.m4s
 #EXT-X-PROGRAM-DATE-TIME:2021-10-08T08:34:57.320-0500
 live_1760874038_001139.m4s").Split(Environment.NewLine);
 
-        TrimPlaylistResult result = _hlsPlaylistFilter.TrimPlaylistWithDiscontinuity(
+        TrimPlaylistResult result = Unwrap(_hlsPlaylistFilter.TrimPlaylistWithDiscontinuity(
             new Dictionary<long, int>
             {
                 [1760874038] = 1
@@ -1030,10 +1030,41 @@ live_1760874038_001139.m4s").Split(Environment.NewLine);
             start,
             start.AddSeconds(60),
             new FakeHlsInitSegmentCache(),
-            input);
+            input));
 
         result.SegmentCount.ShouldBeGreaterThan(0);
         result.Playlist.ShouldContain("#EXTINF");
+    }
+
+    [Test]
+    public void HlsPlaylistFilter_ShouldReturnNone_WhenPlaylistIsMalformed()
+    {
+        // a malformed playlist used to produce an "empty" result (no segments, sequence 0)
+        // that callers served to players and wrote over the on-disk playlist
+        var start = new DateTimeOffset(2021, 10, 9, 8, 0, 0, TimeSpan.FromHours(-5));
+        string[] input = NormalizeLineEndings(
+            @"#EXTM3U
+#EXT-X-VERSION:7
+#EXT-X-TARGETDURATION:4
+#EXTINF:not-a-number,
+live_1760874038_001137.m4s").Split(Environment.NewLine);
+
+        Option<TrimPlaylistResult> result = _hlsPlaylistFilter.TrimPlaylist(
+            new Dictionary<long, int>(),
+            OutputFormatKind.HlsMp4,
+            start,
+            start.AddSeconds(-30),
+            new FakeHlsInitSegmentCache(),
+            input,
+            maybeMaxSegments: 10);
+
+        result.IsNone.ShouldBeTrue();
+    }
+
+    private static TrimPlaylistResult Unwrap(Option<TrimPlaylistResult> maybeResult)
+    {
+        maybeResult.IsSome.ShouldBeTrue();
+        return maybeResult.IfNone(() => throw new InvalidOperationException("expected trim playlist result"));
     }
 
     private static string NormalizeLineEndings(string str) =>

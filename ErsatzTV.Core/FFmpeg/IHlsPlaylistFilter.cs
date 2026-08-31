@@ -4,7 +4,7 @@ namespace ErsatzTV.Core.FFmpeg;
 
 public interface IHlsPlaylistFilter
 {
-    TrimPlaylistResult TrimPlaylist(
+    Option<TrimPlaylistResult> TrimPlaylist(
         Dictionary<long, int> discontinuityMap,
         OutputFormatKind outputFormat,
         DateTimeOffset playlistStart,
@@ -14,7 +14,7 @@ public interface IHlsPlaylistFilter
         Option<int> maybeMaxSegments,
         bool endWithDiscontinuity = false);
 
-    TrimPlaylistResult TrimPlaylistWithDiscontinuity(
+    Option<TrimPlaylistResult> TrimPlaylistWithDiscontinuity(
         Dictionary<long, int> discontinuityMap,
         OutputFormatKind outputFormat,
         DateTimeOffset playlistStart,
