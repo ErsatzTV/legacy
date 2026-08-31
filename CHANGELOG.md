@@ -10,6 +10,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Next engine:
   - Properly detect QSV capabilities for Intel 10th gen and older devices; previously they always used software transcoding
 - Fix block scheduler deleting the current hour's playout items, taking the channel offline until the next block
+- Fix playlists and marathons not continuing from the saved position after a restart or a playout rebuild
+  - Affects playlists and marathons in sequential and scripted schedules, and playlists used as block deco filler
+  - Episodes that had already played would repeat, and others would be skipped each time the collection came up
+  - Only the last collection of a playlist kept its position (regression from `v26.7.0`)
+  - Sequential and scripted schedules first build after upgrading may still start at the wrong item; every build after that will be correct
 - Sequential schedules:
   - Fix `shuffle_sequence` losing the shuffled order at the end of each build; previously the next build continued in schedule file order
   - Fix `shuffle_sequence` deleting the instructions between two uses of the same sequence
