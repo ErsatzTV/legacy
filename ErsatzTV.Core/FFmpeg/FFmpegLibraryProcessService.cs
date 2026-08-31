@@ -188,7 +188,7 @@ public class FFmpegLibraryProcessService : IFFmpegProcessService
 
                     foreach (TimeSpan seek in playbackSettings.StreamSeek)
                     {
-                        subtitle.Path += $"?seekToMs={(int)seek.TotalMilliseconds}";
+                        subtitle.Path += $"&seekToMs={(int)seek.TotalMilliseconds}";
                     }
                 }
             }
