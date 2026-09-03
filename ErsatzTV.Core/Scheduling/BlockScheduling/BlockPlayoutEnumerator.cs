@@ -191,9 +191,15 @@ public static class BlockPlayoutEnumerator
 
         foreach (PlayoutHistory primaryHistory in maybePrimaryHistory)
         {
-            var hasSetEnumeratorIndex = false;
+            // the primary row holds the playlist index; a child index counts the items of one
+            // collection, so it does not describe a playlist position
+            enumerator.ResetState(
+                new CollectionEnumeratorState
+                {
+                    Seed = primaryHistory.Seed ?? enumerator.State.Seed,
+                    Index = primaryHistory.Index
+                });
 
-            var childEnumeratorKeys = enumerator.ChildEnumerators.Map(x => x.CollectionKey).ToList();
             foreach ((IMediaCollectionEnumerator childEnumerator, CollectionKey collectionKey) in
                      enumerator.ChildEnumerators)
             {
@@ -224,13 +230,21 @@ public static class BlockPlayoutEnumerator
                     //     h.Details,
                     //     h.IsCurrentChild);
 
-                    enumerator.ResetState(
-                        new CollectionEnumeratorState
-                        {
-                            Seed = enumerator.State.Seed,
-                            Index = h.Index + (h.IsCurrentChild ? 1 : 0)
-                        });
+                    // a shuffled child gets a new seed each time it wraps.
+                    // the replay from the cycle start cannot make that order again.
+                    if (itemPlaybackOrder is PlaybackOrder.Shuffle)
+                    {
+                        childEnumerator.ResetState(
+                            new CollectionEnumeratorState
+                            {
+                                Seed = h.Seed ?? childEnumerator.State.Seed,
+                                Index = h.Index,
+                                Started = childEnumerator.State.Started
+                            });
+                    }
 
+                    // the collection may have changed since the last build, so the replayed
+                    // position can point at the wrong item
                     if (itemPlaybackOrder is PlaybackOrder.Chronological)
                     {
                         HistoryDetails.MoveToNextItem(
@@ -241,19 +255,12 @@ public static class BlockPlayoutEnumerator
                             true);
                     }
 
+                    // the playlist order may have changed since the last build
                     if (h.IsCurrentChild)
                     {
-                        // try to find enumerator based on collection key
-                        enumerator.SetEnumeratorIndex(childEnumeratorKeys.IndexOf(collectionKey));
-                        hasSetEnumeratorIndex = true;
+                        enumerator.EnsureCurrentChild(collectionKey);
                     }
                 }
-            }
-
-            if (!hasSetEnumeratorIndex)
-            {
-                // falling back to enumerator based on index
-                enumerator.SetEnumeratorIndex(primaryHistory.Index);
             }
 
             // only move next at the end, because that may also move

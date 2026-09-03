@@ -1,5 +1,7 @@
 using System.Collections.Immutable;
 using System.IO.Abstractions;
+using System.Security.Cryptography;
+using System.Text;
 using ErsatzTV.Core.Domain;
 using ErsatzTV.Core.Domain.Scheduling;
 using ErsatzTV.Core.Interfaces.Repositories;
@@ -10,6 +12,7 @@ using ErsatzTV.Core.Scheduling.YamlScheduling.Models;
 using ErsatzTV.Core.Search;
 using LanguageExt.UnsafeValueAccess;
 using Microsoft.Extensions.Logging;
+using Newtonsoft.Json;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
 
@@ -272,6 +275,8 @@ public class SequentialPlayoutBuilder(
             }
         }
 
+        context.RestoreSequenceOrders();
+
         // handle all playout instructions
         while (context.CurrentTime < finish)
         {
@@ -434,7 +439,7 @@ public class SequentialPlayoutBuilder(
             switch (instruction)
             {
                 case YamlPlayoutSequenceInstruction sequenceInstruction:
-                    IEnumerable<YamlPlayoutInstruction> sequenceInstructions = context.Definition.Sequence
+                    List<YamlPlayoutInstruction> sequenceInstructions = context.Definition.Sequence
                         .Filter(s => s.Key == sequenceInstruction.Sequence)
                         .HeadOrNone()
                         .Map(s => s.Items)
@@ -442,24 +447,29 @@ public class SequentialPlayoutBuilder(
                         .ToList();
 
                     var sequenceGuid = Guid.NewGuid();
+                    string sequenceFingerprint = Convert.ToHexString(SHA256.HashData(
+                        Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(sequenceInstructions, Formatting.None))));
                     int repeat = sequenceInstruction.Repeat > 0 ? sequenceInstruction.Repeat : 1;
 
                     for (var r = 0; r < repeat; r++)
                     {
-                        // insert all instructions from the sequence
-                        foreach (YamlPlayoutInstruction i in sequenceInstructions)
+                        // insert independent instructions so each flattened sequence keeps its own shuffle state
+                        for (var index = 0; index < sequenceInstructions.Count; index++)
                         {
-                            // used for shuffling
-                            i.SequenceKey = sequenceInstruction.Sequence;
-                            i.SequenceGuid = sequenceGuid;
+                            YamlPlayoutInstruction instructionCopy = sequenceInstructions[index].Clone();
+                            instructionCopy.SequenceKey = sequenceInstruction.Sequence;
+                            instructionCopy.SequenceGuid = sequenceGuid;
+                            instructionCopy.SequenceIndex = r * sequenceInstructions.Count + index;
+                            instructionCopy.SequenceShuffled = false;
+                            instructionCopy.SequenceFingerprint = sequenceFingerprint;
 
                             // copy custom title
                             if (!string.IsNullOrWhiteSpace(sequenceInstruction.CustomTitle))
                             {
-                                i.CustomTitle = sequenceInstruction.CustomTitle;
+                                instructionCopy.CustomTitle = sequenceInstruction.CustomTitle;
                             }
 
-                            playout.Add(i);
+                            playout.Add(instructionCopy);
                         }
                     }
 

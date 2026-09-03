@@ -131,6 +131,15 @@ public class EnumeratorCache(IMediaCollectionRepository mediaCollectionRepositor
                 state,
                 cancellationToken);
 
+            if (maybeResult.IsNone)
+            {
+                logger.LogWarning(
+                    "Unable to add marathon with key {Key}; group_by {GroupBy} is not one of {ValidValues}",
+                    contentKey,
+                    marathon.GroupBy,
+                    MarathonHelper.ValidGroupByValues);
+            }
+
             foreach (PlaylistContentResult result in maybeResult)
             {
                 foreach ((CollectionKey collectionKey, List<MediaItem> mediaItems) in result.Content)

@@ -7,6 +7,8 @@ namespace ErsatzTV.Core.Scheduling.Engine;
 
 public class MarathonHelper(IMediaCollectionRepository mediaCollectionRepository)
 {
+    public static readonly string[] ValidGroupByValues = ["show", "season", "artist", "album", "director"];
+
     public async Task<Option<PlaylistEnumerator>> GetEnumerator(
         List<MediaItem> mediaItems,
         MarathonGroupBy marathonGroupBy,
@@ -94,6 +96,9 @@ public class MarathonHelper(IMediaCollectionRepository mediaCollectionRepository
             allMediaItems.AddRange(await mediaCollectionRepository.GetSmartCollectionItems(query, string.Empty, cancellationToken));
         }
 
+        // an item can come from more than one guid or search. A duplicate then plays two times.
+        allMediaItems = allMediaItems.DistinctBy(i => i.Id).ToList();
+
         List<IGrouping<GroupKey, MediaItem>> groups = [];
 
         // group by show
@@ -120,6 +125,11 @@ public class MarathonHelper(IMediaCollectionRepository mediaCollectionRepository
         else if (string.Equals(groupBy, "director", StringComparison.OrdinalIgnoreCase))
         {
             groups.AddRange(allMediaItems.GroupBy(MediaItemKeyByDirector));
+        }
+        else
+        {
+            // the enum overload also returns None for a group that it does not know
+            return Option<PlaylistContentResult>.None;
         }
 
         Dictionary<PlaylistItem, List<MediaItem>> itemMap = [];
@@ -186,7 +196,7 @@ public class MarathonHelper(IMediaCollectionRepository mediaCollectionRepository
         {
             Song s => new GroupKey(
                 CollectionType.Collection,
-                s.SongMetadata.HeadOrNone().Map(sm => sm.Album.GetStableHashCode()).IfNone(0),
+                s.SongMetadata.HeadOrNone().Map(sm => (sm.Album ?? string.Empty).GetStableHashCode()).IfNone(0),
                 null,
                 null,
                 null),

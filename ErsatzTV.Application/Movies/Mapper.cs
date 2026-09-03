@@ -1,4 +1,5 @@
 ﻿using System.Globalization;
+using ErsatzTV.Application.Artworks;
 using ErsatzTV.Core.Domain;
 using ErsatzTV.Core.Emby;
 using ErsatzTV.Core.Extensions;
@@ -36,8 +37,8 @@ internal static class Mapper
             localPath,
             movie.State)
         {
-            Poster = Artwork(metadata, ArtworkKind.Poster, maybeJellyfin, maybeEmby),
-            FanArt = Artwork(metadata, ArtworkKind.FanArt, maybeJellyfin, maybeEmby)
+            Poster = ArtworkMapper.Artwork(metadata, ArtworkKind.Poster, maybeJellyfin, maybeEmby),
+            FanArt = ArtworkMapper.Artwork(metadata, ArtworkKind.FanArt, maybeJellyfin, maybeEmby)
         };
     }
 
@@ -54,38 +55,5 @@ internal static class Mapper
             .Map(ci => ci.EnglishName)
             .Distinct()
             .ToList();
-    }
-
-    private static string Artwork(
-        Metadata metadata,
-        ArtworkKind artworkKind,
-        Option<JellyfinMediaSource> maybeJellyfin,
-        Option<EmbyMediaSource> maybeEmby)
-    {
-        string artwork = Optional(metadata.Artwork.FirstOrDefault(a => a.ArtworkKind == artworkKind))
-            .Match(a => a.Path, string.Empty);
-
-        if (maybeJellyfin.IsSome && artwork.StartsWith("jellyfin://", StringComparison.OrdinalIgnoreCase))
-        {
-            Url url = JellyfinUrl.RelativeProxyForArtwork(artwork);
-            if (artworkKind is ArtworkKind.Poster or ArtworkKind.Thumbnail)
-            {
-                url.SetQueryParam("fillHeight", 440);
-            }
-
-            artwork = url;
-        }
-        else if (maybeEmby.IsSome && artwork.StartsWith("emby://", StringComparison.OrdinalIgnoreCase))
-        {
-            Url url = EmbyUrl.RelativeProxyForArtwork(artwork);
-            if (artworkKind is ArtworkKind.Poster or ArtworkKind.Thumbnail)
-            {
-                url.SetQueryParam("maxHeight", 440);
-            }
-
-            artwork = url;
-        }
-
-        return artwork;
     }
 }

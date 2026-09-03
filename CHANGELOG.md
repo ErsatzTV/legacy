@@ -1,9 +1,69 @@
-# Changelog
+﻿# Changelog
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
+
+### Fixed
+- Fix text subtitle playback (regression from `v26.8.1`)
+- Next engine:
+  - Properly detect QSV capabilities for Intel 10th gen and older devices; previously they always used software transcoding
+- Fix block scheduler deleting the current hour's playout items, taking the channel offline until the next block
+- Fix playlists and marathons not continuing from the saved position after a restart or a playout rebuild
+  - Sequential and scripted schedules first build after upgrading may still start at the wrong item; every build after that will be correct
+- Fix shuffled playlists and marathons (`shuffle_groups`) playing the wrong content after the first full cycle
+- Fix multiple causes of playout build hangs
+- Fix **Skip Missing Items** being ignored by multi-collection shuffle, shuffle in order, and playlists
+- Sequential schedules:
+  - Fix `shuffle_sequence` losing the shuffled order at the end of each build; previously the next build continued in schedule file order
+  - Fix `shuffle_sequence` deleting the instructions between two uses of the same sequence
+  - Fix a sequence that is used two times giving the `custom_title` of the last use to every use
+  - Fix a shuffled sequence with `repeat` making the build run with no end; this stopped all other background work
+- Fix bug in XMLTV template for episodes that was breaking thumbnail artwork
+  - Those with customized `episode.sbntxt` templates will want to make a similar fix
+
+## [26.8.1] - 2026-08-29
+### Security
+- Fix GHSA-h3r4-r2f2-qf59 (CVE-PENDING)
+  - All users who link Plex or Emby media servers should upgrade as soon as possible
+  - **After upgrading, it is highly recommended to rotate your Plex token and Emby API key**
+    - To rotate Plex token:
+      - In **Media Sources** > **Plex** click **Re-authenticate with Plex** and complete the sign in to generate a new token
+      - Restart ErsatzTV so it picks up the new token immediately; connection details are cached for up to 30 minutes
+      - In https://app.plex.tv/ **Account Settings** > **Authorized Devices** delete the old ErsatzTV authorized device
+      - Restart the Plex server to immediately invalidate the token that the old authorized device used
+    - To rotate Emby API key:
+      - Generate new API key in Emby's **Dashboard** > **Advanced** > **API Keys**
+      - In **Media Sources** > **Emby** click **Edit Emby Connection**, paste the new API key and click **Save Changes**
+      - Delete the old API key in Emby's **API Keys** screen
+  - Jellyfin users are not affected and have no reason to rotate the API key
+- Fix case where specifically-crafted requests could access management UI over streaming port
+
+### Added
+- Add `Re-authenticate with Plex` button to the Plex media sources page
+  - Use this to replace the credentials ErsatzTV uses (after a Plex password reset, or after signing out of all Plex devices) without removing media sources or synchronized content
+  - This registers ErsatzTV with Plex as a new device, so Plex issues a new token; signing in again previously returned the same token
+  - To revoke the old token, remove the old `ErsatzTV` entry from `Authorized Devices` at plex.tv and restart your Plex server
+
+### Changed
+- **BREAKING CHANGE**: require `X-Etv-Api-Key` header for all API requests under `/api`
+  - The API key is automatically created at startup and can be found in the `api-secrets.json` file in the config folder
+  - Scripted schedule scripts are passed the API key in the `ETV_API_KEY` environment variable, and must send it in the `X-Etv-Api-Key` header on every call
+    - The key is not passed as a command line argument, so it does not appear in the process list or in logs
+    - Scripts that use the bundled docker entrypoint (`/app/scripted-schedules/entrypoint.py`) need no changes
+    - Hand-written scripts and generated clients must be updated; the API key security scheme is now included in the OpenAPI descriptions
+  - Troubleshooting playback endpoints are requested directly by the browser, so they authorize with the management UI session instead of the API key
+- Plex servers that are no longer listed at plex.tv are now flagged instead of deleted
+  - Previously, re-authenticating before re-claiming a server at app.plex.tv would delete that server along with its libraries and all of its media
+  - Flagged servers are skipped during scans, and are removed only when you choose to remove them
+
+### Fixed
+- Fix Plex page staying disabled until restart when a sign-in is not completed within two minutes, or when plex.tv cannot be reached
+- Fix Plex page showing no indication that ErsatzTV has been signed out of Plex
+- Fix mirror channels falling out of sync when using the next streaming engine
+
+## [26.8.0] - 2026-08-20
 ### Added
 - Add `Streaming Engine` dropdown to playback troubleshooter to support troubleshooting Next engine playback
 - Next engine
@@ -3349,7 +3409,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Initial release to facilitate testing outside of Docker.
 
 
-[Unreleased]: https://github.com/ErsatzTV/legacy/compare/v26.7.1...HEAD
+[Unreleased]: https://github.com/ErsatzTV/legacy/compare/v26.8.1...HEAD
+[26.8.1]: https://github.com/ErsatzTV/legacy/compare/v26.8.0...v26.8.1
+[26.8.0]: https://github.com/ErsatzTV/legacy/compare/v26.7.1...v26.8.0
 [26.7.1]: https://github.com/ErsatzTV/legacy/compare/v26.7.0...v26.7.1
 [26.7.0]: https://github.com/ErsatzTV/legacy/compare/v26.6.0...v26.7.0
 [26.6.0]: https://github.com/ErsatzTV/legacy/compare/v26.5.1...v26.6.0

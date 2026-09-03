@@ -1,4 +1,4 @@
-using System.IO.Abstractions;
+﻿using System.IO.Abstractions;
 using System.Threading.Channels;
 using ErsatzTV.Application;
 using ErsatzTV.Application.MediaItems;
@@ -9,6 +9,7 @@ using ErsatzTV.Core.Domain;
 using ErsatzTV.Core.Interfaces.FFmpeg;
 using ErsatzTV.Core.Interfaces.Repositories;
 using ErsatzTV.Core.Interfaces.Troubleshooting;
+using ErsatzTV.Filters;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using Serilog.Context;
@@ -16,6 +17,7 @@ using Serilog.Context;
 namespace ErsatzTV.Controllers.Api;
 
 [ApiController]
+[ServiceFilter(typeof(ConditionalUiAuthorizeFilter))]
 public class TroubleshootController(
     ChannelWriter<IFFmpegWorkerRequest> channelWriter,
     IFileSystem fileSystem,

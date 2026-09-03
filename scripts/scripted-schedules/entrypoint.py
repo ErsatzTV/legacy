@@ -2,6 +2,7 @@
 
 import argparse
 import importlib
+import os
 import sys
 
 from uuid import UUID
@@ -27,6 +28,12 @@ def main():
     configuration = etv_client.Configuration(host=known_args.host)
 
     with etv_client.ApiClient(configuration) as api_client:
+        api_key = os.environ.get("ETV_API_KEY")
+        if not api_key:
+            print("Error: ETV_API_KEY is not set; this script must be launched by ErsatzTV.")
+            sys.exit(1)
+        api_client.set_default_header("X-Etv-Api-Key", api_key)
+
         try:
             define_content = getattr(script_module, 'define_content')
             reset_playout = getattr(script_module, 'reset_playout')

@@ -12,6 +12,7 @@ using ErsatzTV.Core.Interfaces.Jellyfin;
 using ErsatzTV.Core.Interfaces.Plex;
 using ErsatzTV.Core.Interfaces.Scheduling;
 using ErsatzTV.Core.Interfaces.Streaming;
+using ErsatzTV.Core.Security;
 using ErsatzTV.FFmpeg;
 using ErsatzTV.FFmpeg.State;
 using ErsatzTV.Infrastructure.Data;
@@ -240,12 +241,16 @@ public class PlayoutItemConverter(
         PlayoutItem playoutItem,
         CancellationToken cancellationToken)
     {
+        DateTimeOffset exp = playoutItem.FinishOffset + TimeSpan.FromHours(2);
+
         if (playoutItem is DynamicPlayoutItem)
         {
+            string sig = InternalUrlSigner.Sign(exp, "fallback");
+
             return new Core.Next.Source
             {
                 SourceType = Core.Next.SourceType.Dynamic,
-                Uri = $"http://localhost:{Settings.StreamingPort}/media/fallback"
+                Uri = $"http://localhost:{Settings.StreamingPort}/internal/media/fallback?exp={exp.ToUnixTimeSeconds()}&sig={sig}"
             };
         }
 
@@ -317,10 +322,16 @@ public class PlayoutItemConverter(
         int mediaSourceId = playoutItem.MediaItem.LibraryPath.Library.MediaSourceId;
         if (file is PlexMediaFile pmf)
         {
+            string sig = InternalUrlSigner.Sign(
+                exp,
+                "plex",
+                $"{mediaSourceId}",
+                $"{pmf.Key}");
+
             return new Core.Next.Source
             {
                 SourceType = Core.Next.SourceType.Http,
-                Uri = $"http://localhost:{Settings.StreamingPort}/media/plex/{mediaSourceId}/{pmf.Key}",
+                Uri = $"http://localhost:{Settings.StreamingPort}/internal/media/plex/{mediaSourceId}/{pmf.Key}?exp={exp.ToUnixTimeSeconds()}&sig={sig}",
                 KeepAlive = false,
                 Reconnect = true
             };
@@ -335,10 +346,12 @@ public class PlayoutItemConverter(
 
         foreach (string itemId in jellyfinItemId)
         {
+            string sig = InternalUrlSigner.Sign(exp, "jellyfin", $"{itemId}");
+
             return new Core.Next.Source
             {
                 SourceType = Core.Next.SourceType.Http,
-                Uri = $"http://localhost:{Settings.StreamingPort}/media/jellyfin/{itemId}",
+                Uri = $"http://localhost:{Settings.StreamingPort}/internal/media/jellyfin/{itemId}?exp={exp.ToUnixTimeSeconds()}&sig={sig}",
                 KeepAlive = false,
                 Reconnect = true
             };
@@ -354,10 +367,12 @@ public class PlayoutItemConverter(
 
         foreach (string itemId in embyItemId)
         {
+            string sig = InternalUrlSigner.Sign(exp, "emby", $"{itemId}");
+
             return new Core.Next.Source
             {
                 SourceType = Core.Next.SourceType.Http,
-                Uri = $"http://localhost:{Settings.StreamingPort}/media/emby/{itemId}",
+                Uri = $"http://localhost:{Settings.StreamingPort}/internal/media/emby/{itemId}?exp={exp.ToUnixTimeSeconds()}&sig={sig}",
                 KeepAlive = false,
                 Reconnect = true
             };
@@ -730,7 +745,7 @@ public class PlayoutItemConverter(
                 Forced = true,
                 IsExtracted = false,
                 SubtitleKind = SubtitleKind.Generated,
-                Path = $"http://localhost:{Settings.StreamingPort}/ffmpeg/music-video-credits/{playoutItemId}{seekToMs}",
+                Path = $"http://localhost:{Settings.StreamingPort}/internal/ffmpeg/music-video-credits/{playoutItemId}{seekToMs}",
                 SDH = false
             }
         ];

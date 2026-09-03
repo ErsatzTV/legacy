@@ -18,6 +18,13 @@ public class PlexSecretStore : IPlexSecretStore
                 return identifier;
             }));
 
+    public Task<Unit> UpsertClientIdentifier(string clientIdentifier) =>
+        ReadSecrets().Bind(secrets =>
+        {
+            secrets.ClientIdentifier = clientIdentifier;
+            return SaveSecrets(secrets);
+        });
+
     public Task<List<PlexUserAuthToken>> GetUserAuthTokens() =>
         ReadSecrets().Map(s => Optional(s.UserAuthTokens).Match(
             tokens => tokens.Map(kvp => new PlexUserAuthToken(kvp.Key, kvp.Value)).ToList(),
@@ -62,7 +69,7 @@ public class PlexSecretStore : IPlexSecretStore
             s => File.WriteAllTextAsync(FileSystemLayout.PlexSecretsPath, s).ToUnit(),
             Task.FromResult(Unit.Default));
 
-    private static string GenerateClientIdentifier() =>
+    public string GenerateClientIdentifier() =>
         Convert.ToBase64String(Guid.NewGuid().ToByteArray())
             .TrimEnd('=')
             .Replace("/", "_")

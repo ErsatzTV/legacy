@@ -638,6 +638,126 @@ public class BlockPlayoutBuilderTests
                 result.AddedItems[0].StartOffset.TimeOfDay.ShouldBe(TimeSpan.FromHours(9));
             }
         }
+
+        [Test]
+        [CancelAfter(10_000)]
+        public async Task RemoveBefore_Must_Not_Move_Into_The_Future(CancellationToken cancellationToken)
+        {
+            var collection = new SmartCollection { Id = 1, Query = "asdf" };
+
+            var block = new Block
+            {
+                Id = 1,
+                Name = "Test Block",
+                Minutes = 50,
+                Items =
+                [
+                    new BlockItem
+                    {
+                        Id = 1,
+                        CollectionType = CollectionType.SmartCollection,
+                        PlaybackOrder = PlaybackOrder.Chronological,
+                        Index = 1,
+                        SmartCollection = collection,
+                        SmartCollectionId = collection.Id
+                    }
+                ],
+                StopScheduling = BlockStopScheduling.BeforeDurationEnd
+            };
+
+            var template = new Template { Id = 1, Items = [] };
+
+            template.Items.Add(
+                new TemplateItem
+                {
+                    Block = block,
+                    BlockId = block.Id,
+                    StartTime = TimeSpan.FromHours(8),
+                    Template = template,
+                    TemplateId = template.Id
+                });
+
+            var playoutTemplate = new PlayoutTemplate
+            {
+                Id = 1,
+                Index = 1,
+                Template = template,
+                TemplateId = template.Id,
+                DaysOfMonth = AlternateScheduleSelector.AllDaysOfMonth(),
+                DaysOfWeek = AlternateScheduleSelector.AllDaysOfWeek(),
+                MonthsOfYear = AlternateScheduleSelector.AllMonthsOfYear()
+            };
+
+            var playout = new Playout
+            {
+                Id = 1,
+                Channel = new Channel(Guid.Empty) { Id = 1, Name = "Test Channel" },
+                Templates = [playoutTemplate],
+                Items = [],
+                PlayoutHistory = []
+            };
+
+            DateTimeOffset midnight = DateTimeOffset.Now - DateTimeOffset.Now.TimeOfDay;
+            DateTimeOffset now = midnight.AddHours(9);
+
+            var mediaItems = new List<MediaItem>
+            {
+                new Movie
+                {
+                    Id = 1,
+                    MovieMetadata = [new MovieMetadata { ReleaseDate = DateTime.Today }],
+                    MediaVersions =
+                    [
+                        new MediaVersion
+                        {
+                            Duration = TimeSpan.FromMinutes(25),
+                            MediaFiles = [new MediaFile { Path = "/fake/path/1" }]
+                        }
+                    ]
+                }
+            };
+
+            var collectionRepo = new FakeMediaCollectionRepository(Map((collection.Id, mediaItems)));
+
+            IConfigElementRepository configRepo = Substitute.For<IConfigElementRepository>();
+            configRepo
+                .GetValue<int>(Arg.Is(ConfigElementKey.PlayoutDaysToBuild), Arg.Any<CancellationToken>())
+                .Returns(Some(1));
+
+            var builder = new BlockPlayoutBuilder(
+                configRepo,
+                collectionRepo,
+                Substitute.For<ITelevisionRepository>(),
+                Substitute.For<IArtistRepository>(),
+                Substitute.For<ICollectionEtag>(),
+                new LoggerFactory().CreateLogger<BlockPlayoutBuilder>());
+
+            var referenceData = new PlayoutReferenceData(
+                playout.Channel,
+                Option<Deco>.None,
+                [],
+                playout.Templates.ToList(),
+                null,
+                [],
+                [],
+                TimeSpan.Zero);
+
+            Either<BaseError, PlayoutBuildResult> buildResult = await builder.Build(
+                now,
+                playout,
+                referenceData,
+                PlayoutBuildMode.Continue,
+                cancellationToken);
+
+            buildResult.IsRight.ShouldBeTrue();
+            foreach (PlayoutBuildResult result in buildResult.RightToSeq())
+            {
+                DateTimeOffset removeBefore = result.RemoveBefore.IfNone(DateTimeOffset.MinValue);
+                await TestContext.Out.WriteLineAsync($"build start  = {now:O}");
+                await TestContext.Out.WriteLineAsync($"RemoveBefore = {removeBefore:O}");
+                removeBefore.ShouldBeLessThanOrEqualTo(now);
+            }
+        }
     }
 
 

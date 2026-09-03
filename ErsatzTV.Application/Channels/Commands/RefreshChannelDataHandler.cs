@@ -10,6 +10,7 @@ using ErsatzTV.Core.Interfaces.Metadata;
 using ErsatzTV.Core.Interfaces.Repositories;
 using ErsatzTV.Core.Iptv;
 using ErsatzTV.Core.Jellyfin;
+using ErsatzTV.Core.Plex;
 using ErsatzTV.Core.Streaming;
 using ErsatzTV.Infrastructure.Data;
 using ErsatzTV.Infrastructure.Extensions;
@@ -1092,13 +1093,17 @@ public class RefreshChannelDataHandler : IRequestHandler<RefreshChannelData>
             return artworkPath;
         }
 
-        if (artworkPath.StartsWith("jellyfin://", StringComparison.OrdinalIgnoreCase))
+        if (artworkPath.StartsWith("plex/", StringComparison.OrdinalIgnoreCase))
         {
-            artworkPath = JellyfinUrl.PlaceholderProxyForArtwork(artworkPath, artworkKind, height);
+            artworkPath = PlexUrl.PlaceholderProxyForArtwork(artwork.Id, artworkKind);
+        }
+        else if (artworkPath.StartsWith("jellyfin://", StringComparison.OrdinalIgnoreCase))
+        {
+            artworkPath = JellyfinUrl.PlaceholderProxyForArtwork(artwork.Id, artworkKind);
         }
         else if (artworkPath.StartsWith("emby://", StringComparison.OrdinalIgnoreCase))
         {
-            artworkPath = EmbyUrl.PlaceholderProxyForArtwork(artworkPath, artworkKind, height);
+            artworkPath = EmbyUrl.PlaceholderProxyForArtwork(artwork.Id, artworkKind);
         }
         else
         {
