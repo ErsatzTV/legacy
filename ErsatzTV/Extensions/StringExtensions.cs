@@ -6,6 +6,25 @@ namespace ErsatzTV.Extensions;
 
 public static class StringExtensions
 {
+    public static bool IsHex(this string maybeHex)
+    {
+        if (maybeHex is { Length: >= 2 })
+        {
+            foreach (char c in maybeHex)
+            {
+                bool isHex = c is >= '0' and <= '9' or >= 'a' and <= 'f' or >= 'A' and <= 'F';
+                if (!isHex)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        return false;
+    }
+
     public static string GetSearchQuery(this string uri)
     {
         try

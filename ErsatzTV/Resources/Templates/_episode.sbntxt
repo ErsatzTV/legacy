@@ -48,7 +48,7 @@ The resulting XML will be minified by ErsatzTV - so feel free to keep things nic
       {{ end }}
       {{ if episode_has_artwork }}
         <icon src="{{ episode_artwork_url }}" />
-        <image type="poster" size="3">{{ episode_artwork_url }}"</image>
+        <image type="poster" size="3">{{ episode_artwork_url }}</image>
       {{ end }}
       {{ if episode_has_thumbnail }}
         <image type="still" orient="L" size="3">{{ episode_thumbnail_url }}</image>

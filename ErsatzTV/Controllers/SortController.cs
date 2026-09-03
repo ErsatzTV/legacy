@@ -12,7 +12,7 @@ public class SortController : ControllerBase
 
     public SortController(IMediator mediator) => _mediator = mediator;
 
-    [HttpPost("media/collections/{collectionId}/items")]
+    [HttpPost("media/collections/{collectionId:int}/items")]
     public Task SortCollectionItems(
         int collectionId,
         [FromForm]

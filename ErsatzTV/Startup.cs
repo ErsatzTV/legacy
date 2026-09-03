@@ -133,6 +133,11 @@ public class Startup
             options.KnownProxies.Clear();
         });
 
+        services.Configure<RouteOptions>(options =>
+        {
+            options.ConstraintMap.Add("hex", typeof(HexConstraint));
+        });
+
         services.AddDataProtection().PersistKeysToFileSystem(new DirectoryInfo(FileSystemLayout.DataProtectionFolder));
 
         services.AddOpenApi(
@@ -666,7 +671,8 @@ public class Startup
         app.UseResponseCompression();
 
         app.MapWhen(
-            ctx => !IsIptvPath(ctx.Request.Path) && !IsInternalPath(ctx.Request.Path) && !IsApiPath(ctx.Request.Path),
+            ctx => !IsIptvPath(ctx.Request.Path) && !IsInternalPath(ctx.Request.Path) && !IsApiPath(ctx.Request.Path) &&
+                   !IsArtworkPath(ctx.Request.Path),
             blazor =>
             {
                 blazor.UseRouting();
@@ -690,22 +696,24 @@ public class Startup
                         endpoints.MapOpenApi();
                     }
 
-                    endpoints.MapScalarApiReference("/docs", options =>
-                    {
-                        options.AddDocument(
-                            "scripted-schedule",
-                            "Scripted Schedule",
-                            "openapi/scripted-schedule-tagged.json");
-                        options.AddDocument("v1", "General", "openapi/v1.json");
-                        options.HideClientButton = true;
-                        options.DocumentDownloadType = DocumentDownloadType.None;
-                        options.Title = "ErsatzTV API Reference";
-                    });
+                    endpoints.MapScalarApiReference(
+                        "/docs",
+                        options =>
+                        {
+                            options.AddDocument(
+                                "scripted-schedule",
+                                "Scripted Schedule",
+                                "openapi/scripted-schedule-tagged.json");
+                            options.AddDocument("v1", "General", "openapi/v1.json");
+                            options.HideClientButton = true;
+                            options.DocumentDownloadType = DocumentDownloadType.None;
+                            options.Title = "ErsatzTV API Reference";
+                        });
                 });
             });
 
         app.MapWhen(
-            ctx => IsIptvPath(ctx.Request.Path) || IsInternalPath(ctx.Request.Path),
+            ctx => IsIptvPath(ctx.Request.Path) || IsInternalPath(ctx.Request.Path) || IsArtworkPath(ctx.Request.Path),
             api =>
             {
                 api.UseRouting();
@@ -740,6 +748,8 @@ public class Startup
         }
 
         bool IsInternalPath(PathString path) => path.StartsWithSegments("/internal");
+
+        bool IsArtworkPath(PathString path) => path.StartsWithSegments("/artwork");
 
         // troubleshooting endpoints are requested directly by the browser, so they stay on the blazor
         // branch and authorize with the ui cookie instead of the api key

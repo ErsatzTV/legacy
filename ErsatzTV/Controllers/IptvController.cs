@@ -283,10 +283,10 @@ public class IptvController : StreamingControllerBase
         }
     }
 
-    [HttpHead("iptv/logos/{fileName}")]
-    [HttpGet("iptv/logos/{fileName}")]
-    [HttpHead("iptv/logos/{fileName}.jpg")]
-    [HttpGet("iptv/logos/{fileName}.jpg")]
+    [HttpHead("iptv/logos/{fileName:hex}")]
+    [HttpGet("iptv/logos/{fileName:hex}")]
+    [HttpHead("iptv/logos/{fileName:hex}.jpg")]
+    [HttpGet("iptv/logos/{fileName:hex}.jpg")]
     public async Task<IActionResult> GetImage(string fileName, [FromQuery] string contentType)
     {
         Either<BaseError, CachedImagePathViewModel> cachedImagePath =
