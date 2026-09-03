@@ -324,10 +324,7 @@ public class PlexOtherVideoLibraryScanner :
             }
         }
 
-        foreach (Tag tag in existingMetadata.Tags
-                     .Filter(g => fullMetadata.Tags.All(g2 => g2.Name != g.Name))
-                     .Filter(g => g.ExternalCollectionId is null)
-                     .ToList())
+        foreach (Tag tag in PlexTagOwnership.TagsToRemove(existingMetadata.Tags, fullMetadata.Tags).ToList())
         {
             existingMetadata.Tags.Remove(tag);
             if (await _metadataRepository.RemoveTag(tag))
@@ -336,9 +333,7 @@ public class PlexOtherVideoLibraryScanner :
             }
         }
 
-        foreach (Tag tag in fullMetadata.Tags
-                     .Filter(g => existingMetadata.Tags.All(g2 => g2.Name != g.Name))
-                     .ToList())
+        foreach (Tag tag in PlexTagOwnership.TagsToAdd(existingMetadata.Tags, fullMetadata.Tags).ToList())
         {
             existingMetadata.Tags.Add(tag);
             if (await _otherVideoRepository.AddTag(existingMetadata, tag))

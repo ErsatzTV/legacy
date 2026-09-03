@@ -345,9 +345,9 @@ public class ElasticSearchIndex : ISearchIndex
                     AddedDate = GetAddedDate(metadata.DateAdded),
                     Plot = metadata.Plot ?? string.Empty,
                     Genre = metadata.Genres.Map(g => g.Name).ToList(),
-                    Tag = metadata.Tags.Where(t => string.IsNullOrWhiteSpace(t.ExternalTypeId)).Map(t => t.Name)
+                    Tag = metadata.Tags.Where(Tag.IsSearchTag).Map(t => t.Name)
                         .ToList(),
-                    TagFull = metadata.Tags.Where(t => string.IsNullOrWhiteSpace(t.ExternalTypeId)).Map(t => t.Name)
+                    TagFull = metadata.Tags.Where(Tag.IsSearchTag).Map(t => t.Name)
                         .ToList(),
                     Country = metadata.Tags.Where(t => t.ExternalTypeId == Tag.NfoCountryTypeId).Map(t => t.Name)
                         .ToList(),
@@ -407,9 +407,9 @@ public class ElasticSearchIndex : ISearchIndex
                     AddedDate = GetAddedDate(metadata.DateAdded),
                     Plot = metadata.Plot ?? string.Empty,
                     Genre = metadata.Genres.Map(g => g.Name).ToList(),
-                    Tag = metadata.Tags.Where(t => string.IsNullOrWhiteSpace(t.ExternalTypeId)).Map(t => t.Name)
+                    Tag = metadata.Tags.Where(Tag.IsSearchTag).Map(t => t.Name)
                         .ToList(),
-                    TagFull = metadata.Tags.Where(t => string.IsNullOrWhiteSpace(t.ExternalTypeId)).Map(t => t.Name)
+                    TagFull = metadata.Tags.Where(Tag.IsSearchTag).Map(t => t.Name)
                         .ToList(),
                     Studio = metadata.Studios.Map(s => s.Name).ToList(),
                     Network = metadata.Tags.Where(t => t.ExternalTypeId == Tag.PlexNetworkTypeId).Map(t => t.Name)
@@ -677,7 +677,7 @@ public class ElasticSearchIndex : ISearchIndex
                 {
                     doc.ShowTitle = showMetadata.Title;
                     doc.ShowGenre = showMetadata.Genres.Map(g => g.Name).ToList();
-                    doc.ShowTag = showMetadata.Tags.Where(t => string.IsNullOrWhiteSpace(t.ExternalTypeId))
+                    doc.ShowTag = showMetadata.Tags.Where(Tag.IsSearchTag)
                         .Map(t => t.Name).ToList();
                     doc.ShowStudio = showMetadata.Studios.Map(s => s.Name).ToList();
                     doc.ShowNetwork = showMetadata.Tags.Where(t => t.ExternalTypeId == Tag.PlexNetworkTypeId)

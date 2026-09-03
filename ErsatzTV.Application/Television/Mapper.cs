@@ -32,7 +32,7 @@ internal static class Mapper
             show.ShowMetadata.HeadOrNone().Map(m => GetFanArt(m, maybeJellyfin, maybeEmby)).IfNone(string.Empty),
             show.ShowMetadata.HeadOrNone().Map(m => m.Genres.Map(g => g.Name).ToList()).IfNone([]),
             show.ShowMetadata.HeadOrNone().Map(m =>
-                m.Tags.Where(t => string.IsNullOrWhiteSpace(t.ExternalTypeId)).Map(g => g.Name).ToList()).IfNone([]),
+                m.Tags.Where(Tag.IsSearchTag).Map(g => g.Name).ToList()).IfNone([]),
             show.ShowMetadata.HeadOrNone().Map(m => m.Studios.Map(s => s.Name).ToList()).IfNone([]),
             show.ShowMetadata.HeadOrNone().Map(m =>
                 m.Tags.Where(t => t.ExternalTypeId == Tag.PlexNetworkTypeId).Map(g => g.Name).ToList()).IfNone([]),

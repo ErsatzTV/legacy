@@ -32,8 +32,8 @@ public class EmbyCollectionRepository : IEmbyCollectionRepository
 
         // remove all tags that reference this collection
         await dbContext.Connection.ExecuteAsync(
-            @"DELETE FROM Tag WHERE Name = @Name AND ExternalCollectionId = @ItemId",
-            new { collection.Name, collection.ItemId });
+            @"DELETE FROM Tag WHERE ExternalCollectionId = @ItemId AND ExternalTypeId = @TagTypeId",
+            new { collection.ItemId, TagTypeId = Tag.EmbyCollectionTypeId });
 
         return await dbContext.SaveChangesAsync() > 0;
     }
@@ -50,8 +50,8 @@ public class EmbyCollectionRepository : IEmbyCollectionRepository
                 @"SELECT EM.Id FROM Tag T
               INNER JOIN MovieMetadata MM on T.MovieMetadataId = MM.Id
               INNER JOIN EmbyMovie EM on EM.Id = MM.MovieId
-              WHERE T.ExternalCollectionId = @ItemId",
-                new { collection.ItemId }));
+              WHERE T.ExternalCollectionId = @ItemId AND T.ExternalTypeId = @TagTypeId",
+                new { collection.ItemId, TagTypeId = Tag.EmbyCollectionTypeId }));
 
         // shows
         result.AddRange(
@@ -59,8 +59,8 @@ public class EmbyCollectionRepository : IEmbyCollectionRepository
                 @"SELECT ES.Id FROM Tag T
               INNER JOIN ShowMetadata SM on T.ShowMetadataId = SM.Id
               INNER JOIN EmbyShow ES on ES.Id = SM.ShowId
-              WHERE T.ExternalCollectionId = @ItemId",
-                new { collection.ItemId }));
+              WHERE T.ExternalCollectionId = @ItemId AND T.ExternalTypeId = @TagTypeId",
+                new { collection.ItemId, TagTypeId = Tag.EmbyCollectionTypeId }));
 
         // seasons
         result.AddRange(
@@ -68,8 +68,8 @@ public class EmbyCollectionRepository : IEmbyCollectionRepository
                 @"SELECT ES.Id FROM Tag T
               INNER JOIN SeasonMetadata SM on T.SeasonMetadataId = SM.Id
               INNER JOIN EmbySeason ES on ES.Id = SM.SeasonId
-              WHERE T.ExternalCollectionId = @ItemId",
-                new { collection.ItemId }));
+              WHERE T.ExternalCollectionId = @ItemId AND T.ExternalTypeId = @TagTypeId",
+                new { collection.ItemId, TagTypeId = Tag.EmbyCollectionTypeId }));
 
         // episodes
         result.AddRange(
@@ -77,13 +77,13 @@ public class EmbyCollectionRepository : IEmbyCollectionRepository
                 @"SELECT EE.Id FROM Tag T
               INNER JOIN EpisodeMetadata EM on T.EpisodeMetadataId = EM.Id
               INNER JOIN EmbyEpisode EE on EE.Id = EM.EpisodeId
-              WHERE T.ExternalCollectionId = @ItemId",
-                new { collection.ItemId }));
+              WHERE T.ExternalCollectionId = @ItemId AND T.ExternalTypeId = @TagTypeId",
+                new { collection.ItemId, TagTypeId = Tag.EmbyCollectionTypeId }));
 
         // delete all tags
         await dbContext.Connection.ExecuteAsync(
-            @"DELETE FROM Tag WHERE Name = @Name AND ExternalCollectionId = @ItemId",
-            new { collection.Name, collection.ItemId });
+            @"DELETE FROM Tag WHERE ExternalCollectionId = @ItemId AND ExternalTypeId = @TagTypeId",
+            new { collection.ItemId, TagTypeId = Tag.EmbyCollectionTypeId });
 
         return result;
     }
@@ -103,10 +103,10 @@ public class EmbyCollectionRepository : IEmbyCollectionRepository
                 }
 
                 await dbContext.Connection.ExecuteAsync(
-                    @"INSERT INTO Tag (Name, ExternalCollectionId, MovieMetadataId)
-                      SELECT @Name, @ItemId, Id FROM
+                    @"INSERT INTO Tag (Name, ExternalCollectionId, ExternalTypeId, MovieMetadataId)
+                      SELECT @Name, @ItemId, @TagTypeId, Id FROM
                       (SELECT Id FROM MovieMetadata WHERE MovieId = @MovieId) AS A",
-                    new { collection.Name, collection.ItemId, MovieId = movieId });
+                    new { collection.Name, collection.ItemId, TagTypeId = Tag.EmbyCollectionTypeId, MovieId = movieId });
                 return movieId;
             case EmbyShow show:
                 int showId = await dbContext.Connection.ExecuteScalarAsync<int>(
@@ -118,10 +118,10 @@ public class EmbyCollectionRepository : IEmbyCollectionRepository
                 }
 
                 await dbContext.Connection.ExecuteAsync(
-                    @"INSERT INTO Tag (Name, ExternalCollectionId, ShowMetadataId)
-                      SELECT @Name, @ItemId, Id FROM
+                    @"INSERT INTO Tag (Name, ExternalCollectionId, ExternalTypeId, ShowMetadataId)
+                      SELECT @Name, @ItemId, @TagTypeId, Id FROM
                       (SELECT Id FROM ShowMetadata WHERE ShowId = @ShowId) AS A",
-                    new { collection.Name, collection.ItemId, ShowId = showId });
+                    new { collection.Name, collection.ItemId, TagTypeId = Tag.EmbyCollectionTypeId, ShowId = showId });
                 return showId;
             case EmbySeason season:
                 int seasonId = await dbContext.Connection.ExecuteScalarAsync<int>(
@@ -133,10 +133,10 @@ public class EmbyCollectionRepository : IEmbyCollectionRepository
                 }
 
                 await dbContext.Connection.ExecuteAsync(
-                    @"INSERT INTO Tag (Name, ExternalCollectionId, SeasonMetadataId)
-                      SELECT @Name, @ItemId, Id FROM
+                    @"INSERT INTO Tag (Name, ExternalCollectionId, ExternalTypeId, SeasonMetadataId)
+                      SELECT @Name, @ItemId, @TagTypeId, Id FROM
                       (SELECT Id FROM SeasonMetadata WHERE SeasonId = @SeasonId) AS A",
-                    new { collection.Name, collection.ItemId, SeasonId = seasonId });
+                    new { collection.Name, collection.ItemId, TagTypeId = Tag.EmbyCollectionTypeId, SeasonId = seasonId });
                 return seasonId;
             case EmbyEpisode episode:
                 int episodeId = await dbContext.Connection.ExecuteScalarAsync<int>(
@@ -148,10 +148,10 @@ public class EmbyCollectionRepository : IEmbyCollectionRepository
                 }
 
                 await dbContext.Connection.ExecuteAsync(
-                    @"INSERT INTO Tag (Name, ExternalCollectionId, EpisodeMetadataId)
-                      SELECT @Name, @ItemId, Id FROM
+                    @"INSERT INTO Tag (Name, ExternalCollectionId, ExternalTypeId, EpisodeMetadataId)
+                      SELECT @Name, @ItemId, @TagTypeId, Id FROM
                       (SELECT Id FROM EpisodeMetadata WHERE EpisodeId = @EpisodeId) AS A",
-                    new { collection.Name, collection.ItemId, EpisodeId = episodeId });
+                    new { collection.Name, collection.ItemId, TagTypeId = Tag.EmbyCollectionTypeId, EpisodeId = episodeId });
                 return episodeId;
             default:
                 return Option<int>.None;
