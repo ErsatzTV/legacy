@@ -843,16 +843,21 @@ public class SchedulingEngine(
                         foreach (MediaItem fallbackItem in fallbackEnumeratorDetails.Enumerator.Current)
                         {
                             playoutItem.MediaItemId = fallbackItem.Id;
+
+                            // trim item to exactly fit
                             playoutItem.Finish = targetTime.UtcDateTime;
+                            playoutItem.OutPoint = playoutItem.Finish - playoutItem.Start;
+
                             playoutItem.FillerKind = FillerKind.Fallback;
 
                             _state.AddedItems.Add(playoutItem);
+                            _state.AdvanceGuideGroup();
 
                             // create history record
                             List<PlayoutHistory> maybeHistory = GetHistoryForItem(
                                 fallbackEnumeratorDetails,
                                 playoutItem,
-                                mediaItem);
+                                fallbackItem);
 
                             foreach (PlayoutHistory history in maybeHistory)
                             {

@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Fix block scheduler deleting the current hour's playout items, taking the channel offline until the next block
 - Fix playlists and marathons not continuing from the saved position after a restart or a playout rebuild
   - Sequential and scripted schedules first build after upgrading may still start at the wrong item; every build after that will be correct
+- Fix fallback duration, history and guide group for sequential and scripted schedules
 - Fix shuffled playlists and marathons (`shuffle_groups`) playing the wrong content after the first full cycle
 - Fix multiple causes of playout build hangs
 - Fix **Skip Missing Items** being ignored by multi-collection shuffle, shuffle in order, and playlists

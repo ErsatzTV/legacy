@@ -220,10 +220,15 @@ public class YamlPlayoutDurationHandler(EnumeratorCache enumeratorCache) : YamlP
                         foreach (MediaItem fallbackItem in fallback.Current)
                         {
                             playoutItem.MediaItemId = fallbackItem.Id;
+
+                            // trim item to exactly fit
                             playoutItem.Finish = targetTime.UtcDateTime;
+                            playoutItem.OutPoint = playoutItem.Finish - playoutItem.Start;
+
                             playoutItem.FillerKind = FillerKind.Fallback;
 
                             context.AddedItems.Add(playoutItem);
+                            context.AdvanceGuideGroup();
 
                             // create history record
                             List<PlayoutHistory> maybeHistory = GetHistoryForItem(
@@ -231,7 +236,7 @@ public class YamlPlayoutDurationHandler(EnumeratorCache enumeratorCache) : YamlP
                                 fallbackContentKey,
                                 fallback,
                                 playoutItem,
-                                mediaItem,
+                                fallbackItem,
                                 logger);
 
                             foreach (PlayoutHistory history in maybeHistory)
