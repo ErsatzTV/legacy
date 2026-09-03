@@ -856,7 +856,7 @@ public class SchedulingEngine(
                             List<PlayoutHistory> maybeHistory = GetHistoryForItem(
                                 fallbackEnumeratorDetails,
                                 playoutItem,
-                                mediaItem);
+                                fallbackItem);
 
                             foreach (PlayoutHistory history in maybeHistory)
                             {

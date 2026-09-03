@@ -235,7 +235,7 @@ public class YamlPlayoutDurationHandler(EnumeratorCache enumeratorCache) : YamlP
                                 fallbackContentKey,
                                 fallback,
                                 playoutItem,
-                                mediaItem,
+                                fallbackItem,
                                 logger);
 
                             foreach (PlayoutHistory history in maybeHistory)
