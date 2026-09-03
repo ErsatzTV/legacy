@@ -317,6 +317,11 @@ public class Startup
 
         services.AddControllers(options =>
             {
+                if (JwtHelper.IsEnabled)
+                {
+                    options.Conventions.Add(new RemoveHdhrConvention());
+                }
+
                 options.OutputFormatters.Insert(0, new ConcatPlaylistOutputFormatter());
                 options.OutputFormatters.Insert(0, new ChannelPlaylistOutputFormatter());
                 options.OutputFormatters.Insert(0, new ChannelGuideOutputFormatter());
