@@ -81,7 +81,7 @@ public class InternalController : StreamingControllerBase
         return File(Encoding.UTF8.GetBytes(EmptySubtitleDocument("text/x-ssa")), "text/x-ssa");
     }
 
-    [HttpGet("ffmpeg/remote-stream/{remoteStreamId}")]
+    [HttpGet("ffmpeg/remote-stream/{remoteStreamId:int}")]
     public async Task<IActionResult> GetRemoteStream(
         int remoteStreamId,
         [FromQuery]

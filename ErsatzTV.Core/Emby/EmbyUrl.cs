@@ -1,30 +1,11 @@
-﻿using ErsatzTV.Core.Domain;
+﻿using System.Globalization;
+using ErsatzTV.Core.Domain;
 using Flurl;
 
 namespace ErsatzTV.Core.Emby;
 
 public static class EmbyUrl
 {
-    public static Url ForArtwork(Option<EmbyMediaSource> maybeEmby, string artwork)
-    {
-        string address = maybeEmby.Map(ms => ms.Connections.HeadOrNone().Map(c => c.Address))
-            .Flatten()
-            .IfNone("emby://");
-
-        string[] split = artwork.Replace("emby://", string.Empty).Split('?');
-        if (split.Length != 2)
-        {
-            return artwork;
-        }
-
-        string pathSegment = split[0];
-        QueryParamCollection query = Url.ParseQueryParams(split[1]);
-
-        return Url.Parse(address)
-            .AppendPathSegment(pathSegment)
-            .SetQueryParams(query);
-    }
-
     public static Url ForArtwork(string address, string artwork)
     {
         string[] split = artwork.Replace("emby://", string.Empty).Split('?');
@@ -41,17 +22,8 @@ public static class EmbyUrl
             .SetQueryParams(query);
     }
 
-    public static string PlaceholderProxyForArtwork(string artwork, ArtworkKind artworkKind, int height)
+    public static string PlaceholderProxyForArtwork(int artworkId, ArtworkKind artworkKind)
     {
-        string[] split = artwork.Replace("emby://", string.Empty).Split('?');
-        if (split.Length != 2)
-        {
-            return artwork;
-        }
-
-        string pathSegment = split[0];
-        QueryParamCollection query = Url.ParseQueryParams(split[1]);
-
         string artworkFolder = artworkKind switch
         {
             ArtworkKind.Thumbnail => "thumbnails",
@@ -59,26 +31,12 @@ public static class EmbyUrl
         };
 
         return Url.Parse($"http://not-a-real-host/iptv/artwork/{artworkFolder}/emby")
-            .AppendPathSegment(pathSegment)
-            .SetQueryParams(query)
-            .SetQueryParam("maxHeight", height)
+            .AppendPathSegment(artworkId.ToString(CultureInfo.InvariantCulture))
             .ToString()
             .Replace("http://not-a-real-host", "{RequestBase}");
     }
 
-    public static Url RelativeProxyForArtwork(string artwork)
-    {
-        string[] split = artwork.Replace("emby://", string.Empty).Split('?');
-        if (split.Length != 2)
-        {
-            return artwork;
-        }
-
-        string pathSegment = split[0];
-        QueryParamCollection query = Url.ParseQueryParams(split[1]);
-
-        return Url.Parse("emby")
-            .AppendPathSegment(pathSegment)
-            .SetQueryParams(query);
-    }
+    public static Url RelativeProxyForArtwork(int artworkId) =>
+        Url.Parse("emby")
+            .AppendPathSegment(artworkId.ToString(CultureInfo.InvariantCulture));
 }
