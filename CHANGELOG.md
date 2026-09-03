@@ -24,6 +24,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Fix bug in XMLTV template for episodes that was breaking thumbnail artwork
   - Those with customized `episode.sbntxt` templates will want to make a similar fix
 - Disable HDHR endpoints when JWT is used; they never worked in this configuration in the first place
+- Fix scanners deleting, duplicating and stranding each other's tags; tags now track which scanner owns them
+  - Symptoms included a show losing every tag when it changed networks (dropping it from collections and schedules), networks vanishing after a library scan, and labels or collections that were renamed or deleted on the media server never going away in ETV
+  - To recover a show that already lost its tags: deep scan it from the show page, then use **Deep Scan Collections** on the libraries page; networks return on the next network scan with no action needed
+  - `<country>` from NFO metadata is now searchable with `country:` instead of `tag:`; deep scan a local library to convert existing items
 
 ## [26.8.1] - 2026-08-29
 ### Security

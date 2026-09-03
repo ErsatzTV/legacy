@@ -577,16 +577,16 @@ public class TelevisionRepository : ITelevisionRepository
         {
             case ShowMetadata:
                 return await dbContext.Connection.ExecuteAsync(
-                    "INSERT INTO Tag (Name, ShowMetadataId, ExternalCollectionId) VALUES (@Name, @MetadataId, @ExternalCollectionId)",
-                    new { tag.Name, MetadataId = metadata.Id, tag.ExternalCollectionId }).Map(result => result > 0);
+                    "INSERT INTO Tag (Name, ShowMetadataId, ExternalCollectionId, ExternalTypeId) VALUES (@Name, @MetadataId, @ExternalCollectionId, @ExternalTypeId)",
+                    new { tag.Name, MetadataId = metadata.Id, tag.ExternalCollectionId, tag.ExternalTypeId }).Map(result => result > 0);
             case SeasonMetadata:
                 return await dbContext.Connection.ExecuteAsync(
-                    "INSERT INTO Tag (Name, SeasonMetadataId, ExternalCollectionId) VALUES (@Name, @MetadataId, @ExternalCollectionId)",
-                    new { tag.Name, MetadataId = metadata.Id, tag.ExternalCollectionId }).Map(result => result > 0);
+                    "INSERT INTO Tag (Name, SeasonMetadataId, ExternalCollectionId, ExternalTypeId) VALUES (@Name, @MetadataId, @ExternalCollectionId, @ExternalTypeId)",
+                    new { tag.Name, MetadataId = metadata.Id, tag.ExternalCollectionId, tag.ExternalTypeId }).Map(result => result > 0);
             case EpisodeMetadata:
                 return await dbContext.Connection.ExecuteAsync(
-                    "INSERT INTO Tag (Name, EpisodeMetadataId, ExternalCollectionId) VALUES (@Name, @MetadataId, @ExternalCollectionId)",
-                    new { tag.Name, MetadataId = metadata.Id, tag.ExternalCollectionId }).Map(result => result > 0);
+                    "INSERT INTO Tag (Name, EpisodeMetadataId, ExternalCollectionId, ExternalTypeId) VALUES (@Name, @MetadataId, @ExternalCollectionId, @ExternalTypeId)",
+                    new { tag.Name, MetadataId = metadata.Id, tag.ExternalCollectionId, tag.ExternalTypeId }).Map(result => result > 0);
             default:
                 return false;
         }

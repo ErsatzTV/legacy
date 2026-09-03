@@ -1636,7 +1636,10 @@ public class LocalMetadataProvider : ILocalMetadataProvider
                 }
             }
 
-            foreach (Tag tag in existing.Tags.Filter(t => incoming.Tags.All(t2 => t2.Name != t.Name))
+            // an older version did not save the type id; the comparison uses the type id,
+            // so a scan replaces such a row
+            foreach (Tag tag in existing.Tags
+                         .Filter(t => incoming.Tags.All(t2 => t2.Name != t.Name || t2.ExternalTypeId != t.ExternalTypeId))
                          .ToList())
             {
                 existing.Tags.Remove(tag);
@@ -1646,7 +1649,8 @@ public class LocalMetadataProvider : ILocalMetadataProvider
                 }
             }
 
-            foreach (Tag tag in incoming.Tags.Filter(t => existing.Tags.All(t2 => t2.Name != t.Name))
+            foreach (Tag tag in incoming.Tags
+                         .Filter(t => existing.Tags.All(t2 => t2.Name != t.Name || t2.ExternalTypeId != t.ExternalTypeId))
                          .ToList())
             {
                 existing.Tags.Add(tag);
