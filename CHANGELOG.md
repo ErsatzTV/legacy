@@ -23,6 +23,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Fix a shuffled sequence with `repeat` making the build run with no end; this stopped all other background work
 - Fix bug in XMLTV template for episodes that was breaking thumbnail artwork
   - Those with customized `episode.sbntxt` templates will want to make a similar fix
+- Disable HDHR endpoints when JWT is used; they never worked in this configuration in the first place
 
 ## [26.8.1] - 2026-08-29
 ### Security
