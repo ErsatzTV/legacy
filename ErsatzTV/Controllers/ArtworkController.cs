@@ -10,6 +10,7 @@ using ErsatzTV.Core.Images;
 using ErsatzTV.Core.Interfaces.Images;
 using ErsatzTV.Core.Jellyfin;
 using ErsatzTV.Extensions;
+using ErsatzTV.Filters;
 using Flurl;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
@@ -27,6 +28,7 @@ public class ArtworkController(
 {
     [HttpHead("/artwork/{id:int}")]
     [HttpGet("/artwork/{id:int}")]
+    [ServiceFilter(typeof(ConditionalUiAuthorizeFilter))]
     // This route redirect to the proper artwork from its Id
     public async Task<IActionResult> RedirectArtwork(int id, CancellationToken cancellationToken)
     {
@@ -59,7 +61,19 @@ public class ArtworkController(
     [HttpGet("/iptv/artwork/posters/{fileName:hex}")]
     [HttpHead("/iptv/artwork/posters/{fileName:hex}.jpg")]
     [HttpGet("/iptv/artwork/posters/{fileName:hex}.jpg")]
+    public async Task<IActionResult> IptvGetPoster(string fileName, CancellationToken cancellationToken)
+    {
+        Either<BaseError, CachedImagePathViewModel> cachedImagePath =
+            await mediator.Send(
+                new GetCachedImagePath(fileName, ArtworkKind.Poster, string.Empty, 440),
+                cancellationToken);
+        return cachedImagePath.Match<IActionResult>(
+            Left: _ => new NotFoundResult(),
+            Right: r => new PhysicalFileResult(r.FileName, r.MimeType));
+    }
+
     [HttpGet("/artwork/posters/{fileName:hex}")]
+    [ServiceFilter(typeof(ConditionalUiAuthorizeFilter))]
     public async Task<IActionResult> GetPoster(string fileName, CancellationToken cancellationToken)
     {
         Either<BaseError, CachedImagePathViewModel> cachedImagePath =
@@ -72,6 +86,7 @@ public class ArtworkController(
     }
 
     [HttpGet("/artwork/watermarks/{fileName:hex}")]
+    [ServiceFilter(typeof(ConditionalUiAuthorizeFilter))]
     public async Task<IActionResult> GetWatermark(
         string fileName,
         [FromQuery]
@@ -88,6 +103,7 @@ public class ArtworkController(
     }
 
     [HttpGet("/artwork/fanart/{fileName:hex}")]
+    [ServiceFilter(typeof(ConditionalUiAuthorizeFilter))]
     public async Task<IActionResult> GetFanArt(string fileName, CancellationToken cancellationToken)
     {
         Either<BaseError, CachedImagePathViewModel> cachedImagePath =
@@ -100,31 +116,43 @@ public class ArtworkController(
 
     [HttpHead("/iptv/artwork/posters/plex/{id:int}")]
     [HttpGet("/iptv/artwork/posters/plex/{id:int}")]
-    [HttpGet("/artwork/posters/plex/{id:int}")]
     [HttpHead("/iptv/artwork/thumbnails/plex/{id:int}")]
     [HttpGet("/iptv/artwork/thumbnails/plex/{id:int}")]
+    public Task<IActionResult> IptvGetPlex(int id, CancellationToken cancellationToken) =>
+        GetPlexArtwork(id, cancellationToken);
+
+    [HttpGet("/artwork/posters/plex/{id:int}")]
     [HttpGet("/artwork/thumbnails/plex/{id:int}")]
     [HttpGet("/artwork/fanart/plex/{id:int}")]
+    [ServiceFilter(typeof(ConditionalUiAuthorizeFilter))]
     public Task<IActionResult> GetPlex(int id, CancellationToken cancellationToken) =>
         GetPlexArtwork(id, cancellationToken);
 
     [HttpHead("/iptv/artwork/posters/jellyfin/{id:int}")]
     [HttpGet("/iptv/artwork/posters/jellyfin/{id:int}")]
-    [HttpGet("/artwork/posters/jellyfin/{id:int}")]
     [HttpHead("/iptv/artwork/thumbnails/jellyfin/{id:int}")]
     [HttpGet("/iptv/artwork/thumbnails/jellyfin/{id:int}")]
+    public Task<IActionResult> IptvGetJellyfin(int id, CancellationToken cancellationToken) =>
+        GetJellyfinArtwork(id, cancellationToken);
+
+    [HttpGet("/artwork/posters/jellyfin/{id:int}")]
     [HttpGet("/artwork/thumbnails/jellyfin/{id:int}")]
     [HttpGet("/artwork/fanart/jellyfin/{id:int}")]
+    [ServiceFilter(typeof(ConditionalUiAuthorizeFilter))]
     public Task<IActionResult> GetJellyfin(int id, CancellationToken cancellationToken) =>
         GetJellyfinArtwork(id, cancellationToken);
 
     [HttpHead("/iptv/artwork/posters/emby/{id:int}")]
     [HttpGet("/iptv/artwork/posters/emby/{id:int}")]
-    [HttpGet("/artwork/posters/emby/{id:int}")]
     [HttpHead("/iptv/artwork/thumbnails/emby/{id:int}")]
     [HttpGet("/iptv/artwork/thumbnails/emby/{id:int}")]
+    public Task<IActionResult> IptvetEmby(int id, CancellationToken cancellationToken) =>
+        GetEmbyArtwork(id, cancellationToken);
+
+    [HttpGet("/artwork/posters/emby/{id:int}")]
     [HttpGet("/artwork/thumbnails/emby/{id:int}")]
     [HttpGet("/artwork/fanart/emby/{id:int}")]
+    [ServiceFilter(typeof(ConditionalUiAuthorizeFilter))]
     public Task<IActionResult> GetEmby(int id, CancellationToken cancellationToken) =>
         GetEmbyArtwork(id, cancellationToken);
 
@@ -132,7 +160,19 @@ public class ArtworkController(
     [HttpGet("/iptv/artwork/thumbnails/{fileName:hex}")]
     [HttpHead("/iptv/artwork/thumbnails/{fileName:hex}.jpg")]
     [HttpGet("/iptv/artwork/thumbnails/{fileName:hex}.jpg")]
+    public async Task<IActionResult> IptvGetThumbnail(string fileName, CancellationToken cancellationToken)
+    {
+        Either<BaseError, CachedImagePathViewModel> cachedImagePath =
+            await mediator.Send(
+                new GetCachedImagePath(fileName, ArtworkKind.Thumbnail, string.Empty, 220),
+                cancellationToken);
+        return cachedImagePath.Match<IActionResult>(
+            Left: _ => new NotFoundResult(),
+            Right: r => new PhysicalFileResult(r.FileName, r.MimeType));
+    }
+
     [HttpGet("/artwork/thumbnails/{fileName:hex}")]
+    [ServiceFilter(typeof(ConditionalUiAuthorizeFilter))]
     public async Task<IActionResult> GetThumbnail(string fileName, CancellationToken cancellationToken)
     {
         Either<BaseError, CachedImagePathViewModel> cachedImagePath =
