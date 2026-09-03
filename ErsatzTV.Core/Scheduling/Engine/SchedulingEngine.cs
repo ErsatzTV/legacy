@@ -851,6 +851,7 @@ public class SchedulingEngine(
                             playoutItem.FillerKind = FillerKind.Fallback;
 
                             _state.AddedItems.Add(playoutItem);
+                            _state.AdvanceGuideGroup();
 
                             // create history record
                             List<PlayoutHistory> maybeHistory = GetHistoryForItem(

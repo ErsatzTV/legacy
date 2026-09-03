@@ -228,6 +228,7 @@ public class YamlPlayoutDurationHandler(EnumeratorCache enumeratorCache) : YamlP
                             playoutItem.FillerKind = FillerKind.Fallback;
 
                             context.AddedItems.Add(playoutItem);
+                            context.AdvanceGuideGroup();
 
                             // create history record
                             List<PlayoutHistory> maybeHistory = GetHistoryForItem(
