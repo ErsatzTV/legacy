@@ -10,7 +10,7 @@ public class StreamSeekInputOption : IInputOption
 
     public EnvironmentVariable[] EnvironmentVariables => [];
     public string[] GlobalOptions => [];
-    public string[] InputOptions(InputFile inputFile) => ["-ss", $"{_start:c}"];
+    public string[] InputOptions(InputFile inputFile) => ["-ss", FFmpegFormatter.Milliseconds(_start)];
     public string[] FilterOptions => [];
     public string[] OutputOptions => [];
     public FrameState NextState(FrameState currentState) => currentState;

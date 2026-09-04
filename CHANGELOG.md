@@ -32,6 +32,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - To recover a show that already lost its tags: deep scan it from the show page, then use **Deep Scan Collections** on the libraries page
   - `<country>` from NFO metadata is now searchable with `country:` instead of `tag:`; deep scan a local library to convert existing items
 - Fix multiple channel startup failure causes
+- Fix seeking more than 24 hours into content
 
 ## [26.8.1] - 2026-08-29
 ### Security
