@@ -1,5 +1,4 @@
 using System.Buffers;
-using System.Globalization;
 using System.IO.Pipelines;
 using CliWrap;
 using ErsatzTV.Core;
@@ -7,6 +6,7 @@ using ErsatzTV.Core.Domain;
 using ErsatzTV.Core.Graphics;
 using ErsatzTV.Core.Interfaces.Metadata;
 using ErsatzTV.Core.Interfaces.Streaming;
+using ErsatzTV.FFmpeg;
 using Microsoft.Extensions.Logging;
 using SkiaSharp;
 
@@ -153,7 +153,7 @@ public class MotionElement(
 
             if (overlaySeekTime > TimeSpan.Zero)
             {
-                arguments.AddRange(["-ss", overlaySeekTime.TotalSeconds.ToString(CultureInfo.InvariantCulture)]);
+                arguments.AddRange(["-ss", FFmpegFormatter.Milliseconds(overlaySeekTime)]);
             }
 
             arguments.AddRange(
@@ -171,9 +171,7 @@ public class MotionElement(
 
             if (motionElement.EndBehavior is MotionEndBehavior.Loop)
             {
-                arguments.AddRange(
-                    "-t",
-                    $"{(int)context.Duration.TotalHours:00}:{context.Duration:mm}:{context.Duration:ss\\.fffffff}");
+                arguments.AddRange(["-t", FFmpegFormatter.Milliseconds(context.Duration)]);
             }
 
             arguments.AddRange(

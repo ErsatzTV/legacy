@@ -122,7 +122,7 @@ public class PipelineBuilderBaseTests
 
         string command = PrintCommand(videoInputFile, audioInputFile, None, None, None, result);
         command.ShouldBe(
-            "-nostdin -hide_banner -nostats -progress - -loglevel error -fflags +genpts+discardcorrupt+igndts -ss 00:00:01 -c:v h264 -readrate 1.05 -i /tmp/whatever.mkv -filter_complex [0:1]aresample=async=1[a] -map 0:0 -map [a] -muxdelay 0 -muxpreload 0 -movflags +faststart -flags cgop -bf 0 -sc_threshold 0 -video_track_timescale 90000 -b:v 2000k -maxrate:v 2000k -bufsize:v 4000k -c:v libx265 -tag:v hvc1 -x265-params log-level=error -c:a aac -b:a 320k -maxrate:a 320k -bufsize:a 640k -ar 48k -f mpegts -mpegts_flags +initial_discontinuity pipe:1");
+            "-nostdin -hide_banner -nostats -progress - -loglevel error -fflags +genpts+discardcorrupt+igndts -ss 1000ms -c:v h264 -readrate 1.05 -i /tmp/whatever.mkv -filter_complex [0:1]aresample=async=1[a] -map 0:0 -map [a] -muxdelay 0 -muxpreload 0 -movflags +faststart -flags cgop -bf 0 -sc_threshold 0 -video_track_timescale 90000 -b:v 2000k -maxrate:v 2000k -bufsize:v 4000k -c:v libx265 -tag:v hvc1 -x265-params log-level=error -c:a aac -b:a 320k -maxrate:a 320k -bufsize:a 640k -ar 48k -f mpegts -mpegts_flags +initial_discontinuity pipe:1");
     }
 
     [Test]
@@ -225,7 +225,7 @@ public class PipelineBuilderBaseTests
 
         string command = PrintCommand(videoInputFile, audioInputFile, None, None, None, result);
         command.ShouldBe(
-            "-nostdin -hide_banner -nostats -progress - -loglevel error -fflags +genpts+discardcorrupt+igndts -ss 00:00:01 -c:v h264 -readrate 1.05 -i /tmp/whatever.mkv -filter_complex [0:1]aresample=async=1[a] -map 0:0 -map [a] -muxdelay 0 -muxpreload 0 -movflags +faststart -flags cgop -bf 0 -sc_threshold 0 -video_track_timescale 90000 -b:v 2000k -maxrate:v 2000k -bufsize:v 4000k -c:v libx265 -tag:v hvc1 -x265-params log-level=error -c:a aac -ac 6 -b:a 320k -maxrate:a 320k -bufsize:a 640k -ar 48k -f mpegts -mpegts_flags +initial_discontinuity pipe:1");
+            "-nostdin -hide_banner -nostats -progress - -loglevel error -fflags +genpts+discardcorrupt+igndts -ss 1000ms -c:v h264 -readrate 1.05 -i /tmp/whatever.mkv -filter_complex [0:1]aresample=async=1[a] -map 0:0 -map [a] -muxdelay 0 -muxpreload 0 -movflags +faststart -flags cgop -bf 0 -sc_threshold 0 -video_track_timescale 90000 -b:v 2000k -maxrate:v 2000k -bufsize:v 4000k -c:v libx265 -tag:v hvc1 -x265-params log-level=error -c:a aac -ac 6 -b:a 320k -maxrate:a 320k -bufsize:a 640k -ar 48k -f mpegts -mpegts_flags +initial_discontinuity pipe:1");
     }
 
     [Test]

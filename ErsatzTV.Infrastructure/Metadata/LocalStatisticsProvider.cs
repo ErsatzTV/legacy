@@ -12,10 +12,12 @@ using ErsatzTV.Core.Extensions;
 using ErsatzTV.Core.Interfaces.Metadata;
 using ErsatzTV.Core.Interfaces.Repositories;
 using ErsatzTV.Core.Security;
+using ErsatzTV.FFmpeg;
 using ErsatzTV.FFmpeg.Capabilities;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using File = TagLib.File;
+using MediaStream = ErsatzTV.Core.Domain.MediaStream;
 
 namespace ErsatzTV.Infrastructure.Metadata;
 
@@ -300,7 +302,7 @@ public partial class LocalStatisticsProvider : ILocalStatisticsProvider
         string[] arguments =
         [
             "-hide_banner",
-            "-ss", seek.TotalSeconds.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            "-ss", FFmpegFormatter.Milliseconds(seek),
             "-i", filePath,
             "-vf", "idet",
             "-frames:v", "200",

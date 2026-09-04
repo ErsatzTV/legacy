@@ -12,7 +12,7 @@ public class StreamSeekFilterOption : IPipelineStep
     public string[] GlobalOptions => Array.Empty<string>();
     public string[] InputOptions(InputFile inputFile) => Array.Empty<string>();
 
-    public string[] FilterOptions => new[] { "-ss", _start.TotalSeconds.ToString(System.Globalization.CultureInfo.InvariantCulture) };
+    public string[] FilterOptions => ["-ss", FFmpegFormatter.Milliseconds(_start)];
     public string[] OutputOptions => Array.Empty<string>();
     public FrameState NextState(FrameState currentState) => currentState;
 }
