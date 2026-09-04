@@ -98,4 +98,6 @@ public interface IMediaSourceRepository
     Task<Unit> UpdateLastCollectionScan(EmbyMediaSource embyMediaSource);
     Task<Unit> UpdateLastCollectionScan(JellyfinMediaSource jellyfinMediaSource);
     Task<Unit> UpdateLastCollectionScan(PlexMediaSource plexMediaSource);
+
+    Task<Unit> SetPlexMissingSince(int plexMediaSourceId, DateTime? missingSince);
 }

@@ -32,8 +32,8 @@ public class JellyfinCollectionRepository : IJellyfinCollectionRepository
 
         // remove all tags that reference this collection
         await dbContext.Connection.ExecuteAsync(
-            @"DELETE FROM Tag WHERE Name = @Name AND ExternalCollectionId = @ItemId",
-            new { collection.Name, collection.ItemId });
+            @"DELETE FROM Tag WHERE ExternalCollectionId = @ItemId AND ExternalTypeId = @TagTypeId",
+            new { collection.ItemId, TagTypeId = Tag.JellyfinCollectionTypeId });
 
         return await dbContext.SaveChangesAsync() > 0;
     }
@@ -50,8 +50,8 @@ public class JellyfinCollectionRepository : IJellyfinCollectionRepository
                 @"SELECT JM.Id FROM Tag T
               INNER JOIN MovieMetadata MM on T.MovieMetadataId = MM.Id
               INNER JOIN JellyfinMovie JM on JM.Id = MM.MovieId
-              WHERE T.ExternalCollectionId = @ItemId",
-                new { collection.ItemId }));
+              WHERE T.ExternalCollectionId = @ItemId AND T.ExternalTypeId = @TagTypeId",
+                new { collection.ItemId, TagTypeId = Tag.JellyfinCollectionTypeId }));
 
         // shows
         result.AddRange(
@@ -59,8 +59,8 @@ public class JellyfinCollectionRepository : IJellyfinCollectionRepository
                 @"SELECT JS.Id FROM Tag T
               INNER JOIN ShowMetadata SM on T.ShowMetadataId = SM.Id
               INNER JOIN JellyfinShow JS on JS.Id = SM.ShowId
-              WHERE T.ExternalCollectionId = @ItemId",
-                new { collection.ItemId }));
+              WHERE T.ExternalCollectionId = @ItemId AND T.ExternalTypeId = @TagTypeId",
+                new { collection.ItemId, TagTypeId = Tag.JellyfinCollectionTypeId }));
 
         // seasons
         result.AddRange(
@@ -68,8 +68,8 @@ public class JellyfinCollectionRepository : IJellyfinCollectionRepository
                 @"SELECT JS.Id FROM Tag T
               INNER JOIN SeasonMetadata SM on T.SeasonMetadataId = SM.Id
               INNER JOIN JellyfinSeason JS on JS.Id = SM.SeasonId
-              WHERE T.ExternalCollectionId = @ItemId",
-                new { collection.ItemId }));
+              WHERE T.ExternalCollectionId = @ItemId AND T.ExternalTypeId = @TagTypeId",
+                new { collection.ItemId, TagTypeId = Tag.JellyfinCollectionTypeId }));
 
         // episodes
         result.AddRange(
@@ -77,13 +77,13 @@ public class JellyfinCollectionRepository : IJellyfinCollectionRepository
                 @"SELECT JE.Id FROM Tag T
               INNER JOIN EpisodeMetadata EM on T.EpisodeMetadataId = EM.Id
               INNER JOIN JellyfinEpisode JE on JE.Id = EM.EpisodeId
-              WHERE T.ExternalCollectionId = @ItemId",
-                new { collection.ItemId }));
+              WHERE T.ExternalCollectionId = @ItemId AND T.ExternalTypeId = @TagTypeId",
+                new { collection.ItemId, TagTypeId = Tag.JellyfinCollectionTypeId }));
 
         // delete all tags
         await dbContext.Connection.ExecuteAsync(
-            @"DELETE FROM Tag WHERE Name = @Name AND ExternalCollectionId = @ItemId",
-            new { collection.Name, collection.ItemId });
+            @"DELETE FROM Tag WHERE ExternalCollectionId = @ItemId AND ExternalTypeId = @TagTypeId",
+            new { collection.ItemId, TagTypeId = Tag.JellyfinCollectionTypeId });
 
         return result;
     }
@@ -98,40 +98,40 @@ public class JellyfinCollectionRepository : IJellyfinCollectionRepository
                     @"SELECT Id FROM JellyfinMovie WHERE ItemId = @ItemId",
                     new { movie.ItemId });
                 await dbContext.Connection.ExecuteAsync(
-                    @"INSERT INTO Tag (Name, ExternalCollectionId, MovieMetadataId)
-                      SELECT @Name, @ItemId, Id FROM
+                    @"INSERT INTO Tag (Name, ExternalCollectionId, ExternalTypeId, MovieMetadataId)
+                      SELECT @Name, @ItemId, @TagTypeId, Id FROM
                       (SELECT Id FROM MovieMetadata WHERE MovieId = @MovieId) AS A",
-                    new { collection.Name, collection.ItemId, MovieId = movieId });
+                    new { collection.Name, collection.ItemId, TagTypeId = Tag.JellyfinCollectionTypeId, MovieId = movieId });
                 return movieId;
             case JellyfinShow show:
                 int showId = await dbContext.Connection.ExecuteScalarAsync<int>(
                     @"SELECT Id FROM JellyfinShow WHERE ItemId = @ItemId",
                     new { show.ItemId });
                 await dbContext.Connection.ExecuteAsync(
-                    @"INSERT INTO Tag (Name, ExternalCollectionId, ShowMetadataId)
-                      SELECT @Name, @ItemId, Id FROM
+                    @"INSERT INTO Tag (Name, ExternalCollectionId, ExternalTypeId, ShowMetadataId)
+                      SELECT @Name, @ItemId, @TagTypeId, Id FROM
                       (SELECT Id FROM ShowMetadata WHERE ShowId = @ShowId) AS A",
-                    new { collection.Name, collection.ItemId, ShowId = showId });
+                    new { collection.Name, collection.ItemId, TagTypeId = Tag.JellyfinCollectionTypeId, ShowId = showId });
                 return showId;
             case JellyfinSeason season:
                 int seasonId = await dbContext.Connection.ExecuteScalarAsync<int>(
                     @"SELECT Id FROM JellyfinSeason WHERE ItemId = @ItemId",
                     new { season.ItemId });
                 await dbContext.Connection.ExecuteAsync(
-                    @"INSERT INTO Tag (Name, ExternalCollectionId, SeasonMetadataId)
-                      SELECT @Name, @ItemId, Id FROM
+                    @"INSERT INTO Tag (Name, ExternalCollectionId, ExternalTypeId, SeasonMetadataId)
+                      SELECT @Name, @ItemId, @TagTypeId, Id FROM
                       (SELECT Id FROM SeasonMetadata WHERE SeasonId = @SeasonId) AS A",
-                    new { collection.Name, collection.ItemId, SeasonId = seasonId });
+                    new { collection.Name, collection.ItemId, TagTypeId = Tag.JellyfinCollectionTypeId, SeasonId = seasonId });
                 return seasonId;
             case JellyfinEpisode episode:
                 int episodeId = await dbContext.Connection.ExecuteScalarAsync<int>(
                     @"SELECT Id FROM JellyfinEpisode WHERE ItemId = @ItemId",
                     new { episode.ItemId });
                 await dbContext.Connection.ExecuteAsync(
-                    @"INSERT INTO Tag (Name, ExternalCollectionId, EpisodeMetadataId)
-                      SELECT @Name, @ItemId, Id FROM
+                    @"INSERT INTO Tag (Name, ExternalCollectionId, ExternalTypeId, EpisodeMetadataId)
+                      SELECT @Name, @ItemId, @TagTypeId, Id FROM
                       (SELECT Id FROM EpisodeMetadata WHERE EpisodeId = @EpisodeId) AS A",
-                    new { collection.Name, collection.ItemId, EpisodeId = episodeId });
+                    new { collection.Name, collection.ItemId, TagTypeId = Tag.JellyfinCollectionTypeId, EpisodeId = episodeId });
                 return episodeId;
             default:
                 return 0;

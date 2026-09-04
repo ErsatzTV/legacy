@@ -1,8 +1,6 @@
 ﻿using System.Globalization;
+using ErsatzTV.Application.Artworks;
 using ErsatzTV.Core.Domain;
-using ErsatzTV.Core.Emby;
-using ErsatzTV.Core.Jellyfin;
-using Flurl;
 
 namespace ErsatzTV.Application.Television;
 
@@ -34,7 +32,7 @@ internal static class Mapper
             show.ShowMetadata.HeadOrNone().Map(m => GetFanArt(m, maybeJellyfin, maybeEmby)).IfNone(string.Empty),
             show.ShowMetadata.HeadOrNone().Map(m => m.Genres.Map(g => g.Name).ToList()).IfNone([]),
             show.ShowMetadata.HeadOrNone().Map(m =>
-                m.Tags.Where(t => string.IsNullOrWhiteSpace(t.ExternalTypeId)).Map(g => g.Name).ToList()).IfNone([]),
+                m.Tags.Where(Tag.IsSearchTag).Map(g => g.Name).ToList()).IfNone([]),
             show.ShowMetadata.HeadOrNone().Map(m => m.Studios.Map(s => s.Name).ToList()).IfNone([]),
             show.ShowMetadata.HeadOrNone().Map(m =>
                 m.Tags.Where(t => t.ExternalTypeId == Tag.PlexNetworkTypeId).Map(g => g.Name).ToList()).IfNone([]),
@@ -69,46 +67,13 @@ internal static class Mapper
         Metadata metadata,
         Option<JellyfinMediaSource> maybeJellyfin,
         Option<EmbyMediaSource> maybeEmby) =>
-        GetArtwork(metadata, ArtworkKind.Poster, maybeJellyfin, maybeEmby);
+        ArtworkMapper.Artwork(metadata, ArtworkKind.Poster, maybeJellyfin, maybeEmby);
 
     private static string GetFanArt(
         Metadata metadata,
         Option<JellyfinMediaSource> maybeJellyfin,
         Option<EmbyMediaSource> maybeEmby) =>
-        GetArtwork(metadata, ArtworkKind.FanArt, maybeJellyfin, maybeEmby);
-
-    private static string GetArtwork(
-        Metadata metadata,
-        ArtworkKind artworkKind,
-        Option<JellyfinMediaSource> maybeJellyfin,
-        Option<EmbyMediaSource> maybeEmby)
-    {
-        string artwork = Optional(metadata.Artwork.FirstOrDefault(a => a.ArtworkKind == artworkKind))
-            .Match(a => a.Path, string.Empty);
-
-        if (maybeJellyfin.IsSome && artwork.StartsWith("jellyfin://", StringComparison.OrdinalIgnoreCase))
-        {
-            Url url = JellyfinUrl.RelativeProxyForArtwork(artwork);
-            if (artworkKind == ArtworkKind.Poster)
-            {
-                url.SetQueryParam("fillHeight", 440);
-            }
-
-            artwork = url;
-        }
-        else if (maybeEmby.IsSome && artwork.StartsWith("emby://", StringComparison.OrdinalIgnoreCase))
-        {
-            Url url = EmbyUrl.RelativeProxyForArtwork(artwork);
-            if (artworkKind == ArtworkKind.Poster)
-            {
-                url.SetQueryParam("maxHeight", 440);
-            }
-
-            artwork = url;
-        }
-
-        return artwork;
-    }
+        ArtworkMapper.Artwork(metadata, ArtworkKind.FanArt, maybeJellyfin, maybeEmby);
 
     private static List<CultureInfo> LanguagesForShow(List<string> languages)
     {

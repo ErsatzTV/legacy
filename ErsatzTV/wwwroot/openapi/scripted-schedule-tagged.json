@@ -2214,8 +2214,21 @@
           }
         }
       }
+    },
+    "securitySchemes": {
+      "ApiKey": {
+        "type": "apiKey",
+        "description": "API key from api-secrets.json in the ErsatzTV config folder",
+        "name": "X-Etv-Api-Key",
+        "in": "header"
+      }
     }
   },
+  "security": [
+    {
+      "ApiKey": [ ]
+    }
+  ],
   "tags": [
     {
       "name": "Scripted Metadata"

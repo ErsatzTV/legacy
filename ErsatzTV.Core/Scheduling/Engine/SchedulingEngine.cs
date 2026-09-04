@@ -175,6 +175,15 @@ public class SchedulingEngine(
             state,
             CancellationToken.None);
 
+        if (maybeResult.IsNone)
+        {
+            logger.LogWarning(
+                "Unable to add marathon with key {Key}; group by {GroupBy} is not one of {ValidValues}",
+                key,
+                groupBy,
+                MarathonHelper.ValidGroupByValues);
+        }
+
         foreach (PlaylistContentResult result in maybeResult)
         {
             foreach (PlaylistEnumerator enumerator in Optional(result.PlaylistEnumerator))
@@ -834,16 +843,21 @@ public class SchedulingEngine(
                         foreach (MediaItem fallbackItem in fallbackEnumeratorDetails.Enumerator.Current)
                         {
                             playoutItem.MediaItemId = fallbackItem.Id;
+
+                            // trim item to exactly fit
                             playoutItem.Finish = targetTime.UtcDateTime;
+                            playoutItem.OutPoint = playoutItem.Finish - playoutItem.Start;
+
                             playoutItem.FillerKind = FillerKind.Fallback;
 
                             _state.AddedItems.Add(playoutItem);
+                            _state.AdvanceGuideGroup();
 
                             // create history record
                             List<PlayoutHistory> maybeHistory = GetHistoryForItem(
                                 fallbackEnumeratorDetails,
                                 playoutItem,
-                                mediaItem);
+                                fallbackItem);
 
                             foreach (PlayoutHistory history in maybeHistory)
                             {
@@ -1239,7 +1253,7 @@ public class SchedulingEngine(
         return Option<IMediaCollectionEnumerator>.None;
     }
 
-    private void ApplyPlaylistHistory(
+    internal void ApplyPlaylistHistory(
         string historyKey,
         ImmutableDictionary<CollectionKey, List<MediaItem>> itemMap,
         PlaylistEnumerator playlistEnumerator)
@@ -1268,9 +1282,15 @@ public class SchedulingEngine(
 
         foreach (PlayoutHistory primaryHistory in maybePrimaryHistory)
         {
-            var hasSetEnumeratorIndex = false;
+            // the primary row holds the playlist index; a child index counts the items of one
+            // collection, so it does not describe a playlist position
+            playlistEnumerator.ResetState(
+                new CollectionEnumeratorState
+                {
+                    Seed = primaryHistory.Seed ?? playlistEnumerator.State.Seed,
+                    Index = primaryHistory.Index
+                });
 
-            var childEnumeratorKeys = playlistEnumerator.ChildEnumerators.Map(x => x.CollectionKey).ToList();
             foreach ((IMediaCollectionEnumerator childEnumerator, CollectionKey collectionKey) in
                      playlistEnumerator.ChildEnumerators)
             {
@@ -1301,13 +1321,21 @@ public class SchedulingEngine(
                     //     h.Details,
                     //     h.IsCurrentChild);
 
-                    playlistEnumerator.ResetState(
-                        new CollectionEnumeratorState
-                        {
-                            Seed = playlistEnumerator.State.Seed,
-                            Index = h.Index + (h.IsCurrentChild ? 1 : 0)
-                        });
+                    // a shuffled child gets a new seed each time it wraps.
+                    // the replay from the cycle start cannot make that order again.
+                    if (itemPlaybackOrder is PlaybackOrder.Shuffle)
+                    {
+                        childEnumerator.ResetState(
+                            new CollectionEnumeratorState
+                            {
+                                Seed = h.Seed ?? childEnumerator.State.Seed,
+                                Index = h.Index,
+                                Started = childEnumerator.State.Started
+                            });
+                    }
 
+                    // the collection may have changed since the last build, so the replayed
+                    // position can point at the wrong item
                     if (itemPlaybackOrder is PlaybackOrder.Chronological)
                     {
                         HistoryDetails.MoveToNextItem(
@@ -1318,19 +1346,12 @@ public class SchedulingEngine(
                             true);
                     }
 
+                    // the playlist order may have changed since the last build
                     if (h.IsCurrentChild)
                     {
-                        // try to find enumerator based on collection key
-                        playlistEnumerator.SetEnumeratorIndex(childEnumeratorKeys.IndexOf(collectionKey));
-                        hasSetEnumeratorIndex = true;
+                        playlistEnumerator.EnsureCurrentChild(collectionKey);
                     }
                 }
-            }
-
-            if (!hasSetEnumeratorIndex)
-            {
-                // falling back to enumerator based on index
-                playlistEnumerator.SetEnumeratorIndex(primaryHistory.Index);
             }
 
             // only move next at the end, because that may also move
@@ -1391,7 +1412,7 @@ public class SchedulingEngine(
         }
     }
 
-    private List<PlayoutHistory> GetHistoryForItem(
+    internal List<PlayoutHistory> GetHistoryForItem(
         EnumeratorDetails enumeratorDetails,
         PlayoutItem playoutItem,
         MediaItem mediaItem)
@@ -1405,7 +1426,8 @@ public class SchedulingEngine(
             {
                 PlayoutId = _state.PlayoutId,
                 PlaybackOrder = enumeratorDetails.PlaybackOrder,
-                Index = playlistEnumerator.EnumeratorIndex,
+                Index = playlistEnumerator.State.Index,
+                Seed = playlistEnumerator.State.Seed,
                 When = playoutItem.StartOffset.UtcDateTime,
                 Finish = playoutItem.FinishOffset.UtcDateTime,
                 Key = enumeratorDetails.HistoryKey,
@@ -1427,6 +1449,7 @@ public class SchedulingEngine(
                         PlayoutId = _state.PlayoutId,
                         PlaybackOrder = enumeratorDetails.PlaybackOrder,
                         Index = childEnumerator.State.Index,
+                        Seed = childEnumerator.State.Seed,
                         When = playoutItem.StartOffset.UtcDateTime,
                         Finish = playoutItem.FinishOffset.UtcDateTime,
                         Key = enumeratorDetails.HistoryKey,

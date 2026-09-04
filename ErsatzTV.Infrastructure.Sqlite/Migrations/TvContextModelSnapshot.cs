@@ -2941,6 +2941,9 @@ namespace ErsatzTV.Infrastructure.Sqlite.Migrations
                     b.Property<int>("PlayoutId")
                         .HasColumnType("INTEGER");
 
+                    b.Property<int?>("Seed")
+                        .HasColumnType("INTEGER");
+
                     b.Property<DateTime>("When")
                         .HasColumnType("TEXT");
 
@@ -3940,6 +3943,9 @@ namespace ErsatzTV.Infrastructure.Sqlite.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<DateTime?>("LastCollectionsScan")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("MissingSince")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Platform")

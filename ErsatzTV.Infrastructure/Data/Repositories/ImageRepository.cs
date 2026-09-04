@@ -104,8 +104,8 @@ public class ImageRepository : IImageRepository
     {
         await using TvContext dbContext = await _dbContextFactory.CreateDbContextAsync();
         return await dbContext.Connection.ExecuteAsync(
-            "INSERT INTO Tag (Name, ImageMetadataId, ExternalCollectionId) VALUES (@Name, @MetadataId, @ExternalCollectionId)",
-            new { tag.Name, MetadataId = metadata.Id, tag.ExternalCollectionId }).Map(result => result > 0);
+            "INSERT INTO Tag (Name, ImageMetadataId, ExternalCollectionId, ExternalTypeId) VALUES (@Name, @MetadataId, @ExternalCollectionId, @ExternalTypeId)",
+            new { tag.Name, MetadataId = metadata.Id, tag.ExternalCollectionId, tag.ExternalTypeId }).Map(result => result > 0);
     }
 
     private async Task<Either<BaseError, MediaItemScanResult<Image>>> AddImage(

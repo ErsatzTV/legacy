@@ -1,6 +1,7 @@
-using System.Diagnostics.CodeAnalysis;
+﻿using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO.Abstractions;
+using System.Net;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -43,6 +44,7 @@ using ErsatzTV.Core.Scheduling.Engine;
 using ErsatzTV.Core.Scheduling.ScriptedScheduling;
 using ErsatzTV.Core.Scheduling.YamlScheduling;
 using ErsatzTV.Core.Search;
+using ErsatzTV.Core.Security;
 using ErsatzTV.Core.Trakt;
 using ErsatzTV.Core.Troubleshooting;
 using ErsatzTV.FFmpeg.Capabilities;
@@ -72,6 +74,7 @@ using ErsatzTV.Infrastructure.Sqlite.Data;
 using ErsatzTV.Infrastructure.Streaming;
 using ErsatzTV.Infrastructure.Streaming.Graphics;
 using ErsatzTV.Infrastructure.Trakt;
+using ErsatzTV.Security;
 using ErsatzTV.Serialization;
 using ErsatzTV.Services;
 using ErsatzTV.Services.RunOnce;
@@ -94,6 +97,7 @@ using Microsoft.Extensions.Primitives;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.IO;
+using Microsoft.AspNetCore.OpenApi;
 using Microsoft.OpenApi;
 using MudBlazor.Services;
 using Newtonsoft.Json;
@@ -121,8 +125,6 @@ public class Startup
     [SuppressMessage("Performance", "CA1861:Avoid constant arrays as arguments")]
     public void ConfigureServices(IServiceCollection services)
     {
-        BugsnagConfiguration bugsnagConfig = Configuration.GetSection("Bugsnag").Get<BugsnagConfiguration>();
-        services.Configure<BugsnagConfiguration>(Configuration.GetSection("Bugsnag"));
         services.Configure<ForwardedHeadersOptions>(options =>
         {
             options.ForwardedHeaders = ForwardedHeaders.All;
@@ -131,19 +133,35 @@ public class Startup
             options.KnownProxies.Clear();
         });
 
+        services.Configure<RouteOptions>(options =>
+        {
+            options.ConstraintMap.Add("hex", typeof(HexConstraint));
+        });
+
         services.AddDataProtection().PersistKeysToFileSystem(new DirectoryInfo(FileSystemLayout.DataProtectionFolder));
 
-        services.AddOpenApi("v1", options => { options.ShouldInclude += a => a.GroupName == "general"; });
+        services.AddOpenApi(
+            "v1",
+            options =>
+            {
+                options.ShouldInclude += a => a.GroupName == "general";
+                AddApiKeySecurity(options);
+            });
 
         services.AddOpenApi(
             "scripted-schedule-tagged",
-            options => { options.ShouldInclude += a => a.GroupName == "scripted-schedule"; });
+            options =>
+            {
+                options.ShouldInclude += a => a.GroupName == "scripted-schedule";
+                AddApiKeySecurity(options);
+            });
 
         services.AddOpenApi(
             "scripted-schedule",
             options =>
             {
                 options.ShouldInclude += a => a.GroupName == "scripted-schedule";
+                AddApiKeySecurity(options);
                 var tag = new OpenApiTag { Name = "ScriptedSchedule" };
                 var tagReference = new OpenApiTagReference("ScriptedSchedule");
                 options.AddOperationTransformer((operation, _, _) =>
@@ -159,6 +177,12 @@ public class Startup
                     return Task.CompletedTask;
                 });
             });
+
+        services
+            .AddAuthentication(ApiKeyAuthenticationOptions.DefaultScheme)
+            .AddScheme<ApiKeyAuthenticationOptions, ApiKeyAuthenticationHandler>(
+                ApiKeyAuthenticationOptions.DefaultScheme,
+                _ => { });
 
         services.ConfigureHttpJsonOptions(o => o.SerializerOptions.NumberHandling = JsonNumberHandling.Strict);
 
@@ -293,6 +317,11 @@ public class Startup
 
         services.AddControllers(options =>
             {
+                if (JwtHelper.IsEnabled)
+                {
+                    options.Conventions.Add(new RemoveHdhrConvention());
+                }
+
                 options.OutputFormatters.Insert(0, new ConcatPlaylistOutputFormatter());
                 options.OutputFormatters.Insert(0, new ChannelPlaylistOutputFormatter());
                 options.OutputFormatters.Insert(0, new ChannelGuideOutputFormatter());
@@ -308,6 +337,7 @@ public class Startup
             });
 
         services.AddScoped(_ => new ConditionalIptvAuthorizeFilter("JwtOnlyScheme"));
+        services.AddScoped<ConditionalUiAuthorizeFilter>();
 
         services.AddFluentValidationAutoValidation();
         services.AddValidatorsFromAssemblyContaining<Startup>();
@@ -528,6 +558,30 @@ public class Startup
             }
         }
 
+        // keep this before `UseForwardedHeaders`
+        app.Use(async (context, next) =>
+        {
+            if (IsInternalPath(context.Request.Path))
+            {
+                if (context.Connection.RemoteIpAddress is not { } remote || !IPAddress.IsLoopback(remote))
+                {
+                    Log.Warning(
+                        "Blocked internal path {Path} from non-loopback {RemoteIp}",
+                        context.Request.Path,
+                        context.Connection.RemoteIpAddress);
+                    context.Response.StatusCode = 404;
+                    return;
+                }
+            }
+            else if (!IsIptvPath(context.Request.Path) && context.Connection.LocalPort != Settings.UiPort)
+            {
+                context.Response.StatusCode = 404;
+                return;
+            }
+
+            await next(context);
+        });
+
         app.UseCors("AllowAll");
         app.UseForwardedHeaders();
 
@@ -579,6 +633,24 @@ public class Startup
                 "HTTP {RequestMethod} {RequestPath} responded {StatusCode} in {Elapsed:0.00} ms from {UserAgent} at {RemoteIP}";
         });
 
+        // must be inside the request logging middleware so an aborted request is not logged as an error
+        app.Use(async (context, next) =>
+        {
+            try
+            {
+                await next(context);
+            }
+            catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
+            {
+                // the client is gone, so nothing can be written to the connection; 499 only
+                // keeps the request log honest about why the request ended
+                if (!context.Response.HasStarted)
+                {
+                    context.Response.StatusCode = 499;
+                }
+            }
+        });
+
         app.UseRequestLocalization(options =>
         {
             CultureInfo[] cinfo = CultureInfo.GetCultures(CultureTypes.AllCultures & ~CultureTypes.NeutralCultures);
@@ -621,21 +693,9 @@ public class Startup
 
         app.UseResponseCompression();
 
-        app.Use(async (context, next) =>
-        {
-            if (!context.Request.Host.Value.StartsWith("localhost", StringComparison.OrdinalIgnoreCase) &&
-                !IsIptvPath(context.Request.Path) &&
-                context.Connection.LocalPort != Settings.UiPort)
-            {
-                context.Response.StatusCode = 404;
-                return;
-            }
-
-            await next(context);
-        });
-
         app.MapWhen(
-            ctx => !IsIptvPath(ctx.Request.Path),
+            ctx => !IsIptvPath(ctx.Request.Path) && !IsInternalPath(ctx.Request.Path) && !IsApiPath(ctx.Request.Path) &&
+                   !IsArtworkPath(ctx.Request.Path),
             blazor =>
             {
                 blazor.UseRouting();
@@ -659,27 +719,46 @@ public class Startup
                         endpoints.MapOpenApi();
                     }
 
-                    endpoints.MapScalarApiReference("/docs", options =>
-                    {
-                        options.AddDocument(
-                            "scripted-schedule",
-                            "Scripted Schedule",
-                            "openapi/scripted-schedule-tagged.json");
-                        options.AddDocument("v1", "General", "openapi/v1.json");
-                        options.HideClientButton = true;
-                        options.DocumentDownloadType = DocumentDownloadType.None;
-                        options.Title = "ErsatzTV API Reference";
-                    });
+                    endpoints.MapScalarApiReference(
+                        "/docs",
+                        options =>
+                        {
+                            options.AddDocument(
+                                "scripted-schedule",
+                                "Scripted Schedule",
+                                "openapi/scripted-schedule-tagged.json");
+                            options.AddDocument("v1", "General", "openapi/v1.json");
+                            options.HideClientButton = true;
+                            options.DocumentDownloadType = DocumentDownloadType.None;
+                            options.Title = "ErsatzTV API Reference";
+                        });
                 });
             });
 
         app.MapWhen(
-            ctx => IsIptvPath(ctx.Request.Path),
-            iptv =>
+            ctx => IsIptvPath(ctx.Request.Path) || IsInternalPath(ctx.Request.Path) || IsArtworkPath(ctx.Request.Path),
+            api =>
             {
-                iptv.UseRouting();
-                iptv.UseEndpoints(endpoints => endpoints.MapControllers());
+                api.UseRouting();
+                api.UseEndpoints(endpoints => endpoints.MapControllers());
             });
+
+        app.MapWhen(
+            ctx => IsApiPath(ctx.Request.Path),
+            api =>
+            {
+                api.UseRouting();
+                api.UseAuthentication();
+#pragma warning disable ASP0001
+                api.UseAuthorization();
+#pragma warning restore ASP0001
+                api.UseEndpoints(endpoints => endpoints
+                    .MapControllers()
+                    .RequireAuthorization(
+                        new AuthorizationPolicyBuilder(ApiKeyAuthenticationOptions.DefaultScheme)
+                            .RequireAuthenticatedUser().Build()));
+            });
+
         return;
 
         bool IsIptvPath(PathString path)
@@ -690,7 +769,42 @@ public class Startup
                    path.StartsWithSegments("/lineup.json") ||
                    path.StartsWithSegments("/lineup_status.json");
         }
+
+        bool IsInternalPath(PathString path) => path.StartsWithSegments("/internal");
+
+        bool IsArtworkPath(PathString path) => path.StartsWithSegments("/artwork");
+
+        // troubleshooting endpoints are requested directly by the browser, so they stay on the blazor
+        // branch and authorize with the ui cookie instead of the api key
+        bool IsApiPath(PathString path) => path.StartsWithSegments("/api") && !IsTroubleshootPath(path);
+
+        bool IsTroubleshootPath(PathString path) => path.StartsWithSegments("/api/troubleshoot");
     }
+
+    private static void AddApiKeySecurity(OpenApiOptions options) =>
+        options.AddDocumentTransformer((document, _, _) =>
+        {
+            document.Components ??= new OpenApiComponents();
+            document.Components.SecuritySchemes ??= new Dictionary<string, IOpenApiSecurityScheme>();
+            document.Components.SecuritySchemes[ApiKeyAuthenticationOptions.DefaultScheme] =
+                new OpenApiSecurityScheme
+                {
+                    Type = SecuritySchemeType.ApiKey,
+                    In = ParameterLocation.Header,
+                    Name = ApiHelper.HeaderName,
+                    Description = "API key from api-secrets.json in the ErsatzTV config folder"
+                };
+
+            document.Security =
+            [
+                new OpenApiSecurityRequirement
+                {
+                    [new OpenApiSecuritySchemeReference(ApiKeyAuthenticationOptions.DefaultScheme, document)] = []
+                }
+            ];
+
+            return Task.CompletedTask;
+        });
 
     private static void CustomServices(IServiceCollection services)
     {
@@ -858,6 +972,7 @@ public class Startup
         services.AddTransient<SlowQueryInterceptor>();
 
         // run-once/blocking startup services
+        services.AddHostedService<CreateApiKeyService>();
         services.AddHostedService<EndpointValidatorService>();
         services.AddHostedService<DatabaseMigratorService>();
         services.AddHostedService<DatabaseCleanerService>();

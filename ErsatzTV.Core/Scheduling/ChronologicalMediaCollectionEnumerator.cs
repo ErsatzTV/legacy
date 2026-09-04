@@ -39,7 +39,7 @@ public sealed class ChronologicalMediaCollectionEnumerator : IMediaCollectionEnu
     public void ResetState(CollectionEnumeratorState state)
     {
         // seed doesn't matter in chronological
-        State.Index = state.Index;
+        State.Index = ClampIndex(state.Index);
         State.Started = state.Started;
     }
 
@@ -84,4 +84,8 @@ public sealed class ChronologicalMediaCollectionEnumerator : IMediaCollectionEnu
 
     public int GroupSizeForMediaItem(MediaItem mediaItem) =>
         _lazyMediaItemGroupSize.Value.GetValueOrDefault(mediaItem.Id, 1);
+
+    // the history can give an index that this collection does not have
+    private int ClampIndex(int index) =>
+        _sortedMediaItems.Count == 0 || index < 0 ? 0 : index % _sortedMediaItems.Count;
 }

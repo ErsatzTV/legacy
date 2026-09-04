@@ -1,4 +1,6 @@
-﻿using ErsatzTV.Core;
+﻿using System.Net;
+using System.Reflection;
+using ErsatzTV.Core;
 using ErsatzTV.Core.Domain;
 using ErsatzTV.Core.Interfaces.Plex;
 using ErsatzTV.Core.Plex;
@@ -10,6 +12,8 @@ namespace ErsatzTV.Infrastructure.Plex;
 
 public class PlexTvApiClient : IPlexTvApiClient
 {
+    private static readonly string InfoVersion = Assembly.GetEntryAssembly().GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "unknown";
+
     private const string AppName = "ErsatzTV";
     private readonly ILogger<PlexTvApiClient> _logger;
     private readonly IPlexSecretStore _plexSecretStore;
@@ -83,7 +87,7 @@ public class PlexTvApiClient : IPlexTvApiClient
         }
         catch (ApiException apiException)
         {
-            if (apiException.ReasonPhrase == "Unauthorized")
+            if (apiException.StatusCode == HttpStatusCode.Unauthorized)
             {
                 await _plexSecretStore.DeleteAll();
             }
@@ -97,12 +101,19 @@ public class PlexTvApiClient : IPlexTvApiClient
         }
     }
 
-    public async Task<Either<BaseError, PlexAuthPin>> StartPinFlow()
+    public async Task<Either<BaseError, PlexAuthPin>> StartPinFlow(bool forceNewCredentials)
     {
         try
         {
-            string clientIdentifier = await _plexSecretStore.GetClientIdentifier();
-            PlexPinResponse pinResponse = await _plexTvApi.StartPinFlow(AppName, clientIdentifier);
+            // plex issues auth tokens per device, so signing in again with the stored client
+            // identifier returns the token this device already has; a new identifier is what
+            // makes plex mint a new one. It is not saved until the sign-in completes, so an
+            // abandoned sign-in leaves the existing credentials alone.
+            string clientIdentifier = forceNewCredentials
+                ? _plexSecretStore.GenerateClientIdentifier()
+                : await _plexSecretStore.GetClientIdentifier();
+
+            PlexPinResponse pinResponse = await _plexTvApi.StartPinFlow(AppName, InfoVersion, clientIdentifier);
             return new PlexAuthPin(pinResponse.Id, pinResponse.Code, clientIdentifier);
         }
         catch (Exception ex)
@@ -125,8 +136,11 @@ public class PlexTvApiClient : IPlexTvApiClient
             {
                 PlexUserResponse user = await _plexTvApi.GetUser(
                     AppName,
+                    InfoVersion,
                     authPin.ClientIdentifier,
                     response.AuthToken);
+
+                await _plexSecretStore.UpsertClientIdentifier(authPin.ClientIdentifier);
 
                 var token = new PlexUserAuthToken(user.Email, user.AuthToken);
                 await _plexSecretStore.UpsertUserAuthToken(token);

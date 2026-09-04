@@ -12,6 +12,9 @@ public class PlayoutHistory
     public PlaybackOrder PlaybackOrder { get; set; }
     public int Index { get; set; }
 
+    // the cycle that Index counts in. A row from before this column has null.
+    public int? Seed { get; set; }
+
     // something that uniquely identifies the collection within the block
     public string Key { get; set; }
 
@@ -37,6 +40,7 @@ public class PlayoutHistory
             BlockId = BlockId,
             PlaybackOrder = PlaybackOrder,
             Index = Index,
+            Seed = Seed,
             Key = Key,
             ChildKey = ChildKey,
             IsCurrentChild = IsCurrentChild,

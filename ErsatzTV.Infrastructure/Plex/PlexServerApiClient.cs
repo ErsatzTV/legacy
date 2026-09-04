@@ -710,7 +710,12 @@ public class PlexServerApiClient(PlexEtag plexEtag, ILogger<PlexServerApiClient>
         foreach (PlexLabelResponse label in Optional(response.Label).Flatten())
         {
             metadata.Tags.Add(
-                new Tag { Name = label.Tag, ExternalCollectionId = label.Id.ToString(CultureInfo.InvariantCulture) });
+                new Tag
+                {
+                    Name = label.Tag,
+                    ExternalCollectionId = label.Id.ToString(CultureInfo.InvariantCulture),
+                    ExternalTypeId = Tag.PlexLabelTypeId
+                });
         }
 
         if (!string.IsNullOrWhiteSpace(response.Studio))
@@ -940,7 +945,12 @@ public class PlexServerApiClient(PlexEtag plexEtag, ILogger<PlexServerApiClient>
         foreach (PlexLabelResponse label in Optional(response.Label).Flatten())
         {
             metadata.Tags.Add(
-                new Tag { Name = label.Tag, ExternalCollectionId = label.Id.ToString(CultureInfo.InvariantCulture) });
+                new Tag
+                {
+                    Name = label.Tag,
+                    ExternalCollectionId = label.Id.ToString(CultureInfo.InvariantCulture),
+                    ExternalTypeId = Tag.PlexLabelTypeId
+                });
         }
 
         if (DateTime.TryParse(response.OriginallyAvailableAt, out DateTime releaseDate))
@@ -1344,7 +1354,12 @@ public class PlexServerApiClient(PlexEtag plexEtag, ILogger<PlexServerApiClient>
         foreach (PlexLabelResponse label in Optional(response.Label).Flatten())
         {
             metadata.Tags.Add(
-                new Tag { Name = label.Tag, ExternalCollectionId = label.Id.ToString(CultureInfo.InvariantCulture) });
+                new Tag
+                {
+                    Name = label.Tag,
+                    ExternalCollectionId = label.Id.ToString(CultureInfo.InvariantCulture),
+                    ExternalTypeId = Tag.PlexLabelTypeId
+                });
         }
 
         if (!string.IsNullOrWhiteSpace(response.Studio))

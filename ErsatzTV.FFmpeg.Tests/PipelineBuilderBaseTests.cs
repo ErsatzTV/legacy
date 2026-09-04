@@ -232,7 +232,7 @@ public class PipelineBuilderBaseTests
     public void Concat_Test()
     {
         var resolution = new FrameSize(1920, 1080);
-        var concatInputFile = new ConcatInputFile("http://localhost:8080/ffmpeg/concat/1", resolution);
+        var concatInputFile = new ConcatInputFile("http://localhost:8080/internal/ffmpeg/concat/1", resolution);
 
         var builder = new SoftwarePipelineBuilder(
             new DefaultFFmpegCapabilities(),
@@ -253,7 +253,7 @@ public class PipelineBuilderBaseTests
         string command = PrintCommand(None, None, None, concatInputFile, None, result);
 
         command.ShouldBe(
-            "-nostdin -hide_banner -nostats -loglevel error -fflags +genpts+discardcorrupt+igndts -f concat -safe 0 -protocol_whitelist file,http,tcp,https,tcp,tls -probesize 32 -readrate 1.0 -stream_loop -1 -i http://localhost:8080/ffmpeg/concat/1 -muxdelay 0 -muxpreload 0 -movflags +faststart -flags cgop -sc_threshold 0 -c copy -map_metadata -1 -metadata service_provider=\"ErsatzTV\" -metadata service_name=\"Some Channel\" -f mpegts -mpegts_flags +initial_discontinuity pipe:1");
+            "-nostdin -hide_banner -nostats -loglevel error -fflags +genpts+discardcorrupt+igndts -f concat -safe 0 -protocol_whitelist file,http,tcp,https,tcp,tls -probesize 32 -readrate 1.0 -stream_loop -1 -i http://localhost:8080/internal/ffmpeg/concat/1 -muxdelay 0 -muxpreload 0 -movflags +faststart -flags cgop -sc_threshold 0 -c copy -map_metadata -1 -metadata service_provider=\"ErsatzTV\" -metadata service_name=\"Some Channel\" -f mpegts -mpegts_flags +initial_discontinuity pipe:1");
     }
 
     [Test]

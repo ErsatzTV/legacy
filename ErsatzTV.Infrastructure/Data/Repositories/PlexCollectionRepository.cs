@@ -32,8 +32,8 @@ public class PlexCollectionRepository : IPlexCollectionRepository
 
         // remove all tags that reference this collection
         await dbContext.Connection.ExecuteAsync(
-            @"DELETE FROM Tag WHERE Name = @Name AND ExternalCollectionId = @Key",
-            new { collection.Name, collection.Key });
+            @"DELETE FROM Tag WHERE ExternalCollectionId = @Key AND ExternalTypeId = @TagTypeId",
+            new { collection.Key, TagTypeId = Tag.PlexCollectionTypeId });
 
         return await dbContext.SaveChangesAsync() > 0;
     }
@@ -50,8 +50,8 @@ public class PlexCollectionRepository : IPlexCollectionRepository
                 @"SELECT JM.Id FROM Tag T
               INNER JOIN MovieMetadata MM on T.MovieMetadataId = MM.Id
               INNER JOIN PlexMovie JM on JM.Id = MM.MovieId
-              WHERE T.ExternalCollectionId = @Key",
-                new { collection.Key }));
+              WHERE T.ExternalCollectionId = @Key AND T.ExternalTypeId = @TagTypeId",
+                new { collection.Key, TagTypeId = Tag.PlexCollectionTypeId }));
 
         // shows
         result.AddRange(
@@ -59,8 +59,8 @@ public class PlexCollectionRepository : IPlexCollectionRepository
                 @"SELECT JS.Id FROM Tag T
               INNER JOIN ShowMetadata SM on T.ShowMetadataId = SM.Id
               INNER JOIN PlexShow JS on JS.Id = SM.ShowId
-              WHERE T.ExternalCollectionId = @Key",
-                new { collection.Key }));
+              WHERE T.ExternalCollectionId = @Key AND T.ExternalTypeId = @TagTypeId",
+                new { collection.Key, TagTypeId = Tag.PlexCollectionTypeId }));
 
         // seasons
         result.AddRange(
@@ -68,8 +68,8 @@ public class PlexCollectionRepository : IPlexCollectionRepository
                 @"SELECT JS.Id FROM Tag T
               INNER JOIN SeasonMetadata SM on T.SeasonMetadataId = SM.Id
               INNER JOIN PlexSeason JS on JS.Id = SM.SeasonId
-              WHERE T.ExternalCollectionId = @Key",
-                new { collection.Key }));
+              WHERE T.ExternalCollectionId = @Key AND T.ExternalTypeId = @TagTypeId",
+                new { collection.Key, TagTypeId = Tag.PlexCollectionTypeId }));
 
         // episodes
         result.AddRange(
@@ -77,13 +77,13 @@ public class PlexCollectionRepository : IPlexCollectionRepository
                 @"SELECT JE.Id FROM Tag T
               INNER JOIN EpisodeMetadata EM on T.EpisodeMetadataId = EM.Id
               INNER JOIN PlexEpisode JE on JE.Id = EM.EpisodeId
-              WHERE T.ExternalCollectionId = @Key",
-                new { collection.Key }));
+              WHERE T.ExternalCollectionId = @Key AND T.ExternalTypeId = @TagTypeId",
+                new { collection.Key, TagTypeId = Tag.PlexCollectionTypeId }));
 
         // delete all tags
         await dbContext.Connection.ExecuteAsync(
-            @"DELETE FROM Tag WHERE Name = @Name AND ExternalCollectionId = @Key",
-            new { collection.Name, collection.Key });
+            @"DELETE FROM Tag WHERE ExternalCollectionId = @Key AND ExternalTypeId = @TagTypeId",
+            new { collection.Key, TagTypeId = Tag.PlexCollectionTypeId });
 
         return result;
     }
@@ -98,40 +98,40 @@ public class PlexCollectionRepository : IPlexCollectionRepository
                     @"SELECT Id FROM PlexMovie WHERE `Key` = @Key",
                     new { movie.Key });
                 await dbContext.Connection.ExecuteAsync(
-                    @"INSERT INTO Tag (Name, ExternalCollectionId, MovieMetadataId)
-                      SELECT @Name, @Key, Id FROM
+                    @"INSERT INTO Tag (Name, ExternalCollectionId, ExternalTypeId, MovieMetadataId)
+                      SELECT @Name, @Key, @TagTypeId, Id FROM
                       (SELECT Id FROM MovieMetadata WHERE MovieId = @MovieId) AS A",
-                    new { collection.Name, collection.Key, MovieId = movieId });
+                    new { collection.Name, collection.Key, TagTypeId = Tag.PlexCollectionTypeId, MovieId = movieId });
                 return movieId;
             case PlexShow show:
                 int showId = await dbContext.Connection.ExecuteScalarAsync<int>(
                     @"SELECT Id FROM PlexShow WHERE `Key` = @Key",
                     new { show.Key });
                 await dbContext.Connection.ExecuteAsync(
-                    @"INSERT INTO Tag (Name, ExternalCollectionId, ShowMetadataId)
-                      SELECT @Name, @Key, Id FROM
+                    @"INSERT INTO Tag (Name, ExternalCollectionId, ExternalTypeId, ShowMetadataId)
+                      SELECT @Name, @Key, @TagTypeId, Id FROM
                       (SELECT Id FROM ShowMetadata WHERE ShowId = @ShowId) AS A",
-                    new { collection.Name, collection.Key, ShowId = showId });
+                    new { collection.Name, collection.Key, TagTypeId = Tag.PlexCollectionTypeId, ShowId = showId });
                 return showId;
             case PlexSeason season:
                 int seasonId = await dbContext.Connection.ExecuteScalarAsync<int>(
                     @"SELECT Id FROM PlexSeason WHERE `Key` = @Key",
                     new { season.Key });
                 await dbContext.Connection.ExecuteAsync(
-                    @"INSERT INTO Tag (Name, ExternalCollectionId, SeasonMetadataId)
-                      SELECT @Name, @Key, Id FROM
+                    @"INSERT INTO Tag (Name, ExternalCollectionId, ExternalTypeId, SeasonMetadataId)
+                      SELECT @Name, @Key, @TagTypeId, Id FROM
                       (SELECT Id FROM SeasonMetadata WHERE SeasonId = @SeasonId) AS A",
-                    new { collection.Name, collection.Key, SeasonId = seasonId });
+                    new { collection.Name, collection.Key, TagTypeId = Tag.PlexCollectionTypeId, SeasonId = seasonId });
                 return seasonId;
             case PlexEpisode episode:
                 int episodeId = await dbContext.Connection.ExecuteScalarAsync<int>(
                     @"SELECT Id FROM PlexEpisode WHERE `Key` = @Key",
                     new { episode.Key });
                 await dbContext.Connection.ExecuteAsync(
-                    @"INSERT INTO Tag (Name, ExternalCollectionId, EpisodeMetadataId)
-                      SELECT @Name, @Key, Id FROM
+                    @"INSERT INTO Tag (Name, ExternalCollectionId, ExternalTypeId, EpisodeMetadataId)
+                      SELECT @Name, @Key, @TagTypeId, Id FROM
                       (SELECT Id FROM EpisodeMetadata WHERE EpisodeId = @EpisodeId) AS A",
-                    new { collection.Name, collection.Key, EpisodeId = episodeId });
+                    new { collection.Name, collection.Key, TagTypeId = Tag.PlexCollectionTypeId, EpisodeId = episodeId });
                 return episodeId;
             default:
                 return 0;

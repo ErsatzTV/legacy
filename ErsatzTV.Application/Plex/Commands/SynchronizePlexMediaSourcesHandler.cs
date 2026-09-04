@@ -1,5 +1,4 @@
-﻿using System.Globalization;
-using System.Threading.Channels;
+﻿using System.Threading.Channels;
 using ErsatzTV.Core;
 using ErsatzTV.Core.Domain;
 using ErsatzTV.Core.Interfaces.Locking;
@@ -43,11 +42,45 @@ public class SynchronizePlexMediaSourcesHandler : PlexBaseConnectionHandler,
         _logger = logger;
     }
 
-    public Task<Either<BaseError, List<PlexMediaSource>>> Handle(
+    public async Task<Either<BaseError, List<PlexMediaSource>>> Handle(
         SynchronizePlexMediaSources request,
-        CancellationToken cancellationToken) => _plexTvApiClient.GetServers().BindAsync(SynchronizeAllServers);
+        CancellationToken cancellationToken)
+    {
+        // without credentials plex.tv is never asked, and the empty result would otherwise read as
+        // "this account has no servers" and flag every media source as missing
+        List<PlexUserAuthToken> userAuthTokens = await _plexSecretStore.GetUserAuthTokens();
+        if (userAuthTokens.Count == 0)
+        {
+            _entityLocker.UnlockPlex();
+            return new List<PlexMediaSource>();
+        }
+
+        Either<BaseError, List<PlexMediaSource>> maybeServers = await _plexTvApiClient.GetServers();
+
+        foreach (BaseError error in maybeServers.LeftToSeq())
+        {
+            // SynchronizeAllServers releases the plex lock, and it does not run for this path
+            _entityLocker.UnlockPlex();
+            return error;
+        }
+
+        return await maybeServers.BindAsync(SynchronizeAllServers);
+    }
 
     private async Task<Either<BaseError, List<PlexMediaSource>>> SynchronizeAllServers(
+        List<PlexMediaSource> servers)
+    {
+        try
+        {
+            return await SynchronizeAllServersInner(servers);
+        }
+        finally
+        {
+            _entityLocker.UnlockPlex();
+        }
+    }
+
+    private async Task<Either<BaseError, List<PlexMediaSource>>> SynchronizeAllServersInner(
         List<PlexMediaSource> servers)
     {
         List<PlexMediaSource> allExisting = await _mediaSourceRepository.GetAllPlex();
@@ -56,22 +89,30 @@ public class SynchronizePlexMediaSourcesHandler : PlexBaseConnectionHandler,
             await SynchronizeServer(allExisting, server);
         }
 
-        // delete removed servers
-        foreach (PlexMediaSource removed in allExisting.Filter(s =>
+        // a server missing from plex.tv may only be unclaimed (signing out all devices does this),
+        // and deleting it would take its libraries and all of its media with it; mark it instead and
+        // let the user remove it explicitly once they know it is really gone
+        DateTime now = DateTime.UtcNow;
+        foreach (PlexMediaSource missing in allExisting.Filter(s =>
                      servers.All(pms => pms.ClientIdentifier != s.ClientIdentifier)))
         {
-            _logger.LogWarning(
-                "Deleting removed Plex server {ServerName}!",
-                removed.Id.ToString(CultureInfo.InvariantCulture));
-            await _mediaSourceRepository.DeletePlex(removed);
+            if (missing.MissingSince is null)
+            {
+                _logger.LogWarning(
+                    "Plex server {ServerName} is no longer listed at plex.tv; it will be skipped until it returns, or until it is removed",
+                    missing.ServerName);
+
+                await _mediaSourceRepository.SetPlexMissingSince(missing.Id, now);
+            }
         }
 
         foreach (PlexMediaSource mediaSource in await _mediaSourceRepository.GetAllPlex())
         {
-            await _channel.WriteAsync(new SynchronizePlexLibraries(mediaSource.Id));
+            if (mediaSource.MissingSince is null)
+            {
+                await _channel.WriteAsync(new SynchronizePlexLibraries(mediaSource.Id));
+            }
         }
-
-        _entityLocker.UnlockPlex();
 
         return allExisting;
     }
@@ -104,6 +145,14 @@ public class SynchronizePlexMediaSourcesHandler : PlexBaseConnectionHandler,
             var toRemove = existing.Connections
                 .Filter(connection => server.Connections.All(c => c.Uri != connection.Uri)).ToList();
             await _mediaSourceRepository.Update(existing, toAdd, toRemove);
+
+            // Update can fail silently, so clear this with its own write rather than relying on it
+            if (existing.MissingSince is not null)
+            {
+                _logger.LogInformation("Plex server {ServerName} is listed at plex.tv again", server.ServerName);
+                await _mediaSourceRepository.SetPlexMissingSince(existing.Id, null);
+            }
+
             Option<PlexServerAuthToken> maybeToken = await _plexSecretStore.GetServerAuthToken(server.ClientIdentifier);
             if (maybeToken.IsNone)
             {

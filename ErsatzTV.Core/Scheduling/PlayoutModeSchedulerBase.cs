@@ -177,6 +177,11 @@ public abstract class PlayoutModeSchedulerBase<T>(ILogger logger) : IPlayoutMode
                 TimeSpan itemDuration = mediaItem.GetDurationForPlayout();
                 TimeSpan inPoint = InPointForMediaItem(mediaItem);
 
+                if (itemDuration <= TimeSpan.Zero)
+                {
+                    break;
+                }
+
                 if (nextState.CurrentTime + itemDuration > nextItemStart)
                 {
                     warnings.TailFillerTooLong++;
@@ -233,6 +238,12 @@ public abstract class PlayoutModeSchedulerBase<T>(ILogger logger) : IPlayoutMode
                 MediaItem mediaItem = enumerator.Current.ValueUnsafe();
 
                 TimeSpan itemDuration = mediaItem.GetDurationForPlayout();
+
+                if (itemDuration <= TimeSpan.Zero)
+                {
+                    break;
+                }
+
                 TimeSpan gap = nextItemStart - nextState.CurrentTime;
                 TimeSpan duration = itemDuration < gap ? itemDuration : gap;
                 TimeSpan inPoint = InPointForMediaItem(mediaItem);
@@ -911,6 +922,12 @@ public abstract class PlayoutModeSchedulerBase<T>(ILogger logger) : IPlayoutMode
             {
                 MediaItem mediaItem = enumerator.Current.ValueUnsafe();
                 TimeSpan itemDuration = mediaItem.GetDurationForPlayout();
+
+                if (itemDuration <= TimeSpan.Zero)
+                {
+                    break;
+                }
+
                 TimeSpan currentDuration = itemDuration < remainingToFill ? itemDuration : remainingToFill;
                 TimeSpan inPoint = InPointForMediaItem(mediaItem);
 

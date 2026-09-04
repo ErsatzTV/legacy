@@ -1,4 +1,4 @@
-﻿@page "/media/sources/plex"
+@page "/media/sources/plex"
 @using ErsatzTV.Application.Plex
 @using ErsatzTV.Core.Interfaces.Plex
 @implements IDisposable
@@ -22,26 +22,25 @@
                        Class="ml-8">
                 Sign out of plex
             </MudButton>
+
+            <MudTooltip Text="Sign in to Plex again to get a new token for ErsatzTV; media sources and synchronized content are kept. Remove the old ErsatzTV entry from Authorized Devices at plex.tv to revoke the old token.">
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Secondary"
+                           OnClick="@(_ => AddPlexMediaSource(forceNewCredentials: true))"
+                           Disabled="@Locker.IsPlexLocked()"
+                           Class="ml-4">
+                    Re-authenticate with Plex
+                </MudButton>
+            </MudTooltip>
         }
         else
         {
             <MudButton Variant="Variant.Filled"
                        Color="Color.Primary"
-                       OnClick="@(_ => AddPlexMediaSource())"
+                       OnClick="@(_ => AddPlexMediaSource(forceNewCredentials: false))"
                        Disabled="@Locker.IsPlexLocked()"
                        Class="ml-8">
                 Sign in to plex
-            </MudButton>
-        }
-
-        @if (_mediaSources.Any() && !_isAuthorized)
-        {
-            <MudButton Variant="Variant.Filled"
-                       Color="Color.Secondary"
-                       OnClick="@(_ => AddPlexMediaSource())"
-                       Disabled="@Locker.IsPlexLocked()"
-                       Class="ml-4">
-                Fix Plex Credentials
             </MudButton>
         }
     </MudPaper>
@@ -49,12 +48,28 @@
         <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="pt-8">
             <MudText Typo="Typo.h5" Class="mb-2">Plex Media Sources</MudText>
             <MudDivider Class="mb-6"/>
+            @if (_mediaSources.Any() && !_isSignedIn)
+            {
+                <MudAlert Severity="Severity.Error" Class="mb-6">
+                    ErsatzTV is not signed in to Plex, so Plex libraries cannot be scanned and Plex content cannot
+                    be played. Use <b>Re-authenticate with Plex</b> to sign in again; media sources and
+                    synchronized content are kept.
+                </MudAlert>
+            }
+            else if (_mediaSources.Any(ms => ms.MissingSince is not null))
+            {
+                <MudAlert Severity="Severity.Warning" Class="mb-6">
+                    One or more servers are no longer listed at plex.tv. This is expected after signing out of all
+                    Plex devices; re-claim the server at app.plex.tv and it will be picked up automatically.
+                    Synchronized content is kept until you remove the server.
+                </MudAlert>
+            }
             <MudTable T="PlexMediaSourceViewModel" Hover="true" Dense="true" Items="_mediaSources">
                 <ColGroup>
                     <MudHidden Breakpoint="Breakpoint.Xs">
                         <col/>
                         <col/>
-                        <col style="width: 120px;"/>
+                        <col style="width: 160px;"/>
                     </MudHidden>
                 </ColGroup>
                 <HeaderContent>
@@ -63,13 +78,23 @@
                     <MudTh/>
                 </HeaderContent>
                 <RowTemplate>
-                    <MudTd>@context.Name</MudTd>
+                    <MudTd>
+                        <div style="align-items: center; display: flex;">
+                            @if (context.MissingSince is not null)
+                            {
+                                <MudTooltip Text="Not listed at plex.tv; re-claim this server at app.plex.tv, or remove it">
+                                    <MudIcon Icon="@Icons.Material.Filled.Warning" Color="Color.Warning" Class="mr-2"/>
+                                </MudTooltip>
+                            }
+                            @context.Name
+                        </div>
+                    </MudTd>
                     <MudTd Style="overflow-wrap: anywhere;">@context.Address</MudTd>
                     <MudTd>
                         <div style="align-items: center; display: flex;">
                             <MudTooltip Text="Refresh Libraries">
                                 <MudIconButton Icon="@Icons.Material.Filled.Refresh"
-                                               Disabled="@(Locker.IsPlexLocked())"
+                                               Disabled="@(Locker.IsPlexLocked() || context.MissingSince is not null)"
                                                OnClick="@(_ => RefreshLibraries(context.Id))">
                                 </MudIconButton>
                             </MudTooltip>
@@ -83,6 +108,15 @@
                                                Href="@($"media/sources/plex/{context.Id}/paths")">
                                 </MudIconButton>
                             </MudTooltip>
+                            @if (context.MissingSince is not null)
+                            {
+                                <MudTooltip Text="Remove Server">
+                                    <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                                   Disabled="@Locker.IsPlexLocked()"
+                                                   OnClick="@(_ => RemoveMediaSource(context))">
+                                    </MudIconButton>
+                                </MudTooltip>
+                            }
                         </div>
                     </MudTd>
                 </RowTemplate>
@@ -94,7 +128,7 @@
 @code {
     private List<PlexMediaSourceViewModel> _mediaSources = new();
 
-    private bool _isAuthorized;
+    private bool _isSignedIn;
 
     protected override async Task OnParametersSetAsync() => await LoadMediaSources();
 
@@ -103,7 +137,7 @@
 
     private async Task LoadMediaSources()
     {
-        _isAuthorized = await PlexSecretStore.GetUserAuthTokens().Map(list => Optional(list).Flatten().Any());
+        _isSignedIn = await PlexSecretStore.GetUserAuthTokens().Map(list => Optional(list).Flatten().Any());
         _mediaSources = await Mediator.Send(new GetAllPlexMediaSources());
     }
 
@@ -122,11 +156,33 @@
         }
     }
 
-    private async Task AddPlexMediaSource()
+    private async Task RemoveMediaSource(PlexMediaSourceViewModel mediaSource)
+    {
+        var parameters = new DialogParameters { { "Name", mediaSource.Name } };
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small };
+        IDialogReference dialog = await Dialog.ShowAsync<RemovePlexMediaSourceDialog>(
+            "Remove Plex Server",
+            parameters,
+            options);
+        DialogResult result = await dialog.Result;
+        if (result is { Canceled: false })
+        {
+            Either<BaseError, Unit> deleteResult = await Mediator.Send(new DeletePlexMediaSource(mediaSource.Id));
+            foreach (BaseError error in deleteResult.LeftToSeq())
+            {
+                Snackbar.Add(error.Value, Severity.Error);
+                Logger.LogError("Unexpected error removing plex media source: {Error}", error.Value);
+            }
+
+            await LoadMediaSources();
+        }
+    }
+
+    private async Task AddPlexMediaSource(bool forceNewCredentials)
     {
         if (Locker.LockPlex())
         {
-            Either<BaseError, string> maybeUrl = await Mediator.Send(new StartPlexPinFlow());
+            Either<BaseError, string> maybeUrl = await Mediator.Send(new StartPlexPinFlow(forceNewCredentials));
             await maybeUrl.Match(
                 async url =>
                 {

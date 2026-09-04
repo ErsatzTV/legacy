@@ -19,6 +19,10 @@ public class MultiDayBuildTests : PlayoutBuilderTestBase
     private const int DaysToBuild = 2;
     private const int WeekOfDaysToBuild = 7;
 
+    [SetUp]
+    public void SetUpMultiDayCancellationToken() =>
+        CancellationToken = new CancellationTokenSource(TimeSpan.FromSeconds(30)).Token;
+
     [Test]
     public async Task Continue_Should_Keep_A_Checkpoint_For_The_Current_Day()
     {

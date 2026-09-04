@@ -109,8 +109,8 @@ public class RemoteStreamRepository(
         await using TvContext dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
         return await dbContext.Connection.ExecuteAsync(
             new CommandDefinition(
-                "INSERT INTO Tag (Name, RemoteStreamMetadataId, ExternalCollectionId) VALUES (@Name, @MetadataId, @ExternalCollectionId)",
-                parameters: new { tag.Name, MetadataId = metadata.Id, tag.ExternalCollectionId },
+                "INSERT INTO Tag (Name, RemoteStreamMetadataId, ExternalCollectionId, ExternalTypeId) VALUES (@Name, @MetadataId, @ExternalCollectionId, @ExternalTypeId)",
+                parameters: new { tag.Name, MetadataId = metadata.Id, tag.ExternalCollectionId, tag.ExternalTypeId },
                 cancellationToken: cancellationToken)).Map(result => result > 0);
     }
 
