@@ -22,6 +22,8 @@ namespace ErsatzTV.Application.Streaming;
 
 public class StartFFmpegSessionHandler : IRequestHandler<StartFFmpegSession, Either<BaseError, string>>
 {
+    private static readonly TimeSpan StartDeadline = TimeSpan.FromSeconds(30);
+
     private readonly IFileSystem _fileSystem;
     private readonly IConfigElementRepository _configElementRepository;
     private readonly IFFmpegSegmenterService _ffmpegSegmenterService;
@@ -66,16 +68,17 @@ public class StartFFmpegSessionHandler : IRequestHandler<StartFFmpegSession, Eit
         _workerChannel = workerChannel;
     }
 
-    public Task<Either<BaseError, string>> Handle(StartFFmpegSession request, CancellationToken cancellationToken) =>
-        Validate(request)
-            .MapT(_ => StartProcess(request, cancellationToken))
-            // this weirdness is needed to maintain the error type (.ToEitherAsync() just gives BaseError)
-#pragma warning disable VSTHRD103
-            .Bind(v => v.ToEither().MapLeft(seq => seq.Head()).MapAsync<BaseError, Task<string>, string>(identity));
-#pragma warning restore VSTHRD103
-
-    private async Task<string> StartProcess(StartFFmpegSession request, CancellationToken cancellationToken)
+    public async Task<Either<BaseError, string>> Handle(StartFFmpegSession request, CancellationToken cancellationToken)
     {
+        using IDisposable releaser =
+            await _ffmpegSegmenterService.LockForStart(request.ChannelNumber, cancellationToken);
+
+        if (_ffmpegSegmenterService.TryGetWorker(request.ChannelNumber, out IHlsSessionWorker existing))
+        {
+            existing.Touch(Option<string>.None);
+            return new ChannelSessionAlreadyActive(await GetMultiVariantPlaylist(request));
+        }
+
         Option<TimeSpan> idleTimeout = await _configElementRepository
             .GetValue<int>(ConfigElementKey.FFmpegSegmenterTimeout, cancellationToken)
             .Map(maybeTimeout => maybeTimeout.Match(i => TimeSpan.FromSeconds(i), () => TimeSpan.FromMinutes(1)));
@@ -83,6 +86,10 @@ public class StartFFmpegSessionHandler : IRequestHandler<StartFFmpegSession, Eit
         Option<FrameRate> targetFramerate = await _mediator.Send(
             new GetChannelFramerate(request.ChannelNumber),
             cancellationToken);
+
+        int initialSegmentCount = await _configElementRepository
+            .GetValue<int>(ConfigElementKey.FFmpegInitialSegmentCount, cancellationToken)
+            .Map(maybeCount => maybeCount.Match(identity, () => 1));
 
         // disable idle timeout when configured to keep running
         Option<ChannelViewModel> channel =
@@ -94,30 +101,35 @@ public class StartFFmpegSessionHandler : IRequestHandler<StartFFmpegSession, Eit
 
         await _mediator.Send(new RefreshGraphicsElements(), cancellationToken);
 
-        HlsSessionWorker worker = GetSessionWorker(request, targetFramerate);
+        PrepareTranscodeFolder(request.ChannelNumber);
 
-        _ffmpegSegmenterService.AddOrUpdateWorker(request.ChannelNumber, worker);
+        HlsSessionWorker worker = GetSessionWorker(request, targetFramerate);
+        if (!_ffmpegSegmenterService.TryAddWorker(request.ChannelNumber, worker))
+        {
+            return new ChannelSessionAlreadyActive(await GetMultiVariantPlaylist(request));
+        }
 
         // fire and forget worker
-        _ = worker.Run(request.ChannelNumber, idleTimeout, _hostApplicationLifetime.ApplicationStopping)
-            .ContinueWith(
-                _ =>
-                {
-                    _ffmpegSegmenterService.RemoveWorker(request.ChannelNumber, out IHlsSessionWorker inactiveWorker);
+        Task runTask = worker.Run(request.ChannelNumber, idleTimeout, _hostApplicationLifetime.ApplicationStopping);
+        _ = runTask.ContinueWith(
+            _ =>
+            {
+                _ffmpegSegmenterService.RemoveWorker(request.ChannelNumber, worker);
 
-                    inactiveWorker?.Dispose();
+                ((IDisposable)worker).Dispose();
 
-                    _workerChannel.TryWrite(new ReleaseMemory(false));
-                },
-                TaskScheduler.Default);
+                _workerChannel.TryWrite(new ReleaseMemory(false));
+            },
+            TaskScheduler.Default);
 
-        int initialSegmentCount = await _configElementRepository
-            .GetValue<int>(ConfigElementKey.FFmpegInitialSegmentCount, cancellationToken)
-            .Map(maybeCount => maybeCount.Match(identity, () => 1));
-
-        await worker.WaitForPlaylistSegments(initialSegmentCount, cancellationToken);
-
-        return await GetMultiVariantPlaylist(request);
+        Either<BaseError, Unit> ready = await SessionStartWait.ForReady(
+            request.ChannelNumber,
+            worker,
+            runTask,
+            initialSegmentCount,
+            StartDeadline,
+            cancellationToken);
+        return await ready.MapAsync(async _ => await GetMultiVariantPlaylist(request));
     }
 
     private HlsSessionWorker GetSessionWorker(StartFFmpegSession request, Option<FrameRate> targetFramerate) =>
@@ -136,36 +148,13 @@ public class StartFFmpegSessionHandler : IRequestHandler<StartFFmpegSession, Eit
                 targetFramerate)
         };
 
-    private Task<Validation<BaseError, Unit>> Validate(StartFFmpegSession request) =>
-        SessionMustBeInactive(request)
-            .BindT(_ => FolderMustBeEmpty(request));
-
-    private async Task<Validation<BaseError, Unit>> SessionMustBeInactive(StartFFmpegSession request)
+    private void PrepareTranscodeFolder(string channelNumber)
     {
-        var result = Optional(_ffmpegSegmenterService.TryAddWorker(request.ChannelNumber, null))
-            .Where(success => success)
-            .Map(_ => Unit.Default)
-            .ToValidation<BaseError>(new ChannelSessionAlreadyActive(await GetMultiVariantPlaylist(request)));
-
-        if (result.IsFail && _ffmpegSegmenterService.TryGetWorker(
-                request.ChannelNumber,
-                out IHlsSessionWorker worker))
-        {
-            worker?.Touch(Option<string>.None);
-        }
-
-        return result;
-    }
-
-    private Task<Validation<BaseError, Unit>> FolderMustBeEmpty(StartFFmpegSession request)
-    {
-        string folder = Path.Combine(FileSystemLayout.TranscodeFolder, request.ChannelNumber);
+        string folder = Path.Combine(FileSystemLayout.TranscodeFolder, channelNumber);
         _logger.LogDebug("Preparing transcode folder {Folder}", folder);
 
         _localFileSystem.EnsureFolderExists(folder);
         _localFileSystem.EmptyFolder(folder);
-
-        return Task.FromResult<Validation<BaseError, Unit>>(Unit.Default);
     }
 
     private async Task<string> GetMultiVariantPlaylist(StartFFmpegSession request)

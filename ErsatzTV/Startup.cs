@@ -633,6 +633,24 @@ public class Startup
                 "HTTP {RequestMethod} {RequestPath} responded {StatusCode} in {Elapsed:0.00} ms from {UserAgent} at {RemoteIP}";
         });
 
+        // must be inside the request logging middleware so an aborted request is not logged as an error
+        app.Use(async (context, next) =>
+        {
+            try
+            {
+                await next(context);
+            }
+            catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
+            {
+                // the client is gone, so nothing can be written to the connection; 499 only
+                // keeps the request log honest about why the request ended
+                if (!context.Response.HasStarted)
+                {
+                    context.Response.StatusCode = 499;
+                }
+            }
+        });
+
         app.UseRequestLocalization(options =>
         {
             CultureInfo[] cinfo = CultureInfo.GetCultures(CultureTypes.AllCultures & ~CultureTypes.NeutralCultures);

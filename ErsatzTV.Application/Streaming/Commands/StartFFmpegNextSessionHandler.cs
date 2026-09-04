@@ -16,7 +16,6 @@ using ErsatzTV.Core.Next.Config;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Subtitle = ErsatzTV.Core.Next.Config.Subtitle;
 
 namespace ErsatzTV.Application.Streaming;
 
@@ -34,31 +33,64 @@ public class StartFFmpegNextSessionHandler(
     ILogger<NextSessionWorker> sessionWorkerLogger)
     : NextChannelHandlerBase(fileSystem), IRequestHandler<StartFFmpegNextSession, Either<BaseError, string>>
 {
+    private static readonly TimeSpan StartDeadline = TimeSpan.FromSeconds(30);
+
     private readonly IFileSystem _fileSystem = fileSystem;
 
-    public Task<Either<BaseError, string>> Handle(
+    public async Task<Either<BaseError, string>> Handle(
         StartFFmpegNextSession request,
-        CancellationToken cancellationToken) =>
-        Validate(request, cancellationToken)
-            .MapT(validationResult => StartProcess(request, validationResult, cancellationToken))
-            // this weirdness is needed to maintain the error type (.ToEitherAsync() just gives BaseError)
-#pragma warning disable VSTHRD103
-            .Bind(v => v.ToEither().MapLeft(seq => seq.Head()).MapAsync<BaseError, Task<string>, string>(identity));
-#pragma warning restore VSTHRD103
-
-    private async Task<string> StartProcess(
-        StartFFmpegNextSession request,
-        ValidationResult validationResult,
         CancellationToken cancellationToken)
     {
+        using IDisposable releaser =
+            await ffmpegSegmenterService.LockForStart(request.ChannelNumber, cancellationToken);
+
+        if (ffmpegSegmenterService.TryGetWorker(request.ChannelNumber, out IHlsSessionWorker existing))
+        {
+            existing.Touch(Option<string>.None);
+            return new ChannelSessionAlreadyActive(await GetMultiVariantPlaylist(request));
+        }
+
+        Validation<BaseError, string> maybeChannelBinary = await ChannelBinaryMustExist();
+        if (maybeChannelBinary.IsFail)
+        {
+            return maybeChannelBinary.FailToSeq().Head();
+        }
+
+        string channelBinary = maybeChannelBinary.SuccessToSeq().Head();
+
         Option<TimeSpan> idleTimeout = Option<TimeSpan>.None;
 
         // Option<FrameRate> targetFramerate = await mediator.Send(
         //     new GetChannelFramerate(request.ChannelNumber),
         //     cancellationToken);
 
+        int initialSegmentCount = await configElementRepository
+            .GetValue<int>(ConfigElementKey.FFmpegInitialSegmentCount, cancellationToken)
+            .Map(maybeCount => maybeCount.Match(identity, () => 1));
+
+        Option<ChannelViewModel> maybeChannel =
+            await mediator.Send(new GetChannelByNumber(request.ChannelNumber), cancellationToken);
+
+        if (maybeChannel.IsNone)
+        {
+            return BaseError.New($"Channel number {request.ChannelNumber} does not exist.");
+        }
+
+        ChannelViewModel channel = maybeChannel.Head();
+
+        Option<FFmpegProfileViewModel> maybeFFmpegProfile = await mediator.Send(
+            new GetFFmpegProfileById(channel.FFmpegProfileId),
+            cancellationToken);
+
+        if (maybeFFmpegProfile.IsNone)
+        {
+            return BaseError.New($"FFmpeg profile {channel.FFmpegProfileId} not exist");
+        }
+
+        FFmpegProfileViewModel ffmpegProfile = maybeFFmpegProfile.Head();
+
         // only load timeout when needed
-        if (validationResult.Channel.IdleBehavior is not ChannelIdleBehavior.KeepRunning)
+        if (channel.IdleBehavior is not ChannelIdleBehavior.KeepRunning)
         {
             idleTimeout = await configElementRepository
                 .GetValue<int>(ConfigElementKey.FFmpegSegmenterTimeout, cancellationToken)
@@ -67,111 +99,53 @@ public class StartFFmpegNextSessionHandler(
 
         await mediator.Send(new RefreshGraphicsElements(), cancellationToken);
 
-        ChannelConfig config = await channelConfigConverter.ToNext(
-            validationResult.Channel,
-            validationResult.FfmpegProfile,
-            cancellationToken);
+        PrepareTranscodeFolder(request.ChannelNumber);
+
+        ChannelConfig config = await channelConfigConverter.ToNext(channel, ffmpegProfile, cancellationToken);
 
         NextSessionWorker worker = new NextSessionWorker(
-            validationResult.ChannelBinary,
+            channelBinary,
             config,
             _fileSystem,
             localFileSystem,
             serviceScopeFactory,
             sessionWorkerLogger);
 
-        ffmpegSegmenterService.AddOrUpdateWorker(request.ChannelNumber, worker);
+        if (!ffmpegSegmenterService.TryAddWorker(request.ChannelNumber, worker))
+        {
+            return new ChannelSessionAlreadyActive(await GetMultiVariantPlaylist(request));
+        }
 
         // fire and forget worker
-        _ = worker.Run(request.ChannelNumber, idleTimeout, hostApplicationLifetime.ApplicationStopping)
-            .ContinueWith(
+        Task runTask = worker.Run(request.ChannelNumber, idleTimeout, hostApplicationLifetime.ApplicationStopping);
+        _ = runTask.ContinueWith(
                 _ =>
                 {
-                    ffmpegSegmenterService.RemoveWorker(request.ChannelNumber, out IHlsSessionWorker inactiveWorker);
+                    ffmpegSegmenterService.RemoveWorker(request.ChannelNumber, worker);
 
-                    inactiveWorker?.Dispose();
+                    ((IDisposable)worker).Dispose();
 
                     workerChannel.TryWrite(new ReleaseMemory(false));
                 },
                 TaskScheduler.Default);
 
-        int initialSegmentCount = await configElementRepository
-            .GetValue<int>(ConfigElementKey.FFmpegInitialSegmentCount, cancellationToken)
-            .Map(maybeCount => maybeCount.Match(identity, () => 1));
-
-        await worker.WaitForPlaylistSegments(initialSegmentCount, cancellationToken);
-
-        return await GetMultiVariantPlaylist(request);
+        Either<BaseError, Unit> ready = await SessionStartWait.ForReady(
+            request.ChannelNumber,
+            worker,
+            runTask,
+            initialSegmentCount,
+            StartDeadline,
+            cancellationToken);
+        return await ready.MapAsync(async _ => await GetMultiVariantPlaylist(request));
     }
 
-    private Task<Validation<BaseError, ValidationResult>> Validate(
-        StartFFmpegNextSession request,
-        CancellationToken cancellationToken) =>
-        SessionMustBeInactive(request)
-            .BindT(_ => FolderMustBeEmpty(request))
-            .BindT(_ => ChannelBinaryMustExist())
-            .BindT(channelBinary => ChannelMustExist(request, new ValidationResult(channelBinary, null, null), cancellationToken))
-            .BindT(result => FFmpegProfileMustExist(result, cancellationToken));
-
-    private async Task<Validation<BaseError, Unit>> SessionMustBeInactive(StartFFmpegNextSession request)
+    private void PrepareTranscodeFolder(string channelNumber)
     {
-        var result = Optional(ffmpegSegmenterService.TryAddWorker(request.ChannelNumber, null))
-            .Where(success => success)
-            .Map(_ => Unit.Default)
-            .ToValidation<BaseError>(new ChannelSessionAlreadyActive(await GetMultiVariantPlaylist(request)));
-
-        if (result.IsFail && ffmpegSegmenterService.TryGetWorker(
-                request.ChannelNumber,
-                out IHlsSessionWorker worker))
-        {
-            worker?.Touch(Option<string>.None);
-        }
-
-        return result;
-    }
-
-    private Task<Validation<BaseError, Unit>> FolderMustBeEmpty(StartFFmpegNextSession request)
-    {
-        string folder = Path.Combine(FileSystemLayout.TranscodeFolder, request.ChannelNumber);
+        string folder = Path.Combine(FileSystemLayout.TranscodeFolder, channelNumber);
         logger.LogDebug("Preparing transcode folder {Folder}", folder);
 
         localFileSystem.EnsureFolderExists(folder);
         localFileSystem.EmptyFolder(folder);
-
-        return Task.FromResult<Validation<BaseError, Unit>>(Unit.Default);
-    }
-
-    private async Task<Validation<BaseError, ValidationResult>> ChannelMustExist(
-        StartFFmpegNextSession request,
-        ValidationResult result,
-        CancellationToken cancellationToken)
-    {
-        Option<ChannelViewModel> maybeChannel = await mediator.Send(
-            new GetChannelByNumber(request.ChannelNumber),
-            cancellationToken);
-
-        foreach (ChannelViewModel channel in maybeChannel)
-        {
-            return result with { Channel = channel };
-        }
-
-        return BaseError.New($"Channel number {request.ChannelNumber} does not exist");
-    }
-
-    private async Task<Validation<BaseError, ValidationResult>> FFmpegProfileMustExist(
-        ValidationResult result,
-        CancellationToken cancellationToken)
-    {
-        Option<FFmpegProfileViewModel> maybeFFmpegProfile = await mediator.Send(
-            new GetFFmpegProfileById(result.Channel.FFmpegProfileId),
-            cancellationToken);
-
-        foreach (FFmpegProfileViewModel ffmpegProfile in maybeFFmpegProfile)
-        {
-            return result with { FfmpegProfile = ffmpegProfile };
-        }
-
-        return BaseError.New($"FFmpeg profile {result.Channel.FFmpegProfileId} not exist");
     }
 
     private async Task<string> GetMultiVariantPlaylist(StartFFmpegNextSession request)
@@ -225,9 +199,4 @@ public class StartFFmpegNextSessionHandler(
 #EXT-X-STREAM-INF:BANDWIDTH={bitrate}{resolution}
 {variantPlaylist}";
     }
-
-    private sealed record ValidationResult(
-        string ChannelBinary,
-        ChannelViewModel Channel,
-        FFmpegProfileViewModel FfmpegProfile);
 }

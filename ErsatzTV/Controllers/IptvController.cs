@@ -159,7 +159,7 @@ public class IptvController : StreamingControllerBase
     {
         // _logger.LogDebug("Checking for session worker for channel {Channel}", channelNumber);
 
-        if (_ffmpegSegmenterService.TryGetWorker(channelNumber, out IHlsSessionWorker worker) && worker is not null)
+        if (_ffmpegSegmenterService.TryGetWorker(channelNumber, out IHlsSessionWorker worker))
         {
             // _logger.LogDebug("Trimming playlist for channel {Channel}", channelNumber);
 
@@ -185,10 +185,13 @@ public class IptvController : StreamingControllerBase
     [HttpGet("iptv/channel/{channelNumber}.m3u8")]
     public async Task<IActionResult> GetHttpLiveStreamingVideo(
         string channelNumber,
+        CancellationToken cancellationToken,
         [FromQuery]
         string mode = "mixed")
     {
-        Option<ChannelViewModel> maybeChannel = await _mediator.Send(new GetChannelByNumber(channelNumber));
+        Option<ChannelViewModel> maybeChannel = await _mediator.Send(
+            new GetChannelByNumber(channelNumber),
+            cancellationToken);
         if (maybeChannel.IsNone || !await maybeChannel.Map(c => c.IsEnabled).IfNoneAsync(false))
         {
             return NotFound();
@@ -239,7 +242,7 @@ public class IptvController : StreamingControllerBase
                         Request.Host.ToString(),
                         Request.PathBase,
                         AccessTokenQuery());
-                Either<BaseError, string> result = await _mediator.Send(request);
+                Either<BaseError, string> result = await _mediator.Send(request, cancellationToken);
                 return result.Match<IActionResult>(
                     multiVariantPlaylist =>
                     {
@@ -276,7 +279,8 @@ public class IptvController : StreamingControllerBase
                             Request.Host.ToString(),
                             channelNumber,
                             mode,
-                            Request.Query["access_token"]))
+                            Request.Query["access_token"]),
+                        cancellationToken)
                     .Map(r => r.Match<IActionResult>(
                         playlist => Content(playlist, "application/vnd.apple.mpegurl"),
                         error => BadRequest(error.Value)));
