@@ -24,6 +24,7 @@ public record FFmpegKnownFilter
     public static readonly FFmpegKnownFilter Scale = new("scale");
     public static readonly FFmpegKnownFilter Subtitles = new("subtitles");
     public static readonly FFmpegKnownFilter Tonemap = new("tonemap");
+    public static readonly FFmpegKnownFilter VppQsv = new("vpp_qsv");
     public static readonly FFmpegKnownFilter Yadif = new("yadif");
     public static readonly FFmpegKnownFilter ZScale = new("zscale");
 

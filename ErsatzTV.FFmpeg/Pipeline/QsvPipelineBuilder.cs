@@ -18,6 +18,7 @@ namespace ErsatzTV.FFmpeg.Pipeline;
 
 public class QsvPipelineBuilder : SoftwarePipelineBuilder
 {
+    private readonly IFFmpegCapabilities _ffmpegCapabilities;
     private readonly IHardwareCapabilities _hardwareCapabilities;
     private readonly ILogger _logger;
 
@@ -46,6 +47,7 @@ public class QsvPipelineBuilder : SoftwarePipelineBuilder
         fontsFolder,
         logger)
     {
+        _ffmpegCapabilities = ffmpegCapabilities;
         _hardwareCapabilities = hardwareCapabilities;
         _logger = logger;
     }
@@ -194,15 +196,26 @@ public class QsvPipelineBuilder : SoftwarePipelineBuilder
         // _logger.LogDebug("After deinterlace: {PixelFormat}", currentState.PixelFormat);
         currentState = SetScale(videoInputFile, videoStream, context, ffmpegState, desiredState, currentState);
         // _logger.LogDebug("After scale: {PixelFormat}", currentState.PixelFormat);
+        bool isHdrTonemap = videoStream.ColorParams.IsHdr;
         currentState = SetTonemap(videoInputFile, videoStream, ffmpegState, desiredState, currentState);
-        currentState = SetPad(videoInputFile, videoStream, desiredState, currentState);
+        currentState = SetPad(videoInputFile, videoStream, ffmpegState, desiredState, currentState, isHdrTonemap);
         // _logger.LogDebug("After pad: {PixelFormat}", currentState.PixelFormat);
         currentState = SetCrop(videoInputFile, desiredState, currentState);
         SetStillImageLoop(videoInputFile, videoStream, ffmpegState, desiredState, pipelineSteps);
 
-        // need to download for any sort of overlay (and always for setpts)
-        if (currentState.FrameDataLocation == FrameDataLocation.Hardware) //&&
-            //(context.HasSubtitleOverlay || context.HasWatermark || context.HasGraphicsEngine))
+        // setpts/fps operate on timestamps only and accept hardware frames, and the qsv encoder
+        // ingests hardware frames directly, so keep the frame on the GPU through both when nothing
+        // downstream needs it in system memory. any software-requiring step (overlays, subtitle
+        // burn-in, a colorspace conversion, or a software encoder) still forces the download.
+        bool canKeepHardwareFrames =
+            ffmpegState.EncoderHardwareAccelerationMode == HardwareAccelerationMode.Qsv
+            && !context.HasWatermark
+            && !context.HasSubtitleOverlay
+            && !context.HasSubtitleText
+            && !context.HasGraphicsEngine
+            && !WillDownloadForColorspace(videoInputFile, videoStream, desiredState);
+
+        if (currentState.FrameDataLocation == FrameDataLocation.Hardware && !canKeepHardwareFrames)
         {
             var hardwareDownload = new HardwareDownloadFilter(currentState);
             currentState = hardwareDownload.NextState(currentState);
@@ -311,7 +324,8 @@ public class QsvPipelineBuilder : SoftwarePipelineBuilder
 
             bool usesVppQsv =
                 videoInputFile.FilterSteps.Any(f =>
-                    f is QsvFormatFilter or ScaleQsvFilter or DeinterlaceQsvFilter or TonemapQsvFilter);
+                    f is QsvFormatFilter or ScaleQsvFilter or DeinterlaceQsvFilter or TonemapQsvFilter or PadQsvFilter
+                        or ScaleAndPadQsvFilter);
 
             // if we have no filters, check whether we need to convert pixel format
             // since qsv doesn't seem to like doing that at the encoder
@@ -554,7 +568,8 @@ public class QsvPipelineBuilder : SoftwarePipelineBuilder
                     }
 
                     // only scale if scaling or padding was used for main video stream
-                    if (videoInputFile.FilterSteps.Any(s => s is ScaleFilter or ScaleQsvFilter or PadFilter))
+                    if (videoInputFile.FilterSteps.Any(s =>
+                            s is ScaleFilter or ScaleQsvFilter or PadFilter or ScaleAndPadQsvFilter))
                     {
                         var scaleFilter = new ScaleImageFilter(desiredState.PaddedSize);
                         subtitle.FilterSteps.Add(scaleFilter);
@@ -598,20 +613,76 @@ public class QsvPipelineBuilder : SoftwarePipelineBuilder
         }
     }
 
-    private static FrameState SetPad(
+    private FrameState SetPad(
         VideoInputFile videoInputFile,
         VideoStream videoStream,
+        FFmpegState ffmpegState,
         FrameState desiredState,
-        FrameState currentState)
+        FrameState currentState,
+        bool isHdrTonemap)
     {
         if (desiredState.CroppedSize.IsNone && currentState.PaddedSize != desiredState.PaddedSize)
         {
-            var padStep = new PadFilter(currentState, desiredState.PaddedSize);
-            currentState = padStep.NextState(currentState);
-            videoInputFile.FilterSteps.Add(padStep);
+            if (desiredState.PadMode is FFmpegFilterMode.Software
+                || isHdrTonemap
+                || !_ffmpegCapabilities.HasFilterOption(FFmpegKnownFilter.VppQsv, "pad_w"))
+            {
+                var padStep = new PadFilter(currentState, desiredState.PaddedSize);
+                currentState = padStep.NextState(currentState);
+                videoInputFile.FilterSteps.Add(padStep);
+            }
+            else
+            {
+                // fold an existing hardware scale and this pad into a single vpp_qsv instance;
+                // two chained vpp_qsv instances drop the final frame at EOF
+                Option<ScaleQsvFilter> maybeScale = videoInputFile.FilterSteps.OfType<ScaleQsvFilter>().HeadOrNone();
+                if (maybeScale.IsSome)
+                {
+                    foreach (ScaleQsvFilter scaleStep in maybeScale)
+                    {
+                        videoInputFile.FilterSteps.Remove(scaleStep);
+
+                        var scalePadStep = new ScaleAndPadQsvFilter(
+                            scaleStep.CurrentState,
+                            scaleStep.ScaledSize,
+                            desiredState.PaddedSize,
+                            scaleStep.ExtraHardwareFrames,
+                            scaleStep.IsAnamorphicEdgeCase,
+                            scaleStep.SampleAspectRatio);
+
+                        // advance the live pipeline state (which carries the pixel format the
+                        // unfolded ScaleQsvFilter produced) so any later download keeps format=X
+                        currentState = scalePadStep.NextState(currentState);
+                        videoInputFile.FilterSteps.Add(scalePadStep);
+                    }
+                }
+                else
+                {
+                    var padStep = new PadQsvFilter(
+                        currentState,
+                        desiredState.PaddedSize,
+                        ffmpegState.QsvExtraHardwareFrames);
+                    currentState = padStep.NextState(currentState);
+                    videoInputFile.FilterSteps.Add(padStep);
+                }
+            }
         }
 
         return currentState;
+    }
+
+    private static bool WillDownloadForColorspace(
+        VideoInputFile videoInputFile,
+        VideoStream videoStream,
+        FrameState desiredState)
+    {
+        // mirrors the colorspace emission in SetPixelFormat: when it runs on a hardware frame it
+        // prepends its own hwdownload, so the frame would leave the GPU regardless
+        bool usesVppQsv = videoInputFile.FilterSteps.Any(f =>
+            f is QsvFormatFilter or ScaleQsvFilter or DeinterlaceQsvFilter or TonemapQsvFilter or PadQsvFilter
+                or ScaleAndPadQsvFilter);
+
+        return desiredState.ColorsAreBt709 && (!videoStream.ColorParams.IsBt709 || usesVppQsv);
     }
 
     private static FrameState SetScale(

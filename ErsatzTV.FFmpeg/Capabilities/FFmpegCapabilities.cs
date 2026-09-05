@@ -10,7 +10,8 @@ public class FFmpegCapabilities(
     IReadOnlySet<string> ffmpegFilters,
     IReadOnlySet<string> ffmpegEncoders,
     IReadOnlySet<string> ffmpegOptions,
-    IReadOnlySet<string> ffmpegDemuxFormats)
+    IReadOnlySet<string> ffmpegDemuxFormats,
+    IReadOnlyDictionary<string, IReadOnlySet<string>> ffmpegFilterOptions)
     : IFFmpegCapabilities
 {
     public string Version => ffmpegVersion;
@@ -58,6 +59,9 @@ public class FFmpegCapabilities(
     public bool HasEncoder(FFmpegKnownEncoder encoder) => ffmpegEncoders.Contains(encoder.Name);
 
     public bool HasFilter(FFmpegKnownFilter filter) => ffmpegFilters.Contains(filter.Name);
+
+    public bool HasFilterOption(FFmpegKnownFilter filter, string optionName) =>
+        ffmpegFilterOptions.TryGetValue(filter.Name, out IReadOnlySet<string>? options) && options.Contains(optionName);
 
     public bool HasOption(FFmpegKnownOption ffmpegOption) => ffmpegOptions.Contains(ffmpegOption.Name);
 
