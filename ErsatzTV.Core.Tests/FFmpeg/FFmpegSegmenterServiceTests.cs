@@ -88,6 +88,69 @@ public class FFmpegSegmenterServiceTests
         count.ShouldBe(2);
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task WaitForReady_Should_Wait_Again_After_Interrupted_Startup(bool cancelRequest)
+    {
+        var playlist = new TaskCompletionSource();
+        IHlsSessionWorker worker = Substitute.For<IHlsSessionWorker>();
+        worker.WaitForPlaylistSegments(Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .Returns(call => playlist.Task.WaitAsync(call.Arg<CancellationToken>()));
+        _service.TryAddWorker("1", worker);
+
+        using var cts = new CancellationTokenSource();
+        Task<Either<BaseError, Unit>> first = _service.WaitForReady(
+            "1", worker, 1,
+            cancelRequest ? TimeSpan.FromSeconds(5) : TimeSpan.FromMilliseconds(50), cts.Token);
+        if (cancelRequest)
+        {
+            await cts.CancelAsync();
+            await Should.ThrowAsync<OperationCanceledException>(() => first);
+        }
+        else
+        {
+            (await first.WaitAsync(TimeSpan.FromSeconds(5))).IsLeft.ShouldBeTrue();
+        }
+
+        _service.TryGetWorker("1", out IHlsSessionWorker existing).ShouldBeTrue();
+        Task<Either<BaseError, Unit>> retry = _service.WaitForReady(
+            "1", existing, 1, TimeSpan.FromSeconds(5), CancellationToken.None);
+        retry.IsCompleted.ShouldBeFalse();
+
+        playlist.SetResult();
+        (await retry.WaitAsync(TimeSpan.FromSeconds(5))).IsRight.ShouldBeTrue();
+
+        // Established sessions should not poll the playlist again on every tune-in.
+        worker.ClearReceivedCalls();
+        (await _service.WaitForReady("1", worker, 1, TimeSpan.FromSeconds(5), CancellationToken.None))
+            .IsRight.ShouldBeTrue();
+        await worker.DidNotReceive().WaitForPlaylistSegments(Arg.Any<int>(), Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task WaitForReady_Should_Fail_When_Worker_Is_Removed_And_Not_Reuse_Readiness()
+    {
+        var playlist = new TaskCompletionSource();
+        IHlsSessionWorker worker = Substitute.For<IHlsSessionWorker>();
+        worker.WaitForPlaylistSegments(Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .Returns(call => playlist.Task.WaitAsync(call.Arg<CancellationToken>()));
+        _service.TryAddWorker("1", worker);
+        Task<Either<BaseError, Unit>> waiting = _service.WaitForReady(
+            "1", worker, 1, TimeSpan.FromSeconds(5), CancellationToken.None);
+
+        _service.RemoveWorker("1", worker);
+        (await waiting.WaitAsync(TimeSpan.FromSeconds(5))).IsLeft.ShouldBeTrue();
+
+        IHlsSessionWorker replacement = Substitute.For<IHlsSessionWorker>();
+        replacement.WaitForPlaylistSegments(Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .Returns(Task.CompletedTask);
+        _service.TryAddWorker("1", replacement);
+        (await _service.WaitForReady("1", replacement, 1, TimeSpan.FromSeconds(5), CancellationToken.None))
+            .IsRight.ShouldBeTrue();
+        (await _service.WaitForReady("1", worker, 1, TimeSpan.FromSeconds(5), CancellationToken.None))
+            .IsLeft.ShouldBeTrue();
+    }
+
     [Test]
     public async Task LockForStart_Should_Block_A_Second_Start_On_The_Same_Channel()
     {

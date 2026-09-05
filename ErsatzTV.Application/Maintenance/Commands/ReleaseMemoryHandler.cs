@@ -27,7 +27,7 @@ public class ReleaseMemoryHandler : IRequestHandler<ReleaseMemory>
             return Task.CompletedTask;
         }
 
-        bool hasActiveWorkers = _ffmpegSegmenterService.Workers.Count >= 0 || FFmpegProcess.ProcessCount > 0;
+        bool hasActiveWorkers = _ffmpegSegmenterService.Workers.Count > 0 || FFmpegProcess.ProcessCount > 0;
         if (request.ForceAggressive || !hasActiveWorkers)
         {
             _logger.LogDebug("Starting aggressive garbage collection");

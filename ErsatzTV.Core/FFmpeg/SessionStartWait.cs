@@ -19,13 +19,19 @@ public static class SessionStartWait
 
         try
         {
-            Task first = await Task.WhenAny(waitTask, runTask);
-            if (first == runTask)
+            await Task.WhenAny(waitTask, runTask);
+            cancellationToken.ThrowIfCancellationRequested();
+            if (runTask.IsCompleted)
             {
-                return BaseError.New($"Session for channel {channelNumber} ended before the playlist was ready");
+                return new SessionEndedBeforeReady(channelNumber);
             }
 
             await waitTask;
+            timeout.Token.ThrowIfCancellationRequested();
+            if (runTask.IsCompleted)
+            {
+                return new SessionEndedBeforeReady(channelNumber);
+            }
 
             return Unit.Default;
         }

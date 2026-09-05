@@ -6,6 +6,12 @@ public interface IFFmpegSegmenterService
     event EventHandler OnWorkersChanged;
     Task<IDisposable> LockForStart(string channelNumber, CancellationToken cancellationToken);
     bool TryGetWorker(string channelNumber, out IHlsSessionWorker worker);
+    Task<Either<BaseError, Unit>> WaitForReady(
+        string channelNumber,
+        IHlsSessionWorker worker,
+        int initialSegmentCount,
+        TimeSpan startDeadline,
+        CancellationToken cancellationToken);
     bool TryAddWorker(string channelNumber, IHlsSessionWorker worker);
     void RemoveWorker(string channelNumber, IHlsSessionWorker worker);
     bool IsActive(string channelNumber);
