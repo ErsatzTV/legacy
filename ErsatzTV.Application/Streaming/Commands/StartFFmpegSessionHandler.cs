@@ -6,7 +6,6 @@ using ErsatzTV.Application.Graphics;
 using ErsatzTV.Application.Maintenance;
 using ErsatzTV.Core;
 using ErsatzTV.Core.Domain;
-using ErsatzTV.Core.Errors;
 using ErsatzTV.Core.FFmpeg;
 using ErsatzTV.Core.Interfaces.FFmpeg;
 using ErsatzTV.Core.Interfaces.Metadata;
@@ -70,15 +69,24 @@ public class StartFFmpegSessionHandler : IRequestHandler<StartFFmpegSession, Eit
 
     public async Task<Either<BaseError, string>> Handle(StartFFmpegSession request, CancellationToken cancellationToken)
     {
-        using IDisposable releaser =
-            await _ffmpegSegmenterService.LockForStart(request.ChannelNumber, cancellationToken);
+        int initialSegmentCount = await _configElementRepository
+            .GetValue<int>(ConfigElementKey.FFmpegInitialSegmentCount, cancellationToken)
+            .Map(maybeCount => maybeCount.Match(identity, () => 1));
 
-        if (_ffmpegSegmenterService.TryGetWorker(request.ChannelNumber, out IHlsSessionWorker existing))
-        {
-            existing.Touch(Option<string>.None);
-            return new ChannelSessionAlreadyActive(await GetMultiVariantPlaylist(request));
-        }
+        Either<BaseError, Unit> ready = await SessionStartCoordinator.Start(
+            _ffmpegSegmenterService,
+            request.ChannelNumber,
+            () => CreateWorker(request, cancellationToken),
+            initialSegmentCount,
+            StartDeadline,
+            cancellationToken);
+        return await ready.MapAsync(async _ => await GetMultiVariantPlaylist(request));
+    }
 
+    private async Task<Either<BaseError, IHlsSessionWorker>> CreateWorker(
+        StartFFmpegSession request,
+        CancellationToken cancellationToken)
+    {
         Option<TimeSpan> idleTimeout = await _configElementRepository
             .GetValue<int>(ConfigElementKey.FFmpegSegmenterTimeout, cancellationToken)
             .Map(maybeTimeout => maybeTimeout.Match(i => TimeSpan.FromSeconds(i), () => TimeSpan.FromMinutes(1)));
@@ -86,10 +94,6 @@ public class StartFFmpegSessionHandler : IRequestHandler<StartFFmpegSession, Eit
         Option<FrameRate> targetFramerate = await _mediator.Send(
             new GetChannelFramerate(request.ChannelNumber),
             cancellationToken);
-
-        int initialSegmentCount = await _configElementRepository
-            .GetValue<int>(ConfigElementKey.FFmpegInitialSegmentCount, cancellationToken)
-            .Map(maybeCount => maybeCount.Match(identity, () => 1));
 
         // disable idle timeout when configured to keep running
         Option<ChannelViewModel> channel =
@@ -106,7 +110,13 @@ public class StartFFmpegSessionHandler : IRequestHandler<StartFFmpegSession, Eit
         HlsSessionWorker worker = GetSessionWorker(request, targetFramerate);
         if (!_ffmpegSegmenterService.TryAddWorker(request.ChannelNumber, worker))
         {
-            return new ChannelSessionAlreadyActive(await GetMultiVariantPlaylist(request));
+            ((IDisposable)worker).Dispose();
+            if (_ffmpegSegmenterService.TryGetWorker(request.ChannelNumber, out IHlsSessionWorker existing))
+            {
+                return Right<BaseError, IHlsSessionWorker>(existing);
+            }
+
+            return new SessionEndedBeforeReady(request.ChannelNumber);
         }
 
         // fire and forget worker
@@ -122,14 +132,7 @@ public class StartFFmpegSessionHandler : IRequestHandler<StartFFmpegSession, Eit
             },
             TaskScheduler.Default);
 
-        Either<BaseError, Unit> ready = await SessionStartWait.ForReady(
-            request.ChannelNumber,
-            worker,
-            runTask,
-            initialSegmentCount,
-            StartDeadline,
-            cancellationToken);
-        return await ready.MapAsync(async _ => await GetMultiVariantPlaylist(request));
+        return Right<BaseError, IHlsSessionWorker>(worker);
     }
 
     private HlsSessionWorker GetSessionWorker(StartFFmpegSession request, Option<FrameRate> targetFramerate) =>

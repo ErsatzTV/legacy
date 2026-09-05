@@ -319,13 +319,12 @@ public class HlsSessionWorker : IHlsSessionWorker
 
             _logger.LogDebug("Playlist exists");
 
-            // start the segment-wait deadline only after the playlist file appears,
-            // so slow pipeline setup (e.g. h264 profile probing) doesn't consume the budget
-            DateTimeOffset finish = DateTimeOffset.Now.AddSeconds(8);
+            // The caller owns the deadline. Only report readiness once playable segments exist.
+            int requiredSegmentCount = Math.Max(1, initialSegmentCount);
 
             var segmentCount = 0;
             int lastSegmentCount = -1;
-            while (DateTimeOffset.Now < finish && segmentCount < initialSegmentCount)
+            while (segmentCount < requiredSegmentCount)
             {
                 if (segmentCount != lastSegmentCount)
                 {
