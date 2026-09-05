@@ -1451,7 +1451,10 @@ public class PlayoutBuilder : IPlayoutBuilder
                 goto default;
 
             default:
-                // TODO: handle this error case differently?
+                _logger.LogWarning(
+                    "Unsupported playback order {PlaybackOrder}; falling back to random",
+                    playbackOrder);
+
                 return new RandomizedMediaCollectionEnumerator(mediaItems, state);
         }
     }
