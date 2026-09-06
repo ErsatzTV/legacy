@@ -35,6 +35,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Fix seeking more than 24 hours into content
 - Fix local movie and television folder scanner to only set etag when all files process successfully
   - Previously, errors would be ignored so problematic files (e.g. malformed nfo files) would need to be touched for ETV to attempt reading them again
+- Fix library collisions caused by Emby returning specials within normal seasons
+- Fix Plex, Emby, Jellyfin episode updates when season has changed but episode is otherwise unchanged
+- Fix episode title being hidden behind fanart in ETV UI, caused by missing season artwork
 
 ## [26.8.1] - 2026-08-29
 ### Security

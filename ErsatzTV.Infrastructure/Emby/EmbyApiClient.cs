@@ -129,7 +129,10 @@ public class EmbyApiClient : IEmbyApiClient
             seasonId,
             startIndex: skip,
             limit: pageSize),
-        (maybeLibrary, item) => maybeLibrary.Map(lib => ProjectToEpisode(lib, item)).Flatten());
+        // ignore anything emby returns with the wrong season (i.e. specials)
+        (maybeLibrary, item) => item.SeasonId is not null && item.SeasonId != seasonId
+            ? Option<EmbyEpisode>.None
+            : maybeLibrary.Map(lib => ProjectToEpisode(lib, item)).Flatten());
 
     public IAsyncEnumerable<Tuple<EmbyCollection, int>> GetCollectionLibraryItems(string address, string apiKey)
     {

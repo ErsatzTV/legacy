@@ -204,7 +204,7 @@
 </MudContainer>
 @if (_movie is not null && _movie.Actors.Any())
 {
-    <MudContainer MaxWidth="MaxWidth.Large">
+    <MudContainer MaxWidth="MaxWidth.Large" Class="above-fanart">
         <MudText Class="mb-4">Actors</MudText>
         <MudStack Row="true" Wrap="Wrap.Wrap">
             @foreach (ActorCardViewModel actor in _movie.Actors)
