@@ -9,6 +9,7 @@ using ErsatzTV.Core.Interfaces.Images;
 using ErsatzTV.Core.Interfaces.Metadata;
 using ErsatzTV.Core.Interfaces.Repositories;
 using ErsatzTV.Core.Metadata;
+using ErsatzTV.Scanner.Core.Errors;
 using ErsatzTV.Scanner.Core.Interfaces;
 using ErsatzTV.Scanner.Core.Interfaces.FFmpeg;
 using ErsatzTV.Scanner.Core.Interfaces.Metadata;
@@ -293,14 +294,20 @@ public class TelevisionFolderScanner : LocalFolderScanner, ITelevisionFolderScan
                         return error;
                     }
 
-                    await _libraryRepository.SetEtag(libraryPath, knownFolder, seasonFolder, etag);
+                    // only set etag if no errors were encountered with the folder, and if reindex succeeds
+                    if (scanResult.IsRight)
+                    {
+                        if (await _scannerProxy.ReindexMediaItems([season.Id], cancellationToken))
+                        {
+                            await _libraryRepository.SetEtag(libraryPath, knownFolder, seasonFolder, etag);
+                        }
+                        else
+                        {
+                            _logger.LogWarning("Failed to reindex media items from scanner process");
+                        }
+                    }
 
                     season.Show = show;
-
-                    if (!await _scannerProxy.ReindexMediaItems([season.Id], cancellationToken))
-                    {
-                        _logger.LogWarning("Failed to reindex media items from scanner process");
-                    }
                 }
             }
         }
@@ -326,8 +333,15 @@ public class TelevisionFolderScanner : LocalFolderScanner, ITelevisionFolderScan
             .OrderBy(identity)
             .ToList();
 
+        var hasErrors = false;
+
         foreach (string file in allSeasonFiles)
         {
+            if (cancellationToken.IsCancellationRequested)
+            {
+                return new ScanCanceled();
+            }
+
             // TODO: figure out how to rebuild playlists
             Either<BaseError, Episode> maybeEpisode = await _televisionRepository
                 .GetOrAddEpisode(season, libraryPath, seasonFolder, file, cancellationToken)
@@ -344,6 +358,7 @@ public class TelevisionFolderScanner : LocalFolderScanner, ITelevisionFolderScan
             foreach (BaseError error in maybeEpisode.LeftToSeq())
             {
                 _logger.LogWarning("Error processing episode at {Path}: {Error}", file, error.Value);
+                hasErrors = true;
             }
 
             foreach (Episode episode in maybeEpisode.RightToSeq())
@@ -351,11 +366,17 @@ public class TelevisionFolderScanner : LocalFolderScanner, ITelevisionFolderScan
                 if (!await _scannerProxy.ReindexMediaItems([episode.Id], cancellationToken))
                 {
                     _logger.LogWarning("Failed to reindex media items from scanner process");
+                    hasErrors = true;
                 }
             }
         }
 
         // TODO: remove missing episodes?
+
+        if (hasErrors)
+        {
+            return new ErrorProcessingFolder();
+        }
 
         return Unit.Default;
     }

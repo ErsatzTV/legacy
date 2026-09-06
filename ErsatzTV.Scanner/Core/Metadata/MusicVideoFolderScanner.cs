@@ -387,6 +387,7 @@ public class MusicVideoFolderScanner : LocalFolderScanner, IMusicVideoFolderScan
                         if (!await _scannerProxy.ReindexMediaItems([result.Item.Id], cancellationToken))
                         {
                             _logger.LogWarning("Failed to reindex media items from scanner process");
+                            hasErrors = true;
                         }
                     }
                 }

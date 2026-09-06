@@ -211,6 +211,7 @@ public class ImageFolderScanner : LocalFolderScanner, IImageFolderScanner
                             if (!await _scannerProxy.ReindexMediaItems([result.Item.Id], cancellationToken))
                             {
                                 _logger.LogWarning("Failed to reindex media items from scanner process");
+                                hasErrors = true;
                             }
                         }
                     }
