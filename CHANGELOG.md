@@ -5,6 +5,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [26.9.0] - 2026-09-06
 ### Fixed
 - Fix text subtitle playback (regression from `v26.8.1`)
 - Next engine:
@@ -3425,7 +3426,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Initial release to facilitate testing outside of Docker.
 
 
-[Unreleased]: https://github.com/ErsatzTV/legacy/compare/v26.8.1...HEAD
+[Unreleased]: https://github.com/ErsatzTV/legacy/compare/v26.9.0...HEAD
+[26.9.0]: https://github.com/ErsatzTV/legacy/compare/v26.8.1...v26.9.0
 [26.8.1]: https://github.com/ErsatzTV/legacy/compare/v26.8.0...v26.8.1
 [26.8.0]: https://github.com/ErsatzTV/legacy/compare/v26.7.1...v26.8.0
 [26.7.1]: https://github.com/ErsatzTV/legacy/compare/v26.7.0...v26.7.1
