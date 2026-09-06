@@ -59,7 +59,12 @@ internal static class Mapper
                 .Map(m => m.Year?.ToString(CultureInfo.InvariantCulture) ?? string.Empty).IfNone(string.Empty),
             season.SeasonNumber == 0 ? "Specials" : $"Season {season.SeasonNumber}",
             season.SeasonMetadata.HeadOrNone().Map(m => GetPoster(m, maybeJellyfin, maybeEmby))
-                .IfNone(string.Empty),
+                .Filter(poster => !string.IsNullOrWhiteSpace(poster))
+                // media servers often have no artwork for a specials season
+                .IfNone(
+                    () => season.Show.ShowMetadata.HeadOrNone()
+                        .Map(m => GetPoster(m, maybeJellyfin, maybeEmby))
+                        .IfNone(string.Empty)),
             season.Show.ShowMetadata.HeadOrNone().Map(m => GetFanArt(m, maybeJellyfin, maybeEmby))
                 .IfNone(string.Empty));
 

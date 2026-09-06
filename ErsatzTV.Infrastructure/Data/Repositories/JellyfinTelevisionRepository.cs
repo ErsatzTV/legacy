@@ -165,12 +165,26 @@ public class JellyfinTelevisionRepository : IJellyfinTelevisionRepository
             Option<dynamic> maybeExistingState = await dbContext.JellyfinEpisodes
                 .TagWithCallSite()
                 .Where(s => s.ItemId == item.ItemId)
-                .Select(s => new { s.Id, s.Etag })
+                .Select(s => new { s.Id, s.SeasonId, s.Etag })
                 .SingleOrDefaultAsync(cancellationToken);
 
             foreach (dynamic existingState in maybeExistingState)
             {
                 int existingId = existingState.Id;
+
+                var isUpdated = false;
+
+                // season id can change without etag changing
+                if (item.SeasonId != 0 && existingState.SeasonId != item.SeasonId)
+                {
+                    await dbContext.JellyfinEpisodes
+                        .Where(je => je.Id == existingId)
+                        .ExecuteUpdateAsync(
+                            setters => setters.SetProperty(ee => ee.SeasonId, item.SeasonId),
+                            cancellationToken);
+
+                    isUpdated = true;
+                }
 
                 MediaItemScanResult<JellyfinEpisode> result;
                 if (existingState.Etag != item.Etag || deepScan)
@@ -212,7 +226,8 @@ public class JellyfinTelevisionRepository : IJellyfinTelevisionRepository
                         .AsSplitQuery()
                         .SingleAsync(s => s.Id == existingId, cancellationToken);
 
-                    result = new MediaItemScanResult<JellyfinEpisode>(existing) { IsAdded = false };
+                    result = new MediaItemScanResult<JellyfinEpisode>(existing)
+                        { IsAdded = false, IsUpdated = isUpdated };
                 }
 
                 return result;

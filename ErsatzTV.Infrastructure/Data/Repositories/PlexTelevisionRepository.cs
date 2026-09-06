@@ -355,6 +355,20 @@ public class PlexTelevisionRepository : IPlexTelevisionRepository
         foreach (PlexEpisode plexEpisode in maybeExisting)
         {
             var result = new MediaItemScanResult<PlexEpisode>(plexEpisode) { IsAdded = false };
+
+            // season id can change without etag changing
+            if (item.SeasonId != 0 && plexEpisode.SeasonId != item.SeasonId)
+            {
+                await dbContext.PlexEpisodes
+                    .Where(pe => pe.Id == plexEpisode.Id)
+                    .ExecuteUpdateAsync(
+                        setters => setters.SetProperty(ee => ee.SeasonId, item.SeasonId),
+                        cancellationToken);
+
+                result.Item.SeasonId = item.SeasonId;
+                result.IsUpdated = true;
+            }
+
             if (plexEpisode.Etag != item.Etag || deepScan)
             {
                 foreach (BaseError error in await UpdateEpisode(dbContext, plexEpisode, item, cancellationToken))

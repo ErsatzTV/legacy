@@ -179,6 +179,20 @@ public class EmbyTelevisionRepository(
         foreach (EmbyEpisode embyEpisode in maybeExisting)
         {
             var result = new MediaItemScanResult<EmbyEpisode>(embyEpisode) { IsAdded = false };
+
+            // season id can change without etag changing
+            if (item.SeasonId != 0 && embyEpisode.SeasonId != item.SeasonId)
+            {
+                await dbContext.EmbyEpisodes
+                    .Where(ee => ee.Id == embyEpisode.Id)
+                    .ExecuteUpdateAsync(
+                        setters => setters.SetProperty(ee => ee.SeasonId, item.SeasonId),
+                        cancellationToken);
+
+                result.Item.SeasonId = item.SeasonId;
+                result.IsUpdated = true;
+            }
+
             if (embyEpisode.Etag != item.Etag || deepScan)
             {
                 await UpdateEpisode(dbContext, embyEpisode, item, cancellationToken);
