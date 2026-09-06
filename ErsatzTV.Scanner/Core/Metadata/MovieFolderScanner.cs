@@ -174,6 +174,8 @@ public class MovieFolderScanner : LocalFolderScanner, IMovieFolderScanner
                         movieFolder);
                 }
 
+                var hasErrors = false;
+
                 foreach (string file in allFiles.OrderBy(identity))
                 {
                     // TODO: figure out how to rebuild playlists
@@ -191,6 +193,7 @@ public class MovieFolderScanner : LocalFolderScanner, IMovieFolderScanner
                     foreach (BaseError error in maybeMovie.LeftToSeq())
                     {
                         _logger.LogWarning("Error processing movie at {Path}: {Error}", file, error.Value);
+                        hasErrors = true;
                     }
 
                     foreach (MediaItemScanResult<Movie> result in maybeMovie.RightToSeq())
@@ -200,11 +203,16 @@ public class MovieFolderScanner : LocalFolderScanner, IMovieFolderScanner
                             if (!await _scannerProxy.ReindexMediaItems([result.Item.Id], cancellationToken))
                             {
                                 _logger.LogWarning("Failed to reindex media items from scanner process");
+                                hasErrors = true;
                             }
                         }
-
-                        await _libraryRepository.SetEtag(libraryPath, knownFolder, movieFolder, etag);
                     }
+                }
+
+                // only do this once per folder and only if all files processed successfully
+                if (!hasErrors)
+                {
+                    await _libraryRepository.SetEtag(libraryPath, knownFolder, movieFolder, etag);
                 }
             }
 

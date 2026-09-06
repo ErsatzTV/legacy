@@ -33,6 +33,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - `<country>` from NFO metadata is now searchable with `country:` instead of `tag:`; deep scan a local library to convert existing items
 - Fix multiple channel startup failure causes
 - Fix seeking more than 24 hours into content
+- Fix local movie and television folder scanner to only set etag when all files process successfully
+  - Previously, errors would be ignored so problematic files (e.g. malformed nfo files) would need to be touched for ETV to attempt reading them again
 
 ## [26.8.1] - 2026-08-29
 ### Security
