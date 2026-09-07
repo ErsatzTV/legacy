@@ -43,24 +43,24 @@ public class DeleteOrphanedArtworkHandler(
         int deletedActors = await artworkRepository.DeleteOrphanedActors(request.MaxToDelete, cancellationToken);
         if (deletedActors > 0)
         {
-            logger.LogInformation("Deleted {Count} orphaned actors", deletedActors);
+            logger.LogDebug("Deleted {Count} orphaned actors", deletedActors);
         }
         else
         {
-            logger.LogInformation("No orphaned actors to delete");
+            logger.LogDebug("No orphaned actors to delete");
         }
 
         int deletedArtwork = await artworkRepository.DeleteOrphanedArtwork(request.MaxToDelete, cancellationToken);
         if (deletedArtwork > 0)
         {
-            logger.LogInformation("Deleted {Count} orphaned artwork", deletedArtwork);
+            logger.LogDebug("Deleted {Count} orphaned artwork", deletedArtwork);
         }
         else
         {
-            logger.LogInformation("No orphaned artwork to delete");
+            logger.LogDebug("No orphaned artwork to delete");
         }
 
-        logger.LogInformation("Done cleaning!");
+        logger.LogDebug("Done cleaning!");
     }
 
     private async Task CleanUpFileSystem(CancellationToken cancellationToken)

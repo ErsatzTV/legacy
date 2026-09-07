@@ -2,4 +2,4 @@
 
 namespace ErsatzTV.Application.Health;
 
-public record GetAllHealthCheckResults : IRequest<List<HealthCheckResult>>;
+public record GetAllHealthCheckResults(bool Refresh) : IRequest<List<HealthCheckResult>>;

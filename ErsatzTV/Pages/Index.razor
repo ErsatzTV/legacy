@@ -50,12 +50,20 @@
             }
             else
             {
-                <MudText Typo="Typo.h5" Class="mb-2">Health Checks</MudText>
+                <div class="d-flex flex-row align-center mb-2">
+                    <MudText Typo="Typo.h5">Health Checks</MudText>
+                    <MudIconButton Icon="@Icons.Material.Filled.Refresh"
+                                   Size="Size.Small"
+                                   Class="ml-2"
+                                   title="Re-run health checks"
+                                   OnClick="@RefreshHealthChecks"/>
+                </div>
                 <MudDivider Class="mb-6"/>
                 <MudTable Hover="true"
                           Dense="true"
                           Breakpoint="Breakpoint.None"
-                          ServerData="@(ServerReload)">
+                          ServerData="@(ServerReload)"
+                          @ref="_healthCheckTable">
                     <HeaderContent>
                         <MudTh>Check</MudTh>
                         <MudTh>Message</MudTh>
@@ -144,6 +152,10 @@
 
 @code {
     private CancellationTokenSource _cts;
+
+    private MudTable<HealthCheckResult> _healthCheckTable;
+
+    private bool _refreshHealthChecks;
 
     private string _releaseNotes;
 
@@ -234,9 +246,22 @@
         }
     }
 
+    private async Task RefreshHealthChecks()
+    {
+        _refreshHealthChecks = true;
+
+        if (_healthCheckTable != null)
+        {
+            await _healthCheckTable.ReloadServerData();
+        }
+    }
+
     private async Task<TableData<HealthCheckResult>> ServerReload(TableState state, CancellationToken cancellationToken)
     {
-        List<HealthCheckResult> healthCheckResults = await Mediator.Send(new GetAllHealthCheckResults(), cancellationToken);
+        bool refresh = _refreshHealthChecks;
+        _refreshHealthChecks = false;
+
+        List<HealthCheckResult> healthCheckResults = await Mediator.Send(new GetAllHealthCheckResults(refresh), cancellationToken);
 
         return new TableData<HealthCheckResult>
         {

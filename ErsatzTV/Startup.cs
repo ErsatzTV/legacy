@@ -847,6 +847,7 @@ public class Startup
         services.AddSingleton<RecyclableMemoryStreamManager>();
         services.AddSingleton<SystemStartup>();
         services.AddSingleton<ILanguageCodeCache, LanguageCodeCache>();
+        services.AddSingleton<IHealthCheckService, HealthCheckService>();
         AddChannel<IBackgroundServiceRequest>(services);
         AddChannel<IPlexBackgroundServiceRequest>(services);
         AddChannel<IJellyfinBackgroundServiceRequest>(services);
@@ -869,7 +870,6 @@ public class Startup
         services.AddScoped<IUnifiedDockerHealthCheck, UnifiedDockerHealthCheck>();
         services.AddScoped<IDowngradeHealthCheck, DowngradeHealthCheck>();
         services.AddScoped<IEmptyScheduleHealthCheck, EmptyScheduleHealthCheck>();
-        services.AddScoped<IHealthCheckService, HealthCheckService>();
 
         services.AddScoped<IChannelRepository, ChannelRepository>();
         services.AddScoped<IFFmpegProfileRepository, FFmpegProfileRepository>();
