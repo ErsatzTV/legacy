@@ -139,12 +139,14 @@ public abstract class LocalFolderScanner
     {
         DateTime lastWriteTime = _fileSystem.File.GetLastWriteTime(artworkFile);
 
-        metadata.Artwork ??= new List<Artwork>();
+        metadata.Artwork ??= [];
 
         Option<Artwork> maybeArtwork = metadata.Artwork.FirstOrDefault(a => a.ArtworkKind == artworkKind);
 
+        bool cacheMissing = maybeArtwork.Match(a => !_imageCache.IsCached(a.Path, artworkKind), false);
+
         bool shouldRefresh = maybeArtwork.Match(
-            artwork => lastWriteTime.Subtract(artwork.DateUpdated) > TimeSpan.FromSeconds(1),
+            artwork => cacheMissing || lastWriteTime.Subtract(artwork.DateUpdated) > TimeSpan.FromSeconds(1),
             true);
 
         if (shouldRefresh)
@@ -154,7 +156,7 @@ public abstract class LocalFolderScanner
                 _logger.LogDebug("Refreshing {Attribute} from {Path}", artworkKind, artworkFile);
 
                 string sourcePath = artworkFile;
-                if (await _metadataRepository.CloneArtwork(
+                if (!cacheMissing && await _metadataRepository.CloneArtwork(
                         metadata,
                         maybeArtwork,
                         artworkKind,

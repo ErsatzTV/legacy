@@ -99,6 +99,12 @@ public class ImageCache(IFileSystem fileSystem, ILocalFileSystem localFileSystem
         }
     }
 
+    public bool IsCached(string path, ArtworkKind artworkKind)
+    {
+        string finalPath = GetPathForImage(path, artworkKind, Option<int>.None);
+        return fileSystem.File.Exists(finalPath);
+    }
+
     public virtual string GetPathForImage(string fileName, ArtworkKind artworkKind, Option<int> maybeMaxHeight)
     {
         string subfolder = maybeMaxHeight.Match(
