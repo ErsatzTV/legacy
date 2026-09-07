@@ -87,15 +87,21 @@ public class NextSessionWorker(
 
     public Task<Option<TrimPlaylistResult>> TrimPlaylist(
         DateTimeOffset filterBefore,
-        CancellationToken cancellationToken) =>
-        throw new NotSupportedException();
+        CancellationToken cancellationToken)
+    {
+        logger.LogWarning(
+            "Legacy path called for next session worker on channel {Number}; this is NOT supported",
+            _channelNumber);
+
+        return Task.FromResult(Option<TrimPlaylistResult>.None);
+    }
 
     public void PlayoutUpdated()
     {
         // nothing to do here; channel binary should detect that by itself
     }
 
-    public HlsSessionModel GetModel() => throw new NotSupportedException();
+    public HlsSessionModel GetModel() => new(_channelNumber, "next", null, _lastTouch);
 
     public async Task Run(
         string channelNumber,
