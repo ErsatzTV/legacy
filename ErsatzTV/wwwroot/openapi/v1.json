@@ -1074,7 +1074,10 @@
             ]
           },
           "transcodedUntil": {
-            "type": "string",
+            "type": [
+              "null",
+              "string"
+            ],
             "format": "date-time"
           },
           "lastAccess": {

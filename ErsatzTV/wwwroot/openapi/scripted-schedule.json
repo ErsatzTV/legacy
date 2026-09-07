@@ -1569,7 +1569,7 @@
           },
           "groupBy": {
             "type": "string",
-            "description": "Tells the scheduler how to group the combined content (returned from all guids and searches). Valid values are show, season, artist and album."
+            "description": "Tells the scheduler how to group the combined content (returned from all guids and searches). Valid values are show, season, artist, album and director."
           },
           "itemOrder": {
             "type": "string",
