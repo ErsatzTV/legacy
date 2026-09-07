@@ -971,10 +971,9 @@ public class TranscodingTests
             return string.Empty;
         }
 
-        using var sha = SHA256.Create();
         byte[] textData = Encoding.UTF8.GetBytes(text);
-        byte[] hash = sha.ComputeHash(textData);
-        return BitConverter.ToString(hash).Replace("-", string.Empty);
+        byte[] hash = SHA256.HashData(textData);
+        return Convert.ToHexString(hash);
     }
 
     private static FFmpegLibraryProcessService GetService()

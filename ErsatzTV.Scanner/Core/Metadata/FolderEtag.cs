@@ -9,8 +9,6 @@ namespace ErsatzTV.Scanner.Core.Metadata;
 public static class FolderEtag
 {
     [SuppressMessage("Security", "CA5351:Do Not Use Broken Cryptographic Algorithms")]
-    private static readonly MD5 Crypto = MD5.Create();
-
     public static string Calculate(string folder, ILocalFileSystem localFileSystem)
     {
         IEnumerable<string> allFiles = localFileSystem.ListFiles(folder);
@@ -23,7 +21,7 @@ public static class FolderEtag
         }
 
         var hash = new StringBuilder();
-        byte[] bytes = Crypto.ComputeHash(Encoding.UTF8.GetBytes(sb.ToString()));
+        byte[] bytes = MD5.HashData(Encoding.UTF8.GetBytes(sb.ToString()));
         foreach (byte t in bytes)
         {
             hash.Append(t.ToString("x2", CultureInfo.InvariantCulture));
@@ -32,6 +30,7 @@ public static class FolderEtag
         return hash.ToString();
     }
 
+    [SuppressMessage("Security", "CA5351:Do Not Use Broken Cryptographic Algorithms")]
     public static string CalculateWithSubfolders(string folder, ILocalFileSystem localFileSystem)
     {
         IEnumerable<string> allFiles = localFileSystem.ListFiles(folder);
@@ -50,7 +49,7 @@ public static class FolderEtag
         }
 
         var hash = new StringBuilder();
-        byte[] bytes = Crypto.ComputeHash(Encoding.UTF8.GetBytes(sb.ToString()));
+        byte[] bytes = MD5.HashData(Encoding.UTF8.GetBytes(sb.ToString()));
         foreach (byte t in bytes)
         {
             hash.Append(t.ToString("x2", CultureInfo.InvariantCulture));

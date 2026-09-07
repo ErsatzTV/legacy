@@ -12,8 +12,7 @@ public static class InternalUrlSigner
     {
         string canonical = string.Join('\0', parts) + '\0' + expires.ToUnixTimeSeconds();
         byte[] bytes = Encoding.UTF8.GetBytes(canonical);
-        using HMACSHA256 hmac = new HMACSHA256(Key);
-        byte[] hash = hmac.ComputeHash(bytes);
+        byte[] hash = HMACSHA256.HashData(Key, bytes);
         return Convert.ToHexString(hash).ToLowerInvariant();
     }
 

@@ -109,7 +109,7 @@ public class PlexEtag
         }
 
         ms.Position = 0;
-        byte[] hash = SHA1.Create().ComputeHash(ms);
+        byte[] hash = SHA1.HashData(ms);
         return Convert.ToHexString(hash);
     }
 
@@ -156,7 +156,7 @@ public class PlexEtag
         }
 
         ms.Position = 0;
-        byte[] hash = SHA1.Create().ComputeHash(ms);
+        byte[] hash = SHA1.HashData(ms);
         return Convert.ToHexString(hash);
     }
 
@@ -194,7 +194,7 @@ public class PlexEtag
         }
 
         ms.Position = 0;
-        byte[] hash = SHA1.Create().ComputeHash(ms);
+        byte[] hash = SHA1.HashData(ms);
         return Convert.ToHexString(hash);
     }
 
@@ -290,7 +290,7 @@ public class PlexEtag
         }
 
         ms.Position = 0;
-        byte[] hash = SHA1.Create().ComputeHash(ms);
+        byte[] hash = SHA1.HashData(ms);
         return Convert.ToHexString(hash);
     }
 
@@ -315,7 +315,7 @@ public class PlexEtag
         bw.Write(response.Smart ?? "0");
 
         ms.Position = 0;
-        byte[] hash = SHA1.Create().ComputeHash(ms);
+        byte[] hash = SHA1.HashData(ms);
         return Convert.ToHexString(hash);
     }
 

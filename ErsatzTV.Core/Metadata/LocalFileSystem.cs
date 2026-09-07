@@ -175,9 +175,13 @@ public class LocalFileSystem(IFileSystem fileSystem, ILogger<LocalFileSystem> lo
     [SuppressMessage("Security", "CA5351:Do Not Use Broken Cryptographic Algorithms")]
     public async Task<byte[]> GetHash(string path)
     {
-        using var md5 = MD5.Create();
-        await using var stream = fileSystem.File.OpenRead(path);
-        return await md5.ComputeHashAsync(stream);
+        // ReSharper disable once UseAwaitUsing
+        // ReSharper disable once ConvertToUsingDeclaration
+        using (FileSystemStream fs = fileSystem.File.OpenRead(path))
+        {
+            fs.Position = 0;
+            return await MD5.HashDataAsync(fs);
+        }
     }
 
     public string GetCustomOrDefaultFile(string folder, string file)

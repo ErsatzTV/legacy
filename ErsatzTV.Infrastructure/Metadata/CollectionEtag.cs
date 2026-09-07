@@ -7,16 +7,12 @@ using Microsoft.IO;
 namespace ErsatzTV.Infrastructure.Metadata;
 
 [SuppressMessage("Security", "CA5350:Do Not Use Weak Cryptographic Algorithms")]
-public class CollectionEtag : ICollectionEtag
+public class CollectionEtag(RecyclableMemoryStreamManager recyclableMemoryStreamManager)
+    : ICollectionEtag
 {
-    private readonly RecyclableMemoryStreamManager _recyclableMemoryStreamManager;
-
-    public CollectionEtag(RecyclableMemoryStreamManager recyclableMemoryStreamManager) =>
-        _recyclableMemoryStreamManager = recyclableMemoryStreamManager;
-
     public string ForCollectionItems(List<MediaItem> items)
     {
-        using MemoryStream ms = _recyclableMemoryStreamManager.GetStream();
+        using MemoryStream ms = recyclableMemoryStreamManager.GetStream();
         using var bw = new BinaryWriter(ms);
 
         foreach (MediaItem item in items.OrderBy(i => i.Id))
@@ -25,7 +21,7 @@ public class CollectionEtag : ICollectionEtag
         }
 
         ms.Position = 0;
-        byte[] hash = SHA1.Create().ComputeHash(ms);
+        byte[] hash = SHA1.HashData(ms);
         return Convert.ToHexString(hash);
     }
 }

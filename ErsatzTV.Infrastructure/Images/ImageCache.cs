@@ -18,10 +18,6 @@ namespace ErsatzTV.Infrastructure.Images;
 public class ImageCache(IFileSystem fileSystem, ILocalFileSystem localFileSystem, ITempFilePool tempFilePool)
     : IImageCache
 {
-    private static readonly SHA1 Crypto;
-
-    static ImageCache() => Crypto = SHA1.Create();
-
     public static string GetBlurHashFileName(string blurHash)
     {
         byte[] bytes = Encoding.UTF8.GetBytes(blurHash);
@@ -42,7 +38,7 @@ public class ImageCache(IFileSystem fileSystem, ILocalFileSystem localFileSystem
                 await stream.CopyToAsync(fs);
             }
 
-            byte[] hash = await ComputeFileHash(tempFileName);
+            byte[] hash = await localFileSystem.GetHash(tempFileName);
             string hex = Convert.ToHexString(hash);
             string subfolder = hex[..2];
             string baseFolder = artworkKind switch
@@ -76,7 +72,7 @@ public class ImageCache(IFileSystem fileSystem, ILocalFileSystem localFileSystem
         try
         {
             var filenameKey = $"{path}:{localFileSystem.GetLastWriteTime(path).ToFileTimeUtc()}";
-            byte[] hash = Crypto.ComputeHash(Encoding.UTF8.GetBytes(filenameKey));
+            byte[] hash = SHA1.HashData(Encoding.UTF8.GetBytes(filenameKey));
             string hex = Convert.ToHexString(hash);
             string subfolder = hex[..2];
             string baseFolder = artworkKind switch
@@ -182,18 +178,5 @@ public class ImageCache(IFileSystem fileSystem, ILocalFileSystem localFileSystem
         }
 
         return Task.FromResult(targetFile);
-    }
-
-    [SuppressMessage("Security", "CA5351:Do Not Use Broken Cryptographic Algorithms")]
-    private static async Task<byte[]> ComputeFileHash(string fileName)
-    {
-        using var md5 = MD5.Create();
-        // ReSharper disable once UseAwaitUsing
-        // ReSharper disable once ConvertToUsingDeclaration
-        using (var fs = new FileStream(fileName, FileMode.Open, FileAccess.Read))
-        {
-            fs.Position = 0;
-            return await md5.ComputeHashAsync(fs);
-        }
     }
 }
