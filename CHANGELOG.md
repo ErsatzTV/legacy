@@ -7,6 +7,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 - Periodically delete unused artwork from cache folder on disk
+- Next engine:
+  - Add hardware-accelerated padding for QSV on Windows and Linux (note that this requires the latest ETV custom ffmpeg build)
 
 ### Fixed
 - Fix health checks causing a flood of (harmless) logged errors when quickly navigating away from home page
