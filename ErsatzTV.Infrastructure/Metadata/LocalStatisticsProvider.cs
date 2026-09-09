@@ -23,6 +23,10 @@ namespace ErsatzTV.Infrastructure.Metadata;
 
 public partial class LocalStatisticsProvider : ILocalStatisticsProvider
 {
+    private const string DolbyVisionSideData = "DOVI configuration record";
+
+    private static readonly List<string> Hdr10SideData = ["Mastering display metadata", "Content light level metadata"];
+
     private readonly IHardwareCapabilitiesFactory _hardwareCapabilitiesFactory;
     private readonly ILocalFileSystem _localFileSystem;
     private readonly ILogger<LocalStatisticsProvider> _logger;
@@ -46,9 +50,24 @@ public partial class LocalStatisticsProvider : ILocalStatisticsProvider
     public async Task<Either<BaseError, MediaVersion>> GetStatistics(string ffprobePath, string path)
     {
         Either<BaseError, FFprobe> maybeProbe = await GetProbeOutput(ffprobePath, path);
-        return maybeProbe.Match(
-            ffprobe => ProjectToMediaVersion(path, ffprobe),
-            Left<BaseError, MediaVersion>);
+        return await maybeProbe.Match(
+            async ffprobe =>
+            {
+                MediaVersion version = ProjectToMediaVersion(path, ffprobe);
+                foreach (MediaStream stream in version.Streams.Where(s => s.MediaStreamKind is MediaStreamKind.Video))
+                {
+                    if (IsPq(stream) && !stream.HasHdr10Metadata)
+                    {
+                        Either<BaseError, bool> probeResult =
+                            await ProbeFrameForHdr10Metadata(ffprobePath, path, stream.Index);
+
+                        stream.HasHdr10Metadata = probeResult.IsRight && probeResult.RightToSeq().All(identity);
+                    }
+                }
+
+                return Right<BaseError, MediaVersion>(version);
+            },
+            error => Task.FromResult(Left<BaseError, MediaVersion>(error)));
     }
 
     public async Task<Either<BaseError, bool>> RefreshStatistics(
@@ -212,6 +231,20 @@ public partial class LocalStatisticsProvider : ILocalStatisticsProvider
                     if (mediaItem is not Image and not RemoteStream && version.Duration.TotalSeconds < 1)
                     {
                         await AnalyzeDuration(ffmpegPath, mediaItemPath, version);
+                    }
+
+                    foreach (MediaStream stream in
+                             version.Streams.Where(s => s.MediaStreamKind is MediaStreamKind.Video))
+                    {
+                        if (IsPq(stream) && !stream.HasHdr10Metadata)
+                        {
+                            Either<BaseError, bool> probeResult = await ProbeFrameForHdr10Metadata(
+                                ffprobePath,
+                                mediaItemPath,
+                                stream.Index);
+
+                            stream.HasHdr10Metadata = probeResult.IsRight && probeResult.RightToSeq().All(identity);
+                        }
                     }
 
                     bool result = await ApplyVersionUpdate(mediaItem, version, mediaItemPath);
@@ -468,6 +501,54 @@ public partial class LocalStatisticsProvider : ILocalStatisticsProvider
         }
     }
 
+    private static async Task<Either<BaseError, bool>> ProbeFrameForHdr10Metadata(
+        string ffprobePath,
+        string path,
+        int streamIndex)
+    {
+        string[] arguments =
+        [
+            "-hide_banner",
+            "-print_format",
+            "json",
+            "-select_streams",
+            streamIndex.ToString(CultureInfo.InvariantCulture),
+            "-read_intervals",
+            "%+#1",
+            "-show_frames",
+            "-show_entries",
+            "frame=side_data_list",
+            "-i",
+            path
+        ];
+
+        BufferedCommandResult probe = await Cli.Wrap(ffprobePath)
+            .WithArguments(arguments)
+            .WithValidation(CommandResultValidation.None)
+            .ExecuteBufferedAsync(Encoding.UTF8);
+
+        if (probe.ExitCode != 0)
+        {
+            return BaseError.New($"FFprobe at {ffprobePath} exited with code {probe.ExitCode}");
+        }
+
+        FFprobe ffprobe = JsonConvert.DeserializeObject<FFprobe>(probe.StandardOutput);
+        if (ffprobe is not null)
+        {
+            List<FFprobeSideData> sideDataList = await (ffprobe.frames ?? []).HeadOrNone()
+                .Select(f => f.side_data_list ?? [])
+                .IfNoneAsync([]);
+
+            return sideDataList.Any(sd =>
+                Hdr10SideData.Any(hdr => string.Equals(
+                    sd.side_data_type,
+                    hdr,
+                    StringComparison.Ordinal)));
+        }
+
+        return BaseError.New("Unable to deserialize ffprobe output");
+    }
+
     public MediaVersion ProjectToMediaVersion(string path, FFprobe probeOutput) =>
         Optional(probeOutput)
             .Filter(json => json is { format: not null, streams: not null })
@@ -568,6 +649,28 @@ public partial class LocalStatisticsProvider : ILocalStatisticsProvider
                             stream.Default = videoStream.disposition.@default == 1;
                             stream.Forced = videoStream.disposition.forced == 1;
                             stream.AttachedPic = videoStream.disposition.attached_pic == 1;
+                        }
+
+                        // side data list is optional
+                        List<FFprobeSideData> sideDataList = videoStream.side_data_list ?? [];
+
+                        // dolby vision profile
+                        foreach (var sideData in sideDataList.Where(sd => string.Equals(
+                                     sd.side_data_type,
+                                     DolbyVisionSideData,
+                                     StringComparison.Ordinal)).HeadOrNone())
+                        {
+                            stream.DvProfile = sideData.dv_profile;
+                        }
+
+                        // container-level hdr10 metadata
+                        if (sideDataList.Any(sd =>
+                                Hdr10SideData.Any(hdr => string.Equals(
+                                    sd.side_data_type,
+                                    hdr,
+                                    StringComparison.Ordinal))))
+                        {
+                            stream.HasHdr10Metadata = true;
                         }
 
                         version.Streams.Add(stream);
@@ -717,7 +820,11 @@ public partial class LocalStatisticsProvider : ILocalStatisticsProvider
     }
 
     // ReSharper disable InconsistentNaming
-    public record FFprobe(FFprobeFormat format, List<FFprobeStreamData> streams, List<FFprobeChapter> chapters);
+    public record FFprobe(
+        FFprobeFormat format,
+        List<FFprobeStreamData> streams,
+        List<FFprobeChapter> chapters,
+        List<FFprobeFrameData> frames);
 
     public record FFprobeFormat(string duration, FFprobeTags tags);
 
@@ -745,7 +852,11 @@ public partial class LocalStatisticsProvider : ILocalStatisticsProvider
         string bit_rate,
         string bits_per_raw_sample,
         FFprobeDisposition disposition,
-        FFprobeTags tags);
+        FFprobeTags tags,
+        List<FFprobeSideData> side_data_list);
+
+    [SuppressMessage("Naming", "CA1707:Identifiers should not contain underscores")]
+    public record FFprobeFrameData(List<FFprobeSideData> side_data_list);
 
     [SuppressMessage("Naming", "CA1707:Identifiers should not contain underscores")]
     public record FFprobeChapter(
@@ -782,6 +893,9 @@ public partial class LocalStatisticsProvider : ILocalStatisticsProvider
             null,
             null);
     }
+
+    [SuppressMessage("Naming", "CA1707:Identifiers should not contain underscores")]
+    public record FFprobeSideData(string side_data_type, int? dv_profile);
     // ReSharper restore InconsistentNaming
 
     [GeneratedRegex(@"\[SAR\s+([0-9]+:[0-9]+)\s+DAR\s+([0-9]+:[0-9]+)\]")]
@@ -806,4 +920,9 @@ public partial class LocalStatisticsProvider : ILocalStatisticsProvider
         public int TotalProgressiveFrames => SingleProgressive + MultiProgressive;
         public int TotalFrames => TotalInterlacedFrames + TotalProgressiveFrames;
     }
+
+    private static bool IsPq(MediaStream mediaStream) => string.Equals(
+        mediaStream.ColorTransfer,
+        "smpte2084",
+        StringComparison.OrdinalIgnoreCase);
 }

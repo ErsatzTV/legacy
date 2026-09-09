@@ -9,11 +9,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Next engine:
   - Add hardware-accelerated padding for QSV on Windows, Linux and Docker (note that this requires the latest ETV custom ffmpeg build)
   - Enable `av1`, `vc1`, `vp8`, `vp9` hardware decoding using QSV when supported by GPU
+  - Add hardware-accelerated HDR10 tonemapping using QSV when supported by GPU
 - Periodically delete unused artwork from cache folder on disk
+- Probe Dolby Vision and HDR10 metadata in local library content
+  - All HDR content in local libraries will be re-scanned once after updating to refresh this metadata
 
 ### Changed
 - Next engine:
   - Deinterlace with `send_frame` mode by default; this maintains fps and is significantly more performant. `send_field` and other modes can still be used via channel config.
+  - Optimize anamorphic pipelines by only performing one scale instead of two
 
 ### Fixed
 - Fix health checks causing a flood of (harmless) logged errors when quickly navigating away from home page

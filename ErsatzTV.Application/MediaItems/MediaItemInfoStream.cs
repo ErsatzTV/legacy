@@ -18,6 +18,8 @@ public record MediaItemInfoStream(
     string ColorSpace,
     string ColorTransfer,
     string ColorPrimaries,
+    int? DvProfile,
+    bool? HasHdr10Metadata,
     int? BitsPerRawSample,
     string MimeType)
 {

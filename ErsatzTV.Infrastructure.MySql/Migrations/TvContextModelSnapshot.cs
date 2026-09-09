@@ -1390,10 +1390,16 @@ namespace ErsatzTV.Infrastructure.MySql.Migrations
                     b.Property<bool>("Default")
                         .HasColumnType("tinyint(1)");
 
+                    b.Property<int?>("DvProfile")
+                        .HasColumnType("int");
+
                     b.Property<string>("FileName")
                         .HasColumnType("longtext");
 
                     b.Property<bool>("Forced")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("HasHdr10Metadata")
                         .HasColumnType("tinyint(1)");
 
                     b.Property<int>("Index")

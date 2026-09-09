@@ -171,6 +171,8 @@ public class MetadataRepository(IDbContextFactory<TvContext> dbContextFactory) :
                     existingStream.ColorSpace = incomingStream.ColorSpace;
                     existingStream.ColorTransfer = incomingStream.ColorTransfer;
                     existingStream.ColorPrimaries = incomingStream.ColorPrimaries;
+                    existingStream.DvProfile = incomingStream.DvProfile;
+                    existingStream.HasHdr10Metadata = incomingStream.HasHdr10Metadata;
                     existingStream.BitsPerRawSample = incomingStream.BitsPerRawSample;
                     existingStream.FileName = incomingStream.FileName;
                     existingStream.MimeType = incomingStream.MimeType;

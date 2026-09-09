@@ -42,6 +42,7 @@ public class LocalStatisticsProviderTests
                     string.Empty,
                     string.Empty)),
             [],
+            [],
             []);
 
         MediaVersion result = provider.ProjectToMediaVersion("test", input);

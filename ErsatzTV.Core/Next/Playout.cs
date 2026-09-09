@@ -504,6 +504,15 @@ namespace ErsatzTV.Core.Next
         public string? FrameRate { get; set; }
 
         /// <summary>
+        /// Whether the stream carries HDR10 static metadata (mastering display colour volume or
+        /// content light level), at the container level or in per-frame SEI. Hardware tonemappers
+        /// that read that metadata (Intel vpp_qsv) are only used when this is true; omitting it is
+        /// treated as false and falls back to software tonemapping for "smpte2084" content.
+        /// </summary>
+        [JsonPropertyName("has_hdr10_metadata")]
+        public bool? HasHdr10Metadata { get; set; }
+
+        /// <summary>
         /// Coded frame height in pixels.
         /// </summary>
         [JsonPropertyName("height")]
