@@ -22,6 +22,7 @@ namespace ErsatzTV.Application.Troubleshooting;
 
 public class StartTroubleshootingPlaybackHandler(
     ITroubleshootingNotifier notifier,
+    ITroubleshootingPlayoutItemStore troubleshootingPlayoutItemStore,
     IMediator mediator,
     IEntityLocker entityLocker,
     IRuntimeInfo runtimeInfo,
@@ -242,6 +243,7 @@ public class StartTroubleshootingPlaybackHandler(
         }
         finally
         {
+            troubleshootingPlayoutItemStore.Clear();
             entityLocker.UnlockTroubleshootingPlayback();
             loggingLevelSwitches.StreamingLevelSwitch.MinimumLevel = currentStreamingLevel;
         }

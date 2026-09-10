@@ -121,6 +121,13 @@ namespace ErsatzTV.Core.Next
         public double? HorizontalMarginPercent { get; set; }
 
         /// <summary>
+        /// Graphics layer kind.
+        /// </summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("kind")]
+        public GraphicsLayerKind? Kind { get; set; }
+
+        /// <summary>
         /// Anchor position within the primary content frame.
         /// </summary>
         [JsonPropertyName("location")]
@@ -809,6 +816,18 @@ namespace ErsatzTV.Core.Next
     }
 
     /// <summary>
+    /// Graphics layer kind.
+    ///
+    /// canvas: a full-frame layer whose frames are already the output size and carry alpha. It
+    /// is composited at (0,0) and is content-locked: the channel seeks it to its own position in
+    /// the item. `location`, margins, `width_percent`, `within_source_content`,
+    /// `opacity_percent` and `timing` are ignored (a warning is logged if present). HTTP canvas
+    /// sources receive `x-etv-channel`, `x-etv-offset-ms`, `x-etv-duration-ms` and
+    /// `x-etv-frame-rate` headers.
+    /// </summary>
+    public enum GraphicsLayerKind { Canvas, Media };
+
+    /// <summary>
     /// Anchor position within the primary content frame.
     ///
     /// Nine-position anchor within the primary content frame. Read like a 3×3 grid: rows
@@ -846,6 +865,7 @@ namespace ErsatzTV.Core.Next
             DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
             Converters =
             {
+                GraphicsLayerKindConverter.Singleton,
                 GraphicsLocationConverter.Singleton,
                 SourceTypeConverter.Singleton,
                 PeriodicClockConverter.Singleton,
@@ -882,6 +902,40 @@ namespace ErsatzTV.Core.Next
         }
 
         public static readonly MinMaxValueCheckConverter Singleton = new MinMaxValueCheckConverter();
+    }
+
+    internal class GraphicsLayerKindConverter : JsonConverter<GraphicsLayerKind>
+    {
+        public override bool CanConvert(Type t) => t == typeof(GraphicsLayerKind);
+
+        public override GraphicsLayerKind Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "canvas":
+                    return GraphicsLayerKind.Canvas;
+                case "media":
+                    return GraphicsLayerKind.Media;
+            }
+            throw new Exception("Cannot unmarshal type GraphicsLayerKind");
+        }
+
+        public override void Write(Utf8JsonWriter writer, GraphicsLayerKind value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case GraphicsLayerKind.Canvas:
+                    JsonSerializer.Serialize(writer, "canvas", options);
+                    return;
+                case GraphicsLayerKind.Media:
+                    JsonSerializer.Serialize(writer, "media", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type GraphicsLayerKind");
+        }
+
+        public static readonly GraphicsLayerKindConverter Singleton = new GraphicsLayerKindConverter();
     }
 
     internal class GraphicsLocationConverter : JsonConverter<GraphicsLocation>

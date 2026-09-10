@@ -15,6 +15,7 @@ using ErsatzTV.Core.Interfaces.Metadata;
 using ErsatzTV.Core.Interfaces.Plex;
 using ErsatzTV.Core.Interfaces.Scheduling;
 using ErsatzTV.Core.Interfaces.Streaming;
+using ErsatzTV.Core.Interfaces.Troubleshooting;
 using ErsatzTV.Core.Next.Config;
 using ErsatzTV.Core.Notifications;
 using ErsatzTV.FFmpeg;
@@ -42,6 +43,7 @@ public class PrepareTroubleshootingPlaybackHandler(
     IEntityLocker entityLocker,
     IChannelConfigConverter channelConfigConverter,
     IPlayoutItemConverter playoutItemConverter,
+    ITroubleshootingPlayoutItemStore troubleshootingPlayoutItemStore,
     IMediator mediator,
     LoggingLevelSwitches loggingLevelSwitches,
     ILogger<PrepareTroubleshootingPlaybackHandler> logger)
@@ -360,6 +362,9 @@ public class PrepareTroubleshootingPlaybackHandler(
             PlayoutItemGraphicsElements = [.. graphicsElements.Map(ge => new PlayoutItemGraphicsElement { GraphicsElement = ge })]
         };
 
+        // the canvas endpoint resolves this item from the store since it has no database row
+        troubleshootingPlayoutItemStore.Store(channel, playoutItem);
+
         Option<Core.Next.PlayoutItem> maybeNextPlayoutItem =
             await playoutItemConverter.ToNext(
                 Some(channel),
@@ -374,7 +379,7 @@ public class PrepareTroubleshootingPlaybackHandler(
         {
             var playout = new Core.Next.Playout
             {
-                Version = "https://ersatztv.org/playout/version/0.0.3",
+                Version = "https://ersatztv.org/playout/version/0.0.4",
                 Items = [nextPlayoutItem]
             };
 

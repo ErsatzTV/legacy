@@ -15,6 +15,7 @@ public record GraphicsEngineContext(
     FrameRate FrameRate,
     DateTimeOffset ChannelStartTime,
     DateTimeOffset ContentStartTime,
+    DateTimeOffset ContentFinishTime,
     TimeSpan Seek,
     TimeSpan Duration,
     TimeSpan ContentTotalDuration);

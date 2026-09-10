@@ -118,95 +118,7 @@ public partial class SyncNextPlayoutHandler(
         List<PlayoutItem> playoutItems = await dbContext.PlayoutItems
             .AsNoTracking()
             .Where(i => i.Playout.Channel.Number == (mirrorChannelNumber ?? channelNumber))
-
-            // get playout deco
-            .Include(i => i.Playout)
-            .ThenInclude(p => p.Deco)
-            .ThenInclude(d => d.DecoWatermarks)
-            .ThenInclude(d => d.Watermark)
-            .Include(i => i.Playout)
-            .ThenInclude(p => p.Deco)
-            .ThenInclude(d => d.DecoGraphicsElements)
-            .ThenInclude(d => d.GraphicsElement)
-
-            // get watermarks
-            .Include(i => i.Watermarks)
-
-            // get graphics elements
-            .Include(i => i.PlayoutItemGraphicsElements)
-            .ThenInclude(pige => pige.GraphicsElement)
-
-            // get playout templates (and deco templates/decos)
-            .Include(i => i.Playout)
-            .ThenInclude(p => p.Templates)
-            .ThenInclude(t => t.DecoTemplate)
-            .ThenInclude(t => t.Items)
-            .ThenInclude(i => i.Deco)
-            .ThenInclude(d => d.DecoWatermarks)
-            .ThenInclude(d => d.Watermark)
-
-            // get playout templates (and deco templates/decos)
-            .Include(i => i.Playout)
-            .ThenInclude(p => p.Templates)
-            .ThenInclude(t => t.DecoTemplate)
-            .ThenInclude(t => t.Items)
-            .ThenInclude(i => i.Deco)
-            .ThenInclude(d => d.DecoGraphicsElements)
-            .ThenInclude(d => d.GraphicsElement)
-
-            .Include(i => i.MediaItem)
-            .ThenInclude(mi => mi.LibraryPath)
-            .ThenInclude(lp => lp.Library)
-            .Include(i => i.MediaItem)
-            .ThenInclude(i => (i as Episode).MediaVersions)
-            .ThenInclude(mv => mv.MediaFiles)
-            .Include(i => i.MediaItem)
-            .ThenInclude(i => (i as Episode).MediaVersions)
-            .ThenInclude(mv => mv.Streams)
-            .Include(i => i.MediaItem)
-            .ThenInclude(i => (i as Episode).EpisodeMetadata)
-            .ThenInclude(em => em.Subtitles)
-            .Include(i => i.MediaItem)
-            .ThenInclude(i => (i as Image).MediaVersions)
-            .ThenInclude(mv => mv.MediaFiles)
-            .Include(i => i.MediaItem)
-            .ThenInclude(i => (i as Image).MediaVersions)
-            .ThenInclude(mv => mv.Streams)
-            .Include(i => i.MediaItem)
-            .ThenInclude(i => (i as Image).ImageMetadata)
-            .Include(i => i.MediaItem)
-            .ThenInclude(i => (i as Movie).MediaVersions)
-            .ThenInclude(mv => mv.MediaFiles)
-            .Include(i => i.MediaItem)
-            .ThenInclude(i => (i as Movie).MediaVersions)
-            .ThenInclude(mv => mv.Streams)
-            .Include(i => i.MediaItem)
-            .ThenInclude(i => (i as Movie).MovieMetadata)
-            .ThenInclude(mm => mm.Subtitles)
-            .Include(i => i.MediaItem)
-            .ThenInclude(i => (i as OtherVideo).MediaVersions)
-            .ThenInclude(mv => mv.MediaFiles)
-            .Include(i => i.MediaItem)
-            .ThenInclude(i => (i as OtherVideo).MediaVersions)
-            .ThenInclude(mv => mv.Streams)
-            .Include(i => i.MediaItem)
-            .ThenInclude(i => (i as OtherVideo).OtherVideoMetadata)
-            .ThenInclude(ovm => ovm.Subtitles)
-            .Include(i => i.MediaItem)
-            .ThenInclude(i => (i as MusicVideo).MediaVersions)
-            .ThenInclude(mv => mv.MediaFiles)
-            .Include(i => i.MediaItem)
-            .ThenInclude(i => (i as MusicVideo).MediaVersions)
-            .ThenInclude(mv => mv.Streams)
-            .Include(i => i.MediaItem)
-            .ThenInclude(i => (i as RemoteStream).MediaVersions)
-            .ThenInclude(mv => mv.MediaFiles)
-            .Include(i => i.MediaItem)
-            .ThenInclude(i => (i as RemoteStream).MediaVersions)
-            .ThenInclude(mv => mv.Streams)
-            .Include(i => i.MediaItem)
-            .ThenInclude(i => (i as RemoteStream).RemoteStreamMetadata)
-            .ThenInclude(em => em.Subtitles)
+            .IncludeForNextPlayout()
             .AsSplitQuery()
             .ToListAsync(cancellationToken);
 
@@ -261,7 +173,7 @@ public partial class SyncNextPlayoutHandler(
                 targetFolder,
                 $"{first.StartOffset.ToUnixTimeMilliseconds()}_{last.FinishOffset.ToUnixTimeMilliseconds()}.json");
 
-            var playout = new Core.Next.Playout { Version = "https://ersatztv.org/playout/version/0.0.3", Items = [] };
+            var playout = new Core.Next.Playout { Version = "https://ersatztv.org/playout/version/0.0.4", Items = [] };
             foreach (PlayoutItem playoutItem in group)
             {
                 Option<Core.Next.PlayoutItem> maybeNextPlayoutItem = await playoutItemConverter.ToNext(

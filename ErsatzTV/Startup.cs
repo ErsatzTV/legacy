@@ -821,6 +821,7 @@ public class Startup
         services.AddSingleton<ISmartCollectionCache, SmartCollectionCache>();
         services.AddSingleton<SearchQueryParser>();
         services.AddSingleton<ITroubleshootingNotifier, TroubleshootingNotifier>();
+        services.AddSingleton<ITroubleshootingPlayoutItemStore, TroubleshootingPlayoutItemStore>();
         services.AddSingleton<CustomFontMapper>();
         services.AddSingleton<GraphicsEngineFonts>();
         services.AddSingleton(Program.InMemoryLogService);
@@ -935,6 +936,7 @@ public class Startup
         services.AddScoped<IGraphicsElementRepository, GraphicsElementRepository>();
         services.AddScoped<ITemplateDataRepository, TemplateDataRepository>();
         services.AddScoped<IGraphicsElementLoader, GraphicsElementLoader>();
+        services.AddScoped<IGraphicsEngineContextFactory, GraphicsEngineContextFactory>();
         services.AddScoped<TemplateFunctions>();
         services.AddScoped<IDecoSelector, DecoSelector>();
         services.AddScoped<IWatermarkSelector, WatermarkSelector>();

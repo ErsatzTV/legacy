@@ -26,7 +26,7 @@ namespace ErsatzTV.Core.FFmpeg;
 public class FFmpegLibraryProcessService : IFFmpegProcessService
 {
     private readonly IConfigElementRepository _configElementRepository;
-    private readonly IGraphicsElementLoader _graphicsElementLoader;
+    private readonly IGraphicsEngineContextFactory _graphicsEngineContextFactory;
     private readonly IMemoryCache _memoryCache;
     private readonly IMpegTsScriptService _mpegTsScriptService;
     private readonly ILocalStatisticsProvider _localStatisticsProvider;
@@ -46,7 +46,7 @@ public class FFmpegLibraryProcessService : IFFmpegProcessService
         ITempFilePool tempFilePool,
         IPipelineBuilderFactory pipelineBuilderFactory,
         IConfigElementRepository configElementRepository,
-        IGraphicsElementLoader graphicsElementLoader,
+        IGraphicsEngineContextFactory graphicsEngineContextFactory,
         IMemoryCache memoryCache,
         IMpegTsScriptService mpegTsScriptService,
         ILocalStatisticsProvider localStatisticsProvider,
@@ -60,7 +60,7 @@ public class FFmpegLibraryProcessService : IFFmpegProcessService
         _tempFilePool = tempFilePool;
         _pipelineBuilderFactory = pipelineBuilderFactory;
         _configElementRepository = configElementRepository;
-        _graphicsElementLoader = graphicsElementLoader;
+        _graphicsEngineContextFactory = graphicsEngineContextFactory;
         _memoryCache = memoryCache;
         _mpegTsScriptService = mpegTsScriptService;
         _localStatisticsProvider = localStatisticsProvider;
@@ -384,7 +384,7 @@ public class FFmpegLibraryProcessService : IFFmpegProcessService
         Option<WatermarkInputFile> watermarkInputFile = Option<WatermarkInputFile>.None;
         Option<GraphicsEngineInput> graphicsEngineInput = Option<GraphicsEngineInput>.None;
         Option<GraphicsEngineContext> graphicsEngineContext = Option<GraphicsEngineContext>.None;
-        List<GraphicsElementContext> graphicsElementContexts = [];
+        List<WatermarkOptions> engineWatermarks = [];
 
         // use ffmpeg for single permanent watermark, graphics engine for all others
         if (graphicsElements.Count == 0 && watermarks.Count == 1 && watermarks.All(wm => wm.Watermark.Mode is ChannelWatermarkMode.Permanent))
@@ -422,7 +422,7 @@ public class FFmpegLibraryProcessService : IFFmpegProcessService
         }
         else
         {
-            graphicsElementContexts.AddRange(watermarks.Map(wm => new WatermarkElementContext(wm)));
+            engineWatermarks.AddRange(watermarks);
         }
 
         string videoFormat = GetVideoFormat(playbackSettings);
@@ -539,33 +539,29 @@ public class FFmpegLibraryProcessService : IFFmpegProcessService
             playbackSettings.Deinterlace);
 
         // only use graphics engine when we have elements, and are normalizing video
-        if (videoFormat != VideoFormat.Copy && (graphicsElementContexts.Count > 0 || graphicsElements.Count > 0))
+        if (videoFormat != VideoFormat.Copy && (engineWatermarks.Count > 0 || graphicsElements.Count > 0))
         {
-            FrameSize targetSize = await desiredState.CroppedSize.IfNoneAsync(desiredState.ScaledSize);
-
             FrameRate frameRate = await playbackSettings.FrameRate
                 .IfNoneAsync(new FrameRate(videoVersion.MediaVersion.RFrameRate));
 
-            var context = new GraphicsEngineContext(
-                channel.Number,
+            graphicsEngineContext = await _graphicsEngineContextFactory.Create(
+                channel,
                 audioVersion.MediaItem,
-                graphicsElementContexts,
-                TemplateVariables: [],
-                new Resolution { Width = targetSize.Width, Height = targetSize.Height },
-                channel.FFmpegProfile.Resolution,
+                videoVersion.MediaVersion,
+                engineWatermarks,
+                graphicsElements,
                 frameRate,
                 channelStartTime,
                 start,
+                now + originalContentDuration,
                 now > start ? now - start : TimeSpan.Zero,
                 finish - now,
-                originalContentDuration);
+                originalContentDuration,
+                cancellationToken);
 
-            context = await _graphicsElementLoader.LoadAll(context, graphicsElements, cancellationToken);
-
-            if (context?.Elements?.Count > 0)
+            if (graphicsEngineContext.IsSome)
             {
                 graphicsEngineInput = new GraphicsEngineInput();
-                graphicsEngineContext = context;
             }
         }
 

@@ -4,4 +4,5 @@ public record HlsSessionModel(
     string ChannelNumber,
     string State,
     DateTimeOffset? TranscodedUntil,
-    DateTimeOffset LastAccess);
+    DateTimeOffset LastAccess,
+    DateTimeOffset StartedAt);

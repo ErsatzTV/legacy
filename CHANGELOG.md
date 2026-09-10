@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 - Next engine:
+  - Add full graphics engine support
   - Add hardware-accelerated padding for QSV on Windows, Linux and Docker (note that this requires the latest ETV custom ffmpeg build)
   - Enable `av1`, `vc1`, `vp8`, `vp9` hardware decoding using QSV when supported by GPU
   - Add hardware-accelerated HDR10 tonemapping using QSV when supported by GPU

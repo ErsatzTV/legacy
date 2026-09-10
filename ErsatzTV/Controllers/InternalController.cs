@@ -1,5 +1,6 @@
 ﻿using System.CommandLine.Parsing;
 using System.Diagnostics;
+using System.Globalization;
 using System.Text;
 using CliWrap;
 using ErsatzTV.Application.Emby;
@@ -352,6 +353,77 @@ public class InternalController : StreamingControllerBase
         return new NotFoundResult();
     }
 
+    [HttpGet("graphics/{channelNumber}/{playoutItemId:int}")]
+    public async Task<IActionResult> GetGraphicsCanvas(
+        string channelNumber,
+        int playoutItemId,
+        [FromQuery] string exp,
+        [FromQuery] string sig)
+    {
+        if (string.IsNullOrWhiteSpace(exp) || string.IsNullOrWhiteSpace(sig) ||
+            !InternalUrlSigner.Verify(exp, sig, "graphics", channelNumber, $"{playoutItemId}"))
+        {
+            return NotFound();
+        }
+
+        const long maxMilliseconds = long.MaxValue / TimeSpan.TicksPerMillisecond;
+        if (!TryGetHeader("x-etv-offset-ms", out string offsetMsString) ||
+            !long.TryParse(offsetMsString, NumberStyles.None, CultureInfo.InvariantCulture, out long offsetMs) ||
+            offsetMs > maxMilliseconds)
+        {
+            return BadRequest();
+        }
+
+        if (!TryGetHeader("x-etv-duration-ms", out string durationMsString) ||
+            !long.TryParse(durationMsString, NumberStyles.None, CultureInfo.InvariantCulture, out long durationMs) ||
+            durationMs <= 0 || durationMs > maxMilliseconds - offsetMs)
+        {
+            return BadRequest();
+        }
+
+        if (!TryGetHeader("x-etv-frame-rate", out string frameRate))
+        {
+            return BadRequest();
+        }
+
+        string[] rateParts = frameRate.Split('/');
+        double parsedFrameRate;
+        if (rateParts.Length == 2 &&
+            int.TryParse(rateParts[0], NumberStyles.None, CultureInfo.InvariantCulture, out int numerator) && numerator > 0 &&
+            int.TryParse(rateParts[1], NumberStyles.None, CultureInfo.InvariantCulture, out int denominator) && denominator > 0)
+        {
+            parsedFrameRate = numerator / (double)denominator;
+        }
+        else if (rateParts.Length != 1 ||
+                 !double.TryParse(frameRate, NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out parsedFrameRate) ||
+                 !double.IsFinite(parsedFrameRate) || parsedFrameRate <= 0)
+        {
+            return BadRequest();
+        }
+
+        if (Request.Headers.ContainsKey("x-etv-channel") &&
+            (!TryGetHeader("x-etv-channel", out string headerChannelNumber) || headerChannelNumber != channelNumber))
+        {
+            return BadRequest();
+        }
+
+        Option<Stream> maybeStream = await _mediator.Send(
+            new GetGraphicsCanvasStream(
+                channelNumber,
+                playoutItemId,
+                TimeSpan.FromTicks(offsetMs * TimeSpan.TicksPerMillisecond),
+                TimeSpan.FromTicks(durationMs * TimeSpan.TicksPerMillisecond),
+                new FrameRate(frameRate) { ParsedFrameRate = parsedFrameRate }),
+            HttpContext.RequestAborted);
+
+        foreach (Stream stream in maybeStream)
+        {
+            return new FileStreamResult(stream, "application/octet-stream");
+        }
+
+        return NotFound();
+    }
+
     [HttpGet("media/fallback")]
     public async Task<IActionResult> GetFallbackPlayoutJson(
         [FromQuery] string exp,
@@ -407,6 +479,18 @@ public class InternalController : StreamingControllerBase
         }
 
         return NotFound();
+    }
+
+    private bool TryGetHeader(string name, out string value)
+    {
+        value = null;
+        if (Request.Headers.TryGetValue(name, out StringValues values) && values.Count == 1)
+        {
+            value = values[0];
+            return value is not null;
+        }
+
+        return false;
     }
 
     private async Task<IActionResult> GetTsLegacyStream(string channelNumber)

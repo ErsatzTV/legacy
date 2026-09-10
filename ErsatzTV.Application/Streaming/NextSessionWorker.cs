@@ -31,6 +31,7 @@ public class NextSessionWorker(
     private string _workingDirectory;
     private string _heartbeatFileName;
     private DateTimeOffset _lastTouch;
+    private DateTimeOffset _sessionStart;
     private DateTimeOffset _lastCheckpoint;
     private ChannelPlayoutMode _channelPlayoutMode = ChannelPlayoutMode.Continuous;
 
@@ -101,7 +102,7 @@ public class NextSessionWorker(
         // nothing to do here; channel binary should detect that by itself
     }
 
-    public HlsSessionModel GetModel() => new(_channelNumber, "next", null, _lastTouch);
+    public HlsSessionModel GetModel() => new(_channelNumber, "next", null, _lastTouch, _sessionStart);
 
     public async Task Run(
         string channelNumber,
@@ -112,8 +113,8 @@ public class NextSessionWorker(
         using var checkpointCts = CancellationTokenSource.CreateLinkedTokenSource(_cancellationTokenSource.Token);
         Task checkpointLoop = Task.CompletedTask;
 
-        DateTimeOffset sessionStart = DateTimeOffset.Now;
-        _lastTouch = sessionStart;
+        _sessionStart = DateTimeOffset.Now;
+        _lastTouch = _sessionStart;
         _lastCheckpoint = _lastTouch;
 
         try
@@ -135,7 +136,7 @@ public class NextSessionWorker(
                     checkpointLoop = CheckpointLoop(checkpointCts.Token);
 
                     await Mediator.Send(
-                        new TimeShiftOnDemandPlayout(playout.PlayoutId, sessionStart, true),
+                        new TimeShiftOnDemandPlayout(playout.PlayoutId, _sessionStart, true),
                         _cancellationTokenSource.Token);
 
                     // next reads serialized playout files rather than the database, so ensure it

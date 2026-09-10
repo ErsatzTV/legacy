@@ -166,7 +166,8 @@ public class HlsSessionWorker : IHlsSessionWorker
 
     public void PlayoutUpdated() => _state = HlsSessionState.PlayoutUpdated;
 
-    public HlsSessionModel GetModel() => new(_channelNumber, _state.ToString(), _transcodedUntil, _lastAccess);
+    public HlsSessionModel GetModel() =>
+        new(_channelNumber, _state.ToString(), _transcodedUntil, _lastAccess, _channelStart);
 
     void IDisposable.Dispose()
     {

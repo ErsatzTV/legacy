@@ -11,10 +11,7 @@ using ErsatzTV.Core.Interfaces.FFmpeg;
 using ErsatzTV.Core.Interfaces.Jellyfin;
 using ErsatzTV.Core.Interfaces.Plex;
 using ErsatzTV.Core.Interfaces.Scheduling;
-using ErsatzTV.Core.Interfaces.Streaming;
 using ErsatzTV.Core.Security;
-using ErsatzTV.FFmpeg;
-using ErsatzTV.FFmpeg.State;
 using ErsatzTV.Infrastructure.Data;
 using ErsatzTV.Infrastructure.Extensions;
 using Microsoft.EntityFrameworkCore;
@@ -32,7 +29,6 @@ public class PlayoutItemConverter(
     IFFmpegStreamSelector ffmpegStreamSelector,
     IWatermarkSelector watermarkSelector,
     IGraphicsElementSelector graphicsElementSelector,
-    IGraphicsElementLoader graphicsElementLoader,
     IDbContextFactory<TvContext> dbContextFactory) : IPlayoutItemConverter
 {
     public async Task<Option<Core.Next.PlayoutItem>> ToNext(
@@ -101,7 +97,9 @@ public class PlayoutItemConverter(
 
         var nextPlayoutItem = new Core.Next.PlayoutItem
         {
-            Id = playoutItem is DynamicPlayoutItem ? Guid.NewGuid().ToString() : playoutItem.Id.ToString(CultureInfo.InvariantCulture),
+            Id = playoutItem is DynamicPlayoutItem
+                ? Guid.NewGuid().ToString()
+                : playoutItem.Id.ToString(CultureInfo.InvariantCulture),
             Start = playoutItem.StartOffset,
             Finish = playoutItem.FinishOffset
         };
@@ -131,7 +129,9 @@ public class PlayoutItemConverter(
                     Width = headVersion.Width,
                     Profile = s.Profile,
                     FieldOrder = headVersion.VideoScanKind is VideoScanKind.Interlaced ? "tt" : "progressive",
-                    PixFmt = string.IsNullOrWhiteSpace(s.PixelFormat) ? PixelFormatForBitDepth(s.BitsPerRawSample) : s.PixelFormat,
+                    PixFmt = string.IsNullOrWhiteSpace(s.PixelFormat)
+                        ? PixelFormatForBitDepth(s.BitsPerRawSample)
+                        : s.PixelFormat,
                     FrameRate = headVersion.RFrameRate,
                     SampleAspectRatio = headVersion.SampleAspectRatio,
                     DisplayAspectRatio = headVersion.DisplayAspectRatio,
@@ -183,7 +183,8 @@ public class PlayoutItemConverter(
                                 Params = "anullsrc=channel_layout=stereo:sample_rate=48000",
                                 ProbeHint = new Core.Next.ProbeHint
                                 {
-                                    Audio = [
+                                    Audio =
+                                    [
                                         new Core.Next.AudioHint
                                         {
                                             StreamIndex = 0,
@@ -216,14 +217,13 @@ public class PlayoutItemConverter(
                     subtitles,
                     shouldLogMessages,
                     cancellationToken);
-                await SelectGraphics(
+                SelectGraphics(
                     maybeGlobalWatermark,
                     channel,
                     playoutItem,
                     nextPlayoutItem,
                     headVersion.RFrameRate,
-                    shouldLogMessages,
-                    cancellationToken);
+                    shouldLogMessages);
             }
         }
 
@@ -252,7 +252,8 @@ public class PlayoutItemConverter(
             return new Core.Next.Source
             {
                 SourceType = Core.Next.SourceType.Dynamic,
-                Uri = $"http://localhost:{Settings.StreamingPort}/internal/media/fallback?exp={exp.ToUnixTimeSeconds()}&sig={sig}"
+                Uri =
+                    $"http://localhost:{Settings.StreamingPort}/internal/media/fallback?exp={exp.ToUnixTimeSeconds()}&sig={sig}"
             };
         }
 
@@ -333,7 +334,8 @@ public class PlayoutItemConverter(
             return new Core.Next.Source
             {
                 SourceType = Core.Next.SourceType.Http,
-                Uri = $"http://localhost:{Settings.StreamingPort}/internal/media/plex/{mediaSourceId}/{pmf.Key}?exp={exp.ToUnixTimeSeconds()}&sig={sig}",
+                Uri =
+                    $"http://localhost:{Settings.StreamingPort}/internal/media/plex/{mediaSourceId}/{pmf.Key}?exp={exp.ToUnixTimeSeconds()}&sig={sig}",
                 KeepAlive = false,
                 Reconnect = true
             };
@@ -353,7 +355,8 @@ public class PlayoutItemConverter(
             return new Core.Next.Source
             {
                 SourceType = Core.Next.SourceType.Http,
-                Uri = $"http://localhost:{Settings.StreamingPort}/internal/media/jellyfin/{itemId}?exp={exp.ToUnixTimeSeconds()}&sig={sig}",
+                Uri =
+                    $"http://localhost:{Settings.StreamingPort}/internal/media/jellyfin/{itemId}?exp={exp.ToUnixTimeSeconds()}&sig={sig}",
                 KeepAlive = false,
                 Reconnect = true
             };
@@ -374,7 +377,8 @@ public class PlayoutItemConverter(
             return new Core.Next.Source
             {
                 SourceType = Core.Next.SourceType.Http,
-                Uri = $"http://localhost:{Settings.StreamingPort}/internal/media/emby/{itemId}?exp={exp.ToUnixTimeSeconds()}&sig={sig}",
+                Uri =
+                    $"http://localhost:{Settings.StreamingPort}/internal/media/emby/{itemId}?exp={exp.ToUnixTimeSeconds()}&sig={sig}",
                 KeepAlive = false,
                 Reconnect = true
             };
@@ -512,17 +516,15 @@ public class PlayoutItemConverter(
         }
     }
 
-    private async Task SelectGraphics(
+    private void SelectGraphics(
         Option<ChannelWatermark> maybeGlobalWatermark,
         Channel channel,
         PlayoutItem playoutItem,
         Core.Next.PlayoutItem nextPlayoutItem,
         string frameRate,
-        bool shouldLogMessages,
-        CancellationToken cancellationToken)
+        bool shouldLogMessages)
     {
         nextPlayoutItem.Graphics ??= [];
-        var result = new List<KeyValuePair<Core.Next.GraphicsLayer, int>>();
 
         List<WatermarkOptions> watermarks = watermarkSelector.SelectWatermarks(
             maybeGlobalWatermark,
@@ -531,66 +533,16 @@ public class PlayoutItemConverter(
             playoutItem.StartOffset,
             shouldLogMessages: false);
 
-        // permanent or intermittent watermarks are supported
-        IEnumerable<WatermarkOptions> supportedWatermarks = watermarks.Where(wm =>
-            wm.Watermark.Mode is ChannelWatermarkMode.Permanent or ChannelWatermarkMode.Intermittent);
-
-        foreach (WatermarkOptions watermarkOptions in supportedWatermarks)
-        {
-            var layer = new Core.Next.GraphicsLayer
-            {
-                Location = ToGraphics(watermarkOptions.Watermark.Location),
-                HorizontalMarginPercent = watermarkOptions.Watermark.HorizontalMarginPercent,
-                VerticalMarginPercent = watermarkOptions.Watermark.VerticalMarginPercent,
-                OpacityPercent = watermarkOptions.Watermark.Opacity,
-                StreamIndex = await watermarkOptions.ImageStreamIndex.IfNoneAsync(0),
-                WithinSourceContent = watermarkOptions.Watermark.PlaceWithinSourceContent,
-            };
-
-            if (watermarkOptions.Watermark.Size is WatermarkSize.Scaled)
-            {
-                layer.WidthPercent = watermarkOptions.Watermark.WidthPercent;
-            }
-
-            if (IsRemoteUri(watermarkOptions.ImagePath))
-            {
-                layer.Source = new Core.Next.PlayoutItemSource
-                {
-                    SourceType = Core.Next.SourceType.Http,
-                    Uri = watermarkOptions.ImagePath,
-                };
-            }
-            else
-            {
-                layer.Source = new Core.Next.PlayoutItemSource
-                {
-                    SourceType = Core.Next.SourceType.Local,
-                    Path = watermarkOptions.ImagePath,
-                };
-            }
-
-            if (watermarkOptions.Watermark.Mode is ChannelWatermarkMode.Intermittent)
-            {
-                layer.Timing = new Core.Next.Timing
-                {
-                    TimingType = Core.Next.TimingType.Periodic,
-                    Clock = Core.Next.PeriodicClock.Wall,
-                    FrequencyMs = watermarkOptions.Watermark.FrequencyMinutes * 60 * 1000,
-                    HoldMs = watermarkOptions.Watermark.DurationSeconds * 1000,
-                };
-            }
-
-            result.Add(new KeyValuePair<Core.Next.GraphicsLayer, int>(layer, watermarkOptions.Watermark.ZIndex));
-        }
-
         List<PlayoutItemGraphicsElement> graphicsElements = graphicsElementSelector.SelectGraphicsElements(
             channel,
             playoutItem,
             playoutItem.StartOffset,
             shouldLogMessages);
 
-        IEnumerable<PlayoutItemGraphicsElement> supportedGraphicsElements = graphicsElements
-            .Where(ge => ge.GraphicsElement.Kind is GraphicsElementKind.Image);
+        if (watermarks.Count == 0 && graphicsElements.Count == 0)
+        {
+            return;
+        }
 
         var outputFrameSize = new Resolution
         {
@@ -598,100 +550,41 @@ public class PlayoutItemConverter(
             Height = channel.FFmpegProfile.Resolution.Height,
         };
 
-        var squarePixelFrameSize = new Resolution
+        DateTimeOffset exp = playoutItem.FinishOffset + TimeSpan.FromHours(2);
+
+        string sig = InternalUrlSigner.Sign(exp, "graphics", channel.Number, $"{playoutItem.Id}");
+
+        var layer = new Core.Next.GraphicsLayer
         {
-            Width = outputFrameSize.Width,
-            Height = outputFrameSize.Height
+            Kind = Core.Next.GraphicsLayerKind.Canvas,
+            Location = Core.Next.GraphicsLocation.TopLeft,
+            Source = new Core.Next.PlayoutItemSource
+            {
+                SourceType = Core.Next.SourceType.Http,
+                Uri =
+                    $"http://localhost:{Settings.StreamingPort}/internal/graphics/{channel.Number}/{playoutItem.Id}?exp={exp.ToUnixTimeSeconds()}&sig={sig}",
+                Reconnect = false,
+                ProbeHint = new Core.Next.ProbeHint
+                {
+                    FormatName = "nut",
+                    Video =
+                    [
+                        new Core.Next.VideoHint
+                        {
+                            Codec = "ffv1",
+                            Width = outputFrameSize.Width,
+                            Height = outputFrameSize.Height,
+                            PixFmt = "bgra",
+                            StreamIndex = 0,
+                            FrameRate = frameRate,
+                        }
+                    ]
+                }
+            }
         };
 
-        var headVersion = playoutItem.MediaItem.GetHeadVersion();
-        Option<VideoStream> maybeVideoStream = headVersion.Streams
-            .Where(s => s.MediaStreamKind is MediaStreamKind.Video)
-            .HeadOrNone()
-            .Select(v => new VideoStream(
-                v.Index,
-                v.Codec,
-                v.Profile,
-                None,
-                ColorParams.Unknown,
-                new FrameSize(headVersion.Width, headVersion.Height),
-                headVersion.SampleAspectRatio,
-                headVersion.DisplayAspectRatio,
-                None,
-                StillImage: false,
-                ScanKind.Progressive));
-
-        foreach (var videoStream in maybeVideoStream)
-        {
-            var frameSize =
-                videoStream.SquarePixelFrameSize(new FrameSize(outputFrameSize.Width, outputFrameSize.Height));
-
-            squarePixelFrameSize.Width = frameSize.Width;
-            squarePixelFrameSize.Height = frameSize.Height;
-        }
-
-        var context = new GraphicsEngineContext(
-            channel.Number,
-            playoutItem.MediaItem,
-            Elements: [],
-            TemplateVariables: [],
-            squarePixelFrameSize,
-            outputFrameSize,
-            new FrameRate(frameRate),
-            playoutItem.StartOffset,
-            playoutItem.StartOffset,
-            TimeSpan.Zero,
-            playoutItem.OutPoint - playoutItem.InPoint,
-            playoutItem.MediaItem.GetDurationForPlayout());
-
-        context = await graphicsElementLoader.LoadAll(context, [.. supportedGraphicsElements], cancellationToken);
-
-        foreach (GraphicsElementContext element in context?.Elements ?? [])
-        {
-            switch (element)
-            {
-                case ImageElementDataContext({ } image):
-                    // opacity expressions are not supported yet
-                    if (!string.IsNullOrWhiteSpace(image.OpacityExpression))
-                    {
-                        continue;
-                    }
-
-                    var layer = new Core.Next.GraphicsLayer
-                    {
-                        Location = ToGraphics(image.Location),
-                        HorizontalMarginPercent = image.HorizontalMarginPercent,
-                        VerticalMarginPercent = image.VerticalMarginPercent,
-                        OpacityPercent = image.OpacityPercent,
-                        StreamIndex = 0,
-                        WithinSourceContent = image.PlaceWithinSourceContent,
-                        WidthPercent = image.Scale ? image.ScaleWidthPercent ?? 100 : null,
-                    };
-
-                    if (IsRemoteUri(image.Image))
-                    {
-                        layer.Source = new Core.Next.PlayoutItemSource
-                        {
-                            SourceType = Core.Next.SourceType.Http,
-                            Uri = image.Image,
-                        };
-                    }
-                    else
-                    {
-                        layer.Source = new Core.Next.PlayoutItemSource
-                        {
-                            SourceType = Core.Next.SourceType.Local,
-                            Path = image.Image,
-                        };
-                    }
-
-                    result.Add(new KeyValuePair<Core.Next.GraphicsLayer, int>(layer, image.ZIndex ?? 0));
-                    break;
-            }
-        }
-
         nextPlayoutItem.Graphics.Clear();
-        nextPlayoutItem.Graphics.AddRange(result.OrderBy(kvp => kvp.Value).Select(kvp => kvp.Key));
+        nextPlayoutItem.Graphics.Add(layer);
     }
 
     private static async Task<List<Subtitle>> GetSubtitles(
@@ -727,7 +620,10 @@ public class PlayoutItemConverter(
         return allSubtitles;
     }
 
-    private static List<Subtitle> GetMusicVideoSubtitles(Channel channel, int playoutItemId, TimeSpan playoutItemInPoint)
+    private static List<Subtitle> GetMusicVideoSubtitles(
+        Channel channel,
+        int playoutItemId,
+        TimeSpan playoutItemInPoint)
     {
         if (channel.MusicVideoCreditsMode is not ChannelMusicVideoCreditsMode.GenerateSubtitles)
         {
@@ -747,7 +643,8 @@ public class PlayoutItemConverter(
                 Forced = true,
                 IsExtracted = false,
                 SubtitleKind = SubtitleKind.Generated,
-                Path = $"http://localhost:{Settings.StreamingPort}/internal/ffmpeg/music-video-credits/{playoutItemId}{seekToMs}",
+                Path =
+                    $"http://localhost:{Settings.StreamingPort}/internal/ffmpeg/music-video-credits/{playoutItemId}{seekToMs}",
                 SDH = false
             }
         ];
@@ -769,20 +666,6 @@ public class PlayoutItemConverter(
             }
         }
     }
-
-    private static Core.Next.GraphicsLocation ToGraphics(WatermarkLocation watermarkLocation) =>
-        watermarkLocation switch
-        {
-            WatermarkLocation.TopMiddle => Core.Next.GraphicsLocation.TopCenter,
-            WatermarkLocation.TopRight => Core.Next.GraphicsLocation.TopRight,
-            WatermarkLocation.LeftMiddle => Core.Next.GraphicsLocation.CenterLeft,
-            WatermarkLocation.MiddleCenter => Core.Next.GraphicsLocation.Center,
-            WatermarkLocation.RightMiddle => Core.Next.GraphicsLocation.CenterRight,
-            WatermarkLocation.BottomLeft => Core.Next.GraphicsLocation.BottomLeft,
-            WatermarkLocation.BottomMiddle => Core.Next.GraphicsLocation.BottomCenter,
-            WatermarkLocation.BottomRight => Core.Next.GraphicsLocation.BottomRight,
-            _ => Core.Next.GraphicsLocation.TopLeft
-        };
 
     private static bool IsRemoteUri(string path) =>
         Uri.TryCreate(path, UriKind.Absolute, out Uri uriResult)

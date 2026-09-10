@@ -289,7 +289,7 @@ public partial class GraphicsElementLoader(
             [ChannelTemplateDataKey.ChannelStartTime] = context.ChannelStartTime,
             [MediaItemTemplateDataKey.StreamSeek] = context.Seek,
             [MediaItemTemplateDataKey.Start] = context.ContentStartTime,
-            [MediaItemTemplateDataKey.Stop] = context.ContentStartTime + context.Duration
+            [MediaItemTemplateDataKey.Stop] = context.ContentFinishTime
         };
 
         // media item variables

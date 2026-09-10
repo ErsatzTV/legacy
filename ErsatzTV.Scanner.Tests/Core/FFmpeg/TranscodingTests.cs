@@ -27,6 +27,7 @@ using ErsatzTV.FFmpeg.State;
 using ErsatzTV.Infrastructure.Images;
 using ErsatzTV.Infrastructure.Metadata;
 using ErsatzTV.Infrastructure.Runtime;
+using ErsatzTV.Infrastructure.Streaming.Graphics;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
@@ -270,6 +271,7 @@ public class TranscodingTests
                 Arg.Any<List<PlayoutItemGraphicsElement>>(),
                 Arg.Any<CancellationToken>())
             .Returns(callInfo => Task.FromResult(callInfo.Arg<GraphicsEngineContext>()));
+        var graphicsEngineContextFactory = new GraphicsEngineContextFactory(graphicsElementLoader);
 
         var oldService = new FFmpegProcessService(
             new FakeStreamSelector(),
@@ -289,7 +291,7 @@ public class TranscodingTests
                     LoggerFactory.CreateLogger<HardwareCapabilitiesFactory>()),
                 LoggerFactory.CreateLogger<PipelineBuilderFactory>()),
             Substitute.For<IConfigElementRepository>(),
-            graphicsElementLoader,
+            graphicsEngineContextFactory,
             MemoryCache,
             Substitute.For<IMpegTsScriptService>(),
             Substitute.For<ILocalStatisticsProvider>(),
@@ -999,6 +1001,7 @@ public class TranscodingTests
                 Arg.Any<List<PlayoutItemGraphicsElement>>(),
                 Arg.Any<CancellationToken>())
             .Returns(callInfo => Task.FromResult(callInfo.Arg<GraphicsEngineContext>()));
+        var graphicsEngineContextFactory = new GraphicsEngineContextFactory(graphicsElementLoader);
 
         var oldService = new FFmpegProcessService(
             new FakeStreamSelector(),
@@ -1018,7 +1021,7 @@ public class TranscodingTests
                     LoggerFactory.CreateLogger<HardwareCapabilitiesFactory>()),
                 LoggerFactory.CreateLogger<PipelineBuilderFactory>()),
             Substitute.For<IConfigElementRepository>(),
-            graphicsElementLoader,
+            graphicsEngineContextFactory,
             MemoryCache,
             Substitute.For<IMpegTsScriptService>(),
             Substitute.For<ILocalStatisticsProvider>(),
