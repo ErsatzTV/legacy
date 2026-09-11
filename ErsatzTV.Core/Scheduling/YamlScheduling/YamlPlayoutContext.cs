@@ -431,6 +431,12 @@ public class YamlPlayoutContext(Playout playout, YamlPlayoutDefinition definitio
             preRollSequence = sequence;
         }
 
+        string postRollSequence = null;
+        foreach (string sequence in _postRollSequence)
+        {
+            postRollSequence = sequence;
+        }
+
         // capture the current active list index alongside the other saved list indices
         var scheduleIndices = _listStates.ToDictionary(kvp => kvp.Key, kvp => kvp.Value.InstructionIndex);
         scheduleIndices[_activeSchedule ?? string.Empty] = _instructionIndex;
@@ -444,7 +450,8 @@ public class YamlPlayoutContext(Playout playout, YamlPlayoutDefinition definitio
             _activeSchedule,
             scheduleIndices,
             CaptureSequenceOrders(),
-            _listFingerprints.Count > 0 ? new Dictionary<string, string>(_listFingerprints) : null);
+            _listFingerprints.Count > 0 ? new Dictionary<string, string>(_listFingerprints) : null,
+            postRollSequence);
 
         return JsonConvert.SerializeObject(state, Formatting.None, JsonSettings);
     }
@@ -488,6 +495,8 @@ public class YamlPlayoutContext(Playout playout, YamlPlayoutDefinition definitio
         {
             _preRollSequence = preRollSequence;
         }
+
+        _postRollSequence = Optional(state.PostRollSequence);
 
         _listFingerprintsToRestore = state.ListFingerprints;
         _sequenceOrdersToRestore = state.SequenceOrders;
@@ -558,7 +567,8 @@ public class YamlPlayoutContext(Playout playout, YamlPlayoutDefinition definitio
         string ActiveSchedule = null,
         Dictionary<string, int> ScheduleIndices = null,
         Dictionary<string, List<SequenceOrder>> SequenceOrders = null,
-        Dictionary<string, string> ListFingerprints = null);
+        Dictionary<string, string> ListFingerprints = null,
+        string PostRollSequence = null);
 
     public record SequenceOrder(string Sequence, List<int> Order);
 

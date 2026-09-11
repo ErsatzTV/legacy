@@ -10,6 +10,57 @@ namespace ErsatzTV.Core.Tests.Scheduling;
 public static class YamlPlayoutContextTests
 {
     [TestFixture]
+    public class PostRollPersistence
+    {
+        [TestCase(null)]
+        [TestCase("Christmas")]
+        public void Checkpoint_Should_Preserve_PostRoll(string activeSchedule)
+        {
+            var context = new YamlPlayoutContext(new Playout(), new YamlPlayoutDefinition(), 1);
+            context.SwitchToSchedule(activeSchedule);
+            context.SetPostRollSequence("idents");
+            context.InstructionIndex = 4;
+            var restored = new YamlPlayoutContext(new Playout(), new YamlPlayoutDefinition(), 1);
+            restored.Reset(new PlayoutAnchor
+            {
+                NextStart = DateTime.UtcNow,
+                Context = context.Serialize()
+            }, DateTimeOffset.UtcNow);
+            restored.GetPostRollSequence().ShouldBe(Some("idents"));
+            restored.InstructionIndex.ShouldBe(4);
+        }
+
+        [Test]
+        public void Checkpoint_Should_Preserve_Explicitly_Disabled_PostRoll()
+        {
+            var context = new YamlPlayoutContext(new Playout(), new YamlPlayoutDefinition(), 1);
+            context.SetPostRollSequence("idents");
+            context.ClearPostRollSequence();
+            var restored = new YamlPlayoutContext(new Playout(), new YamlPlayoutDefinition(), 1);
+            restored.SetPostRollSequence("stale");
+            restored.Reset(new PlayoutAnchor
+            {
+                NextStart = DateTime.UtcNow,
+                Context = context.Serialize()
+            }, DateTimeOffset.UtcNow);
+            restored.GetPostRollSequence().IsNone.ShouldBeTrue();
+        }
+
+        [Test]
+        public void Old_Checkpoint_Should_Remain_Readable_Without_Guessing_PostRoll()
+        {
+            var context = new YamlPlayoutContext(new Playout(), new YamlPlayoutDefinition(), 1);
+            context.Reset(new PlayoutAnchor
+            {
+                NextStart = DateTime.UtcNow,
+                Context = "{\"InstructionIndex\":4,\"ChannelWatermarkIds\":[]}"
+            }, DateTimeOffset.UtcNow);
+            context.InstructionIndex.ShouldBe(4);
+            context.GetPostRollSequence().IsNone.ShouldBeTrue();
+        }
+    }
+
+    [TestFixture]
     public class ScheduleSwitching
     {
         private static YamlPlayoutContext CreateContext()
