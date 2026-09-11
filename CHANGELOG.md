@@ -21,6 +21,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Optimize anamorphic pipelines by only performing one scale instead of two
   - Optimize tonemapping pipelines by downscaling before tonemapping when possible
   - Optimize QSV pipelines by merging consecutive vpp_qsv filters as much as possible (e.g. tonemap, scale and format using a single filter)
+  - Show error messages over black/silence fallback streams by default
+    - To disable, create the file `next/channel-config-overlays/default.json` in ETV's config folder with the contents `{"fallback":{"show_error":false}}`
 
 ### Fixed
 - Next engine:

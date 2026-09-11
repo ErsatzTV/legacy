@@ -159,6 +159,10 @@ public class ChannelConfigConverter(IConfigElementRepository configElementReposi
                 Audio = audioNormalization,
                 Video = videoNormalization,
                 Subtitle = subtitleNormalization
+            },
+            Fallback = new Fallback
+            {
+                ShowError = true
             }
         };
     }

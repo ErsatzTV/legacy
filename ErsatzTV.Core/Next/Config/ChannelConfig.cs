@@ -22,6 +22,10 @@ namespace ErsatzTV.Core.Next.Config
 
     public partial class ChannelConfig
     {
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("fallback")]
+        public Fallback? Fallback { get; set; }
+
         [JsonPropertyName("ffmpeg")]
         public Ffmpeg Ffmpeg { get; set; }
 
@@ -30,6 +34,21 @@ namespace ErsatzTV.Core.Next.Config
 
         [JsonPropertyName("playout")]
         public Playout Playout { get; set; }
+    }
+
+    /// <summary>
+    /// Controls the content that replaces scheduled content when there is nothing to play
+    /// (a gap in the playout) or when the scheduled item fails
+    /// </summary>
+    public partial class Fallback
+    {
+        /// <summary>
+        /// Burn the reason for the fallback into the fallback video; this is always burned,
+        /// regardless of the normalization subtitle mode
+        /// </summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("show_error")]
+        public bool? ShowError { get; set; }
     }
 
     public partial class Ffmpeg
