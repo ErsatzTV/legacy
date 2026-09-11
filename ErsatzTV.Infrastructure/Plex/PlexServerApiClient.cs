@@ -1311,40 +1311,14 @@ public class PlexServerApiClient(PlexEtag plexEtag, ILogger<PlexServerApiClient>
                 .MaxBy(media => media.Id);
 
             PlexXmlPartResponse part = media.Part.Head();
-            string folder = Path.GetDirectoryName(part.File);
+            IEnumerable<string> libraryPaths = library.Paths
+                .HeadOrNone()
+                .Map(p => p.Path)
+                .Map(JsonConvert.DeserializeObject<LibraryPaths>)
+                .Map(lp => lp.Paths)
+                .Flatten();
 
-            if (!string.IsNullOrWhiteSpace(folder))
-            {
-                IEnumerable<string> libraryPaths = library.Paths
-                    .HeadOrNone()
-                    .Map(p => p.Path)
-                    .Map(JsonConvert.DeserializeObject<LibraryPaths>)
-                    .Map(lp => lp.Paths)
-                    .Flatten();
-
-                // check each library path from plex
-                foreach (string libraryPath in libraryPaths)
-                {
-                    // if the media file belongs to this library path
-                    if (folder.StartsWith(libraryPath, StringComparison.OrdinalIgnoreCase))
-                    {
-                        // try to get a parent directory of the library path
-                        string parent = Optional(Directory.GetParent(libraryPath)).Match(
-                            di => di.FullName,
-                            () => libraryPath);
-
-                        // get all folders between parent and media file
-                        string diff = Path.GetRelativePath(parent, folder);
-
-                        // each folder becomes a tag
-                        IEnumerable<Tag> tags = diff.Split(Path.DirectorySeparatorChar)
-                            .Map(t => new Tag { Name = t });
-
-                        metadata.Tags.AddRange(tags);
-                        break;
-                    }
-                }
-            }
+            metadata.Tags.AddRange(GetFolderTags(part.File, libraryPaths).Map(t => new Tag { Name = t }));
         }
         else
         {
@@ -1403,6 +1377,44 @@ public class PlexServerApiClient(PlexEtag plexEtag, ILogger<PlexServerApiClient>
         }
 
         return metadata;
+    }
+
+    internal static IEnumerable<string> GetFolderTags(string file, IEnumerable<string> libraryPaths)
+    {
+        if (string.IsNullOrWhiteSpace(file))
+        {
+            return [];
+        }
+
+        // plex paths belong to the server, so do not interpret them with host path apis
+        string normalizedFile = file.Replace('\\', '/');
+        int separator = normalizedFile.LastIndexOf('/');
+        if (separator < 0)
+        {
+            return [];
+        }
+
+        string folder = normalizedFile[..separator];
+        foreach (string libraryPath in libraryPaths)
+        {
+            if (string.IsNullOrWhiteSpace(libraryPath))
+            {
+                continue;
+            }
+
+            string root = libraryPath.Replace('\\', '/').TrimEnd('/');
+            if (!folder.Equals(root, StringComparison.OrdinalIgnoreCase) &&
+                !folder.StartsWith(root + "/", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            // include the library folder itself; never a filesystem root or drive name
+            int start = root.Length == 2 && root[1] == ':' ? root.Length : root.LastIndexOf('/') + 1;
+            return folder[start..].Split('/', StringSplitOptions.RemoveEmptyEntries);
+        }
+
+        return [];
     }
 
     private Option<string> NormalizeGuid(string guid)

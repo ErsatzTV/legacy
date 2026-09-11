@@ -30,6 +30,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Fix `/api/sessions` response when channels use Next streaming engine
 - Save and restore sequential schedule mid-roll, post-roll, and graphics state between builds
 - Fix subtitle playback with Plex other video libraries
+- Fix Plex other video tag generation when Plex server and ETV server use different path separators (i.e. Windows and Linux)
 
 ## [26.9.0] - 2026-09-06
 ### Fixed
