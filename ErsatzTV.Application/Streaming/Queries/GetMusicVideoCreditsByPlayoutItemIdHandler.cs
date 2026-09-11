@@ -1,6 +1,9 @@
+using System.IO.Abstractions;
 using ErsatzTV.Core;
 using ErsatzTV.Core.Domain;
+using ErsatzTV.Core.FFmpeg;
 using ErsatzTV.Core.Interfaces.FFmpeg;
+using ErsatzTV.Core.Interfaces.Troubleshooting;
 using ErsatzTV.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -10,6 +13,8 @@ namespace ErsatzTV.Application.Streaming;
 public class GetMusicVideoCreditsByPlayoutItemIdHandler(
     IDbContextFactory<TvContext> dbContextFactory,
     IMusicVideoCreditsGenerator musicVideoCreditsGenerator,
+    ITroubleshootingPlayoutItemStore troubleshootingPlayoutItemStore,
+    IFileSystem fileSystem,
     ILogger<GetMusicVideoCreditsByPlayoutItemIdHandler> logger)
     : IRequestHandler<GetMusicVideoCreditsByPlayoutItemId, Option<string>>
 {
@@ -17,6 +22,30 @@ public class GetMusicVideoCreditsByPlayoutItemIdHandler(
         GetMusicVideoCreditsByPlayoutItemId request,
         CancellationToken cancellationToken)
     {
+        if (request.PlayoutItemId == MusicVideoCreditsSubtitle.TroubleshootingPlayoutItemId)
+        {
+            foreach (TroubleshootingPlayoutItem item in troubleshootingPlayoutItemStore.Current())
+            {
+                if (item.PlayoutItem.MediaItem is not MusicVideo musicVideo)
+                {
+                    return None;
+                }
+
+                Option<string> maybePath = await Generate(musicVideo, item.Channel, request.SeekToMs);
+                foreach (string path in maybePath)
+                {
+                    fileSystem.File.Copy(
+                        path,
+                        Path.Combine(FileSystemLayout.TranscodeTroubleshootingFolder, "music-video-credits.ass"),
+                        overwrite: true);
+                }
+
+                return maybePath;
+            }
+
+            return None;
+        }
+
         await using TvContext dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
 
         Option<PlayoutItem> maybePlayoutItem = await dbContext.PlayoutItems
@@ -49,47 +78,47 @@ public class GetMusicVideoCreditsByPlayoutItemIdHandler(
             .SingleOrDefaultAsync(pi => pi.Id == request.PlayoutItemId, cancellationToken)
             .Map(Optional);
 
-        var subtitles = new List<Subtitle>();
         foreach (PlayoutItem playoutItem in maybePlayoutItem)
         {
-            if (playoutItem.MediaItem is not MusicVideo musicVideo)
+            if (playoutItem.MediaItem is MusicVideo musicVideo)
             {
-                break;
-            }
-
-            switch (playoutItem.Playout.Channel.MusicVideoCreditsMode)
-            {
-                case ChannelMusicVideoCreditsMode.GenerateSubtitles:
-                    string templateName = playoutItem.Playout.Channel.MusicVideoCreditsTemplate;
-                    if (!string.IsNullOrWhiteSpace(templateName))
-                    {
-                        var fileWithExtension = $"{templateName}.sbntxt";
-                        subtitles.AddRange(
-                            await musicVideoCreditsGenerator.GenerateCreditsSubtitleFromTemplate(
-                                musicVideo,
-                                playoutItem.Playout.Channel.FFmpegProfile,
-                                request.SeekToMs.Map(TimeSpan.FromMilliseconds),
-                                Path.Combine(FileSystemLayout.MusicVideoCreditsTemplatesFolder, fileWithExtension)));
-                    }
-                    else
-                    {
-                        logger.LogWarning(
-                            "Music video credits template {Template} does not exist; falling back to built-in template",
-                            templateName);
-
-                        subtitles.AddRange(
-                            await musicVideoCreditsGenerator.GenerateCreditsSubtitle(
-                                musicVideo,
-                                playoutItem.Playout.Channel.FFmpegProfile));
-                    }
-
-                    break;
-                case ChannelMusicVideoCreditsMode.None:
-                default:
-                    break;
+                return await Generate(musicVideo, playoutItem.Playout.Channel, request.SeekToMs);
             }
         }
 
-        return subtitles.HeadOrNone().Map(s => s.Path);
+        return None;
+    }
+
+    private async Task<Option<string>> Generate(MusicVideo musicVideo, Channel channel, Option<long> seekToMs)
+    {
+        if (channel.MusicVideoCreditsMode is not ChannelMusicVideoCreditsMode.GenerateSubtitles)
+        {
+            return None;
+        }
+
+        Option<Subtitle> maybeSubtitle;
+
+        string templateName = channel.MusicVideoCreditsTemplate;
+        if (!string.IsNullOrWhiteSpace(templateName))
+        {
+            var fileWithExtension = $"{templateName}.sbntxt";
+            maybeSubtitle = await musicVideoCreditsGenerator.GenerateCreditsSubtitleFromTemplate(
+                musicVideo,
+                channel.FFmpegProfile,
+                seekToMs.Map(TimeSpan.FromMilliseconds),
+                Path.Combine(FileSystemLayout.MusicVideoCreditsTemplatesFolder, fileWithExtension));
+        }
+        else
+        {
+            logger.LogWarning(
+                "Music video credits template {Template} does not exist; falling back to built-in template",
+                templateName);
+
+            maybeSubtitle = await musicVideoCreditsGenerator.GenerateCreditsSubtitle(
+                musicVideo,
+                channel.FFmpegProfile);
+        }
+
+        return maybeSubtitle.Map(s => s.Path);
     }
 }

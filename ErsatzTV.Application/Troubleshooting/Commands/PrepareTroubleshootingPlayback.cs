@@ -15,6 +15,7 @@ public record PrepareTroubleshootingPlayback(
     List<int> WatermarkIds,
     List<int> GraphicsElementIds,
     int? SubtitleId,
+    string MusicVideoCreditsTemplate,
     Option<int> SeekSeconds,
     Option<DateTimeOffset> Start)
     : IRequest<Either<BaseError, PlayoutItemResult>>;

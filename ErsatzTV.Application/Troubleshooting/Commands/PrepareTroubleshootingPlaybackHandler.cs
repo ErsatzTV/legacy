@@ -39,6 +39,7 @@ public class PrepareTroubleshootingPlaybackHandler(
     IFileSystem fileSystem,
     ILocalFileSystem localFileSystem,
     ISongVideoGenerator songVideoGenerator,
+    IMusicVideoCreditsGenerator musicVideoCreditsGenerator,
     IWatermarkSelector watermarkSelector,
     IEntityLocker entityLocker,
     IChannelConfigConverter channelConfigConverter,
@@ -210,6 +211,12 @@ public class PrepareTroubleshootingPlaybackHandler(
             channel.StreamSelector = request.StreamSelector;
         }
 
+        if (mediaItem is MusicVideo && !string.IsNullOrWhiteSpace(request.MusicVideoCreditsTemplate))
+        {
+            channel.MusicVideoCreditsMode = ChannelMusicVideoCreditsMode.GenerateSubtitles;
+            channel.MusicVideoCreditsTemplate = request.MusicVideoCreditsTemplate;
+        }
+
         MediaVersion version = mediaItem.GetHeadVersion();
 
         var duration = TimeSpan.FromSeconds(Math.Min(version.Duration.TotalSeconds, 30));
@@ -371,7 +378,7 @@ public class PrepareTroubleshootingPlaybackHandler(
                 [],
                 TimeSpan.Zero,
                 playoutItem,
-                await GetSubtitles(mediaItem, request),
+                await GetNextSubtitles(mediaItem, channel, request, inPoint),
                 shouldLogMessages: true,
                 cancellationToken);
 
@@ -496,7 +503,7 @@ public class PrepareTroubleshootingPlaybackHandler(
             new MediaItemAudioVersion(mediaItem, version),
             videoPath,
             mediaPath,
-            _ => GetSubtitles(mediaItem, request),
+            settings => GetLegacySubtitles(mediaItem, channel, request, settings),
             string.Empty,
             string.Empty,
             string.Empty,
@@ -524,6 +531,52 @@ public class PrepareTroubleshootingPlaybackHandler(
             cancellationToken);
 
         return playoutItemResult;
+    }
+
+    private async Task<List<Subtitle>> GetLegacySubtitles(
+        MediaItem mediaItem,
+        Channel channel,
+        PrepareTroubleshootingPlayback request,
+        FFmpegPlaybackSettings settings)
+    {
+        if (mediaItem is not MusicVideo musicVideo ||
+            channel.MusicVideoCreditsMode is not ChannelMusicVideoCreditsMode.GenerateSubtitles)
+        {
+            return await GetSubtitles(mediaItem, request);
+        }
+
+        Option<Subtitle> maybeSubtitle = await musicVideoCreditsGenerator.GenerateCreditsSubtitleFromTemplate(
+            musicVideo,
+            channel.FFmpegProfile,
+            settings.StreamSeek,
+            Path.Combine(
+                FileSystemLayout.MusicVideoCreditsTemplatesFolder,
+                $"{channel.MusicVideoCreditsTemplate}.sbntxt"));
+
+        foreach (Subtitle subtitle in maybeSubtitle)
+        {
+            _fileSystem.File.Copy(
+                subtitle.Path,
+                _fileSystem.Path.Combine(FileSystemLayout.TranscodeTroubleshootingFolder, "music-video-credits.ass"),
+                overwrite: true);
+        }
+
+        return maybeSubtitle.ToSeq().ToList();
+    }
+
+    private static async Task<List<Subtitle>> GetNextSubtitles(
+        MediaItem mediaItem,
+        Channel channel,
+        PrepareTroubleshootingPlayback request,
+        TimeSpan inPoint)
+    {
+        if (mediaItem is MusicVideo && channel.MusicVideoCreditsMode is ChannelMusicVideoCreditsMode.GenerateSubtitles)
+        {
+            // next fetches the credits over http; the endpoint resolves the troubleshooting playout item from the store
+            return [MusicVideoCreditsSubtitle.ForPlayoutItem(MusicVideoCreditsSubtitle.TroubleshootingPlayoutItemId, inPoint)];
+        }
+
+        return await GetSubtitles(mediaItem, request);
     }
 
     private static async Task<List<Subtitle>> GetSubtitles(MediaItem mediaItem, PrepareTroubleshootingPlayback request)

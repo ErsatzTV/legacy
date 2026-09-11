@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Periodically delete unused artwork from cache folder on disk
 - Probe Dolby Vision and HDR10 metadata in local library content
   - All HDR content in local libraries will be re-scanned once after updating to refresh this metadata
+- Add music video credits drop down to playback troubleshooter
 
 ### Changed
 - Next engine:

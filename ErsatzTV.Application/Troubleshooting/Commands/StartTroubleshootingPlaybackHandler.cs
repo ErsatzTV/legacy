@@ -94,6 +94,22 @@ public class StartTroubleshootingPlaybackHandler(
                 }
             }
 
+            // write music video credits template
+            if (!string.IsNullOrWhiteSpace(request.MusicVideoCreditsTemplate))
+            {
+                string fullPath = Path.Combine(
+                    FileSystemLayout.MusicVideoCreditsTemplatesFolder,
+                    $"{request.MusicVideoCreditsTemplate}.sbntxt");
+                if (File.Exists(fullPath))
+                {
+                    File.Copy(
+                        fullPath,
+                        Path.Combine(
+                            FileSystemLayout.TranscodeTroubleshootingFolder,
+                            "music-video-credits-template.sbntxt"));
+                }
+            }
+
             HardwareAccelerationKind hwAccel = request.TroubleshootingInfo.FFmpegProfiles.Head().HardwareAcceleration;
             if (hwAccel is HardwareAccelerationKind.Qsv)
             {

@@ -57,6 +57,12 @@ public class ArchiveTroubleshootingResultsHandler(ILocalFileSystem localFileSyst
                     continue;
                 }
 
+                if (fileName.Contains("music-video-credits", StringComparison.OrdinalIgnoreCase))
+                {
+                    zipArchive.CreateEntryFromFile(file, fileName);
+                    continue;
+                }
+
                 if (fileName.Contains("ffreport", StringComparison.OrdinalIgnoreCase))
                 {
                     hasReport = true;

@@ -678,24 +678,7 @@ public class PlayoutItemConverter(
             return [];
         }
 
-        string seekToMs = playoutItemInPoint > TimeSpan.Zero
-            ? $"?seekToMs={(long)playoutItemInPoint.TotalMilliseconds}"
-            : string.Empty;
-
-        return
-        [
-            new Subtitle
-            {
-                Codec = "ass",
-                Default = true,
-                Forced = true,
-                IsExtracted = false,
-                SubtitleKind = SubtitleKind.Generated,
-                Path =
-                    $"http://localhost:{Settings.StreamingPort}/internal/ffmpeg/music-video-credits/{playoutItemId}{seekToMs}",
-                SDH = false
-            }
-        ];
+        return [MusicVideoCreditsSubtitle.ForPlayoutItem(playoutItemId, playoutItemInPoint)];
     }
 
     private static void SetInOutPoints(PlayoutItem playoutItem, Core.Next.Source source)

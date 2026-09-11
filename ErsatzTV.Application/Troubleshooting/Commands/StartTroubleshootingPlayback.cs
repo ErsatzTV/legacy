@@ -8,6 +8,7 @@ public record StartTroubleshootingPlayback(
     Guid SessionId,
     StreamingEngine StreamingEngine,
     string StreamSelector,
+    string MusicVideoCreditsTemplate,
     PlayoutItemResult PlayoutItemResult,
     Option<MediaItemInfo> MediaItemInfo,
     TroubleshootingInfo TroubleshootingInfo) : IRequest, IFFmpegWorkerRequest;

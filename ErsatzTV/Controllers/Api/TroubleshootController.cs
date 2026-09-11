@@ -47,6 +47,8 @@ public class TroubleshootController(
         [FromQuery]
         int? subtitleId,
         [FromQuery]
+        string musicVideoCreditsTemplate,
+        [FromQuery]
         int seekSeconds,
         [FromQuery]
         DateTimeOffset? start,
@@ -71,6 +73,7 @@ public class TroubleshootController(
                     watermark,
                     graphicsElement,
                     subtitleId,
+                    musicVideoCreditsTemplate,
                     ss,
                     Optional(start)),
                 cancellationToken);
@@ -104,6 +107,7 @@ public class TroubleshootController(
                             sessionId,
                             streamingEngine,
                             streamSelector,
+                            musicVideoCreditsTemplate,
                             playoutItemResult,
                             maybeMediaInfo.ToOption(),
                             troubleshootingInfo),

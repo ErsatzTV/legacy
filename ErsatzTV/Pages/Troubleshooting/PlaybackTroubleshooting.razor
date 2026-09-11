@@ -5,6 +5,7 @@
 @using ErsatzTV.Application.FFmpegProfiles
 @using ErsatzTV.Application.Graphics
 @using ErsatzTV.Application.MediaItems
+@using ErsatzTV.Application.Templates
 @using ErsatzTV.Application.Troubleshooting
 @using ErsatzTV.Application.Troubleshooting.Queries
 @using ErsatzTV.Application.Watermarks
@@ -115,6 +116,21 @@
                         }
                     </MudSelect>
                 </MudStack>
+                @if (_isMusicVideo)
+                {
+                    <MudStack Row="true" Breakpoint="Breakpoint.SmAndDown" Class="form-field-stack gap-md-8 mb-5">
+                        <div class="d-flex">
+                            <MudText>Music Video Credits</MudText>
+                        </div>
+                        <MudSelect @bind-Value="_musicVideoCreditsTemplate" For="@(() => _musicVideoCreditsTemplate)" Clearable="true">
+                            <MudSelectItem T="string" Value="@((string)null)">(none)</MudSelectItem>
+                            @foreach (string template in _musicVideoCreditsTemplates)
+                            {
+                                <MudSelectItem T="string" Value="@template">@template</MudSelectItem>
+                            }
+                        </MudSelect>
+                    </MudStack>
+                }
                 <MudStack Row="true" Breakpoint="Breakpoint.SmAndDown" Class="form-field-stack gap-md-8 mb-5">
                     <div class="d-flex">
                         <MudText>Watermarks</MudText>
@@ -210,6 +226,7 @@
     private readonly List<WatermarkViewModel> _watermarks = [];
     private readonly List<SubtitleViewModel> _subtitleStreams = [];
     private readonly List<GraphicsElementViewModel> _graphicsElements = [];
+    private readonly List<string> _musicVideoCreditsTemplates = [];
     private string _title;
     private MediaItemInfo _info;
     private readonly StreamingMode _streamingMode = StreamingMode.HttpLiveStreamingSegmenter;
@@ -221,6 +238,8 @@
     private IReadOnlyCollection<string> _graphicsElementNames = new System.Collections.Generic.HashSet<string>();
     private bool _startFromBeginning;
     private int? _subtitleId;
+    private bool _isMusicVideo;
+    private string _musicVideoCreditsTemplate;
     private int _seekSeconds;
     private bool _hasPlayed;
     private double? _lastSpeed;
@@ -272,6 +291,9 @@
             await Mediator.Send(new RefreshGraphicsElements(), token);
             _graphicsElements.Clear();
             _graphicsElements.AddRange(await Mediator.Send(new GetAllGraphicsElements(), token));
+
+            _musicVideoCreditsTemplates.Clear();
+            _musicVideoCreditsTemplates.AddRange(await Mediator.Send(new GetMusicVideoCreditTemplates(), token));
 
             if (MediaItemId is not null)
             {
@@ -353,6 +375,11 @@
             }
         }
 
+        if (_isMusicVideo && !string.IsNullOrWhiteSpace(_musicVideoCreditsTemplate))
+        {
+            queryString.Add(new KeyValuePair<string, string>("musicVideoCreditsTemplate", _musicVideoCreditsTemplate));
+        }
+
         if (!string.IsNullOrWhiteSpace(_streamSelector))
         {
             queryString.Add(new KeyValuePair<string, string>("streamSelector", _streamSelector));
@@ -383,6 +410,8 @@
             IEnumerable<char> kindString = info.Kind.SelectMany((c, i) => i != 0 && char.IsUpper(c) && !char.IsUpper(info.Kind[i - 1]) ? new[] { ' ', c } : new[] { c });
             _info = info with { Kind = new string(kindString.ToArray()) };
             _title = info.Title;
+            _isMusicVideo = string.Equals(info.Kind, nameof(MusicVideo), StringComparison.OrdinalIgnoreCase);
+            _musicVideoCreditsTemplate = null;
 
             OnStartFromBeginningChanged(string.Equals(info.Kind, "RemoteStream", StringComparison.OrdinalIgnoreCase));
 
