@@ -437,6 +437,16 @@ public class YamlPlayoutContext(Playout playout, YamlPlayoutDefinition definitio
             postRollSequence = sequence;
         }
 
+        MidRollSequence midRollSequence = null;
+        foreach (MidRollSequence sequence in _midRollSequence)
+        {
+            midRollSequence = sequence;
+        }
+
+        Dictionary<int, string> graphicsElements = _graphicsElements.Count > 0
+            ? new Dictionary<int, string>(_graphicsElements)
+            : null;
+
         // capture the current active list index alongside the other saved list indices
         var scheduleIndices = _listStates.ToDictionary(kvp => kvp.Key, kvp => kvp.Value.InstructionIndex);
         scheduleIndices[_activeSchedule ?? string.Empty] = _instructionIndex;
@@ -451,7 +461,9 @@ public class YamlPlayoutContext(Playout playout, YamlPlayoutDefinition definitio
             scheduleIndices,
             CaptureSequenceOrders(),
             _listFingerprints.Count > 0 ? new Dictionary<string, string>(_listFingerprints) : null,
-            postRollSequence);
+            postRollSequence,
+            midRollSequence,
+            graphicsElements);
 
         return JsonConvert.SerializeObject(state, Formatting.None, JsonSettings);
     }
@@ -497,6 +509,16 @@ public class YamlPlayoutContext(Playout playout, YamlPlayoutDefinition definitio
         }
 
         _postRollSequence = Optional(state.PostRollSequence);
+        _midRollSequence = Optional(state.MidRollSequence);
+
+        _graphicsElements.Clear();
+        if (state.GraphicsElements is not null)
+        {
+            foreach ((int id, string variables) in state.GraphicsElements)
+            {
+                _graphicsElements[id] = variables;
+            }
+        }
 
         _listFingerprintsToRestore = state.ListFingerprints;
         _sequenceOrdersToRestore = state.SequenceOrders;
@@ -568,7 +590,9 @@ public class YamlPlayoutContext(Playout playout, YamlPlayoutDefinition definitio
         Dictionary<string, int> ScheduleIndices = null,
         Dictionary<string, List<SequenceOrder>> SequenceOrders = null,
         Dictionary<string, string> ListFingerprints = null,
-        string PostRollSequence = null);
+        string PostRollSequence = null,
+        MidRollSequence MidRollSequence = null,
+        Dictionary<int, string> GraphicsElements = null);
 
     public record SequenceOrder(string Sequence, List<int> Order);
 

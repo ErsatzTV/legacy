@@ -61,6 +61,77 @@ public static class YamlPlayoutContextTests
     }
 
     [TestFixture]
+    public class GraphicsAndMidRollPersistence
+    {
+        [Test]
+        public void Checkpoint_Should_Preserve_Graphics_Elements()
+        {
+            var context = new YamlPlayoutContext(new Playout(), new YamlPlayoutDefinition(), 1);
+            context.SetGraphicsElement(7, null);
+            context.SetGraphicsElement(8, "{\"title\":\"x\"}");
+            var restored = new YamlPlayoutContext(new Playout(), new YamlPlayoutDefinition(), 1);
+            restored.Reset(new PlayoutAnchor
+            {
+                NextStart = DateTime.UtcNow,
+                Context = context.Serialize()
+            }, DateTimeOffset.UtcNow);
+            restored.GetGraphicsElements().Count.ShouldBe(2);
+            restored.GetGraphicsElements()[7].ShouldBeNull();
+            restored.GetGraphicsElements()[8].ShouldBe("{\"title\":\"x\"}");
+        }
+
+        [Test]
+        public void Checkpoint_Should_Preserve_MidRoll()
+        {
+            var context = new YamlPlayoutContext(new Playout(), new YamlPlayoutDefinition(), 1);
+            context.SetMidRollSequence(new YamlPlayoutContext.MidRollSequence("ads", "count > 1"));
+            var restored = new YamlPlayoutContext(new Playout(), new YamlPlayoutDefinition(), 1);
+            restored.Reset(new PlayoutAnchor
+            {
+                NextStart = DateTime.UtcNow,
+                Context = context.Serialize()
+            }, DateTimeOffset.UtcNow);
+            restored.GetMidRollSequence()
+                .ShouldBe(Some(new YamlPlayoutContext.MidRollSequence("ads", "count > 1")));
+        }
+
+        [Test]
+        public void Checkpoint_Should_Preserve_Cleared_Graphics_And_MidRoll()
+        {
+            var context = new YamlPlayoutContext(new Playout(), new YamlPlayoutDefinition(), 1);
+            context.SetGraphicsElement(7, null);
+            context.ClearGraphicsElements();
+            context.SetMidRollSequence(new YamlPlayoutContext.MidRollSequence("ads", "true"));
+            context.ClearMidRollSequence();
+            var restored = new YamlPlayoutContext(new Playout(), new YamlPlayoutDefinition(), 1);
+            restored.SetGraphicsElement(9, null);
+            restored.SetMidRollSequence(new YamlPlayoutContext.MidRollSequence("stale", "true"));
+            restored.Reset(new PlayoutAnchor
+            {
+                NextStart = DateTime.UtcNow,
+                Context = context.Serialize()
+            }, DateTimeOffset.UtcNow);
+            restored.GetGraphicsElements().ShouldBeEmpty();
+            restored.GetMidRollSequence().IsNone.ShouldBeTrue();
+        }
+
+        [Test]
+        public void Old_Checkpoint_Should_Remain_Readable_Without_Graphics_Or_MidRoll()
+        {
+            var context = new YamlPlayoutContext(new Playout(), new YamlPlayoutDefinition(), 1);
+            context.Reset(new PlayoutAnchor
+            {
+                NextStart = DateTime.UtcNow,
+                Context = "{\"InstructionIndex\":4,\"ChannelWatermarkIds\":[],\"PostRollSequence\":\"idents\"}"
+            }, DateTimeOffset.UtcNow);
+            context.InstructionIndex.ShouldBe(4);
+            context.GetPostRollSequence().ShouldBe(Some("idents"));
+            context.GetGraphicsElements().ShouldBeEmpty();
+            context.GetMidRollSequence().IsNone.ShouldBeTrue();
+        }
+    }
+
+    [TestFixture]
     public class ScheduleSwitching
     {
         private static YamlPlayoutContext CreateContext()
