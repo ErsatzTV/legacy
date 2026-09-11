@@ -23,10 +23,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Optimize QSV pipelines by merging consecutive vpp_qsv filters as much as possible (e.g. tonemap, scale and format using a single filter)
 
 ### Fixed
+- Next engine:
+  - Fix many issues with subtitles that caused black/silence (error output from next)
 - Fix health checks causing a flood of (harmless) logged errors when quickly navigating away from home page
   - Health check results will now be cached for 5 minutes by default; a refresh button has been added to immediately re-run all checks
 - Fix `/api/sessions` response when channels use Next streaming engine
 - Save and restore sequential schedule mid-roll, post-roll, and graphics state between builds
+- Fix subtitle playback with Plex other video libraries
 
 ## [26.9.0] - 2026-09-06
 ### Fixed

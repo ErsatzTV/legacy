@@ -444,7 +444,8 @@ public class GetPlayoutItemProcessByChannelNumberHandler : FFmpegProcessHandler<
             Option<TimeSpan> maybeDuration = maybeNextStart.Map(s => s - now);
 
             // limit working ahead on errors to 1 minute
-            if (!request.HlsRealtime && await maybeDuration.IfNoneAsync(TimeSpan.FromMinutes(2)) > TimeSpan.FromMinutes(1))
+            if (!request.HlsRealtime &&
+                await maybeDuration.IfNoneAsync(TimeSpan.FromMinutes(2)) > TimeSpan.FromMinutes(1))
             {
                 maybeNextStart = now.AddMinutes(1);
                 maybeDuration = TimeSpan.FromMinutes(1);
@@ -569,8 +570,8 @@ public class GetPlayoutItemProcessByChannelNumberHandler : FFmpegProcessHandler<
             _ => []
         };
 
-        bool isMediaServer = playoutItemWithPath.PlayoutItem.MediaItem is PlexMovie or PlexEpisode or
-            JellyfinMovie or JellyfinEpisode or EmbyMovie or EmbyEpisode;
+        bool isMediaServer = playoutItemWithPath.PlayoutItem.MediaItem is PlexMovie or PlexEpisode or PlexOtherVideo
+            or JellyfinMovie or JellyfinEpisode or EmbyMovie or EmbyEpisode;
 
         if (isMediaServer)
         {

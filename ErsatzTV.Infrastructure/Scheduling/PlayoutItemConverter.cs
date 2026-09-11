@@ -15,6 +15,7 @@ using ErsatzTV.Core.Security;
 using ErsatzTV.Infrastructure.Data;
 using ErsatzTV.Infrastructure.Extensions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using MediaStream = ErsatzTV.Core.Domain.MediaStream;
 using PlayoutItem = ErsatzTV.Core.Domain.PlayoutItem;
 
@@ -29,7 +30,8 @@ public class PlayoutItemConverter(
     IFFmpegStreamSelector ffmpegStreamSelector,
     IWatermarkSelector watermarkSelector,
     IGraphicsElementSelector graphicsElementSelector,
-    IDbContextFactory<TvContext> dbContextFactory) : IPlayoutItemConverter
+    IDbContextFactory<TvContext> dbContextFactory,
+    ILogger<PlayoutItemConverter> logger) : IPlayoutItemConverter
 {
     public async Task<Option<Core.Next.PlayoutItem>> ToNext(
         string channelNumber,
@@ -400,8 +402,8 @@ public class PlayoutItemConverter(
         bool shouldLogMessages,
         CancellationToken cancellationToken)
     {
-        List<Subtitle> allSubtitles = await subtitles.IfNoneAsync(
-            await GetSubtitles(channel, audioVersion.MediaItem, playoutItem.Id, playoutItem.InPoint));
+        List<Subtitle> allSubtitles = (await subtitles.IfNoneAsync(
+            () => GetSubtitles(channel, audioVersion.MediaItem, playoutItem.Id, playoutItem.InPoint))).ToList();
 
         // TODO: external image subtitles
         allSubtitles.RemoveAll(s => s.IsImage && s.SubtitleKind is not SubtitleKind.Embedded);
@@ -455,65 +457,107 @@ public class PlayoutItemConverter(
 
         foreach (Subtitle subtitle in maybeSubtitle)
         {
-            if (subtitle.SubtitleKind is SubtitleKind.Embedded)
+            if (subtitle.SubtitleKind is SubtitleKind.Embedded && subtitle.IsImage)
             {
-                if (subtitle.IsImage)
+                nextPlayoutItem.Tracks ??= new Core.Next.PlayoutItemTracks();
+                nextPlayoutItem.Tracks.Subtitle = new Core.Next.TrackSelection
                 {
-                    if (nextPlayoutItem.Tracks?.Subtitle?.StreamIndex is null)
-                    {
-                        nextPlayoutItem.Tracks ??= new Core.Next.PlayoutItemTracks();
-                        nextPlayoutItem.Tracks.Subtitle ??= new Core.Next.TrackSelection();
-                        nextPlayoutItem.Tracks.Subtitle.StreamIndex = subtitle.StreamIndex;
-                    }
-                }
-                // next only supports sidecar text subtitles at the moment; ignore non-extracted text subs
-                else if (subtitle.IsExtracted && !string.IsNullOrWhiteSpace(subtitle.Path))
-                {
-                    if (nextPlayoutItem.Tracks?.Subtitle?.Source is null)
-                    {
-                        nextPlayoutItem.Tracks ??= new Core.Next.PlayoutItemTracks();
-                        nextPlayoutItem.Tracks.Subtitle ??= new Core.Next.TrackSelection();
-                        nextPlayoutItem.Tracks.Subtitle.Source = new Core.Next.Source
-                        {
-                            SourceType = Core.Next.SourceType.Local,
-                            Path = Path.Combine(FileSystemLayout.SubtitleCacheFolder, subtitle.Path),
-                        };
-
-                        SetInOutPoints(playoutItem, nextPlayoutItem.Tracks.Subtitle.Source);
-                    }
-                }
+                    StreamIndex = subtitle.StreamIndex,
+                    // Without audio, the video source is on tracks.video rather than the item.
+                    Source = nextPlayoutItem.Source is null ? nextPlayoutItem.Tracks.Video?.Source : null
+                };
+                continue;
             }
-            else if (!IsRemoteUri(subtitle.Path))
-            {
-                if (nextPlayoutItem.Tracks?.Subtitle?.Source is null)
-                {
-                    nextPlayoutItem.Tracks ??= new Core.Next.PlayoutItemTracks();
-                    nextPlayoutItem.Tracks.Subtitle ??= new Core.Next.TrackSelection();
-                    nextPlayoutItem.Tracks.Subtitle.Source = new Core.Next.Source
-                    {
-                        SourceType = Core.Next.SourceType.Local,
-                        Path = subtitle.Path,
-                    };
 
-                    SetInOutPoints(playoutItem, nextPlayoutItem.Tracks.Subtitle.Source);
-                }
-            }
-            else if (subtitle.Path.StartsWith("http://localhost", StringComparison.OrdinalIgnoreCase))
+            foreach (Core.Next.Source source in SubtitleSource(playoutItem, subtitle, shouldLogMessages))
             {
-                if (nextPlayoutItem.Tracks?.Subtitle?.Source is null)
-                {
-                    nextPlayoutItem.Tracks ??= new Core.Next.PlayoutItemTracks();
-                    nextPlayoutItem.Tracks.Subtitle ??= new Core.Next.TrackSelection();
-                    nextPlayoutItem.Tracks.Subtitle.Source = new Core.Next.Source
-                    {
-                        SourceType = Core.Next.SourceType.Http,
-                        Uri = subtitle.Path,
-                        KeepAlive = false,
-                        Reconnect = true
-                    };
-                }
+                nextPlayoutItem.Tracks ??= new Core.Next.PlayoutItemTracks();
+                nextPlayoutItem.Tracks.Subtitle = new Core.Next.TrackSelection { Source = source };
             }
         }
+    }
+
+    private Option<Core.Next.Source> SubtitleSource(
+        PlayoutItem playoutItem,
+        Subtitle subtitle,
+        bool shouldLogMessages)
+    {
+        string path = subtitle.Path;
+        bool isMediaServer = playoutItem.MediaItem is PlexMovie or PlexEpisode or PlexOtherVideo or
+            JellyfinMovie or JellyfinEpisode or EmbyMovie or EmbyEpisode;
+        bool isServerSidecar = isMediaServer && subtitle.SubtitleKind is SubtitleKind.Sidecar;
+
+        if (subtitle.SubtitleKind is SubtitleKind.Embedded)
+        {
+            // burned text subtitles must have been extracted to a sidecar file
+            if (!subtitle.IsExtracted || string.IsNullOrWhiteSpace(path))
+            {
+                return None;
+            }
+
+            path = Path.Combine(FileSystemLayout.SubtitleCacheFolder, path);
+        }
+
+        // jellyfin sidecars have no path; plex and emby store item ids
+        bool isJellyfin = playoutItem.MediaItem is JellyfinMovie or JellyfinEpisode;
+        bool isRemote = IsRemoteUri(path);
+        bool isAvailable = isServerSidecar
+            ? subtitle.Id > 0 && (isJellyfin || !string.IsNullOrWhiteSpace(path))
+            : !string.IsNullOrWhiteSpace(path) && (isRemote || fileSystem.File.Exists(path));
+        if (!isAvailable)
+        {
+            if (shouldLogMessages)
+            {
+                logger.LogWarning(
+                    "Ignoring unavailable subtitle {SubtitleId} for media item {MediaItemId}",
+                    subtitle.Id,
+                    playoutItem.MediaItemId);
+            }
+
+            return None;
+        }
+
+        Core.Next.Source source;
+        if (subtitle.SubtitleKind is SubtitleKind.Sidecar && subtitle.Id > 0)
+        {
+            DateTimeOffset exp = playoutItem.FinishOffset + TimeSpan.FromHours(2);
+            string sig = InternalUrlSigner.Sign(exp, "subtitle", $"{subtitle.Id}");
+            source = new Core.Next.Source
+            {
+                SourceType = Core.Next.SourceType.Http,
+                Uri =
+                    $"http://localhost:{Settings.StreamingPort}/internal/media/subtitle/{subtitle.Id}?exp={exp.ToUnixTimeSeconds()}&sig={sig}",
+                KeepAlive = false,
+                Reconnect = true
+            };
+        }
+        else if (isRemote)
+        {
+            source = new Core.Next.Source
+            {
+                SourceType = Core.Next.SourceType.Http,
+                Uri = path,
+                KeepAlive = false,
+                Reconnect = true
+            };
+        }
+        else
+        {
+            source = new Core.Next.Source
+            {
+                SourceType = Core.Next.SourceType.Local,
+                Path = path
+            };
+        }
+
+        // generated http credits already apply the item's in-point at the endpoint.
+        // other subtitles retain media timestamps, and next applies the seek
+        if (subtitle.SubtitleKind is not SubtitleKind.Generated || !isRemote)
+        {
+            SetInOutPoints(playoutItem, source);
+        }
+
+        return source;
     }
 
     private void SelectGraphics(
@@ -601,20 +645,24 @@ public class PlayoutItemConverter(
             Movie movie => await Optional(movie.MovieMetadata).Flatten().HeadOrNone()
                 .Map(mm => mm.Subtitles ?? [])
                 .IfNoneAsync([]),
-            MusicVideo => GetMusicVideoSubtitles(channel, playoutItemId, playoutItemInPoint),
+            MusicVideo musicVideo => channel.MusicVideoCreditsMode is ChannelMusicVideoCreditsMode.GenerateSubtitles
+                ? GetMusicVideoSubtitles(channel, playoutItemId, playoutItemInPoint)
+                : await Optional(musicVideo.MusicVideoMetadata).Flatten().HeadOrNone()
+                    .Map(mm => mm.Subtitles ?? [])
+                    .IfNoneAsync([]),
             OtherVideo otherVideo => await Optional(otherVideo.OtherVideoMetadata).Flatten().HeadOrNone()
                 .Map(mm => mm.Subtitles ?? [])
                 .IfNoneAsync([]),
             _ => []
         };
 
-        bool isMediaServer = mediaItem is PlexMovie or PlexEpisode or
+        bool isMediaServer = mediaItem is PlexMovie or PlexEpisode or PlexOtherVideo or
             JellyfinMovie or JellyfinEpisode or EmbyMovie or EmbyEpisode;
 
         if (isMediaServer)
         {
             // closed captions are currently unsupported
-            allSubtitles.RemoveAll(s => s.Codec == "eia_608");
+            allSubtitles = allSubtitles.Where(s => s.Codec != "eia_608").ToList();
         }
 
         return allSubtitles;

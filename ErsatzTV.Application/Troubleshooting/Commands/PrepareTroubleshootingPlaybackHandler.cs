@@ -542,7 +542,7 @@ public class PrepareTroubleshootingPlaybackHandler(
             _ => []
         };
 
-        bool isMediaServer = mediaItem is PlexMovie or PlexEpisode or
+        bool isMediaServer = mediaItem is PlexMovie or PlexEpisode or PlexOtherVideo or
             JellyfinMovie or JellyfinEpisode or EmbyMovie or EmbyEpisode;
 
         if (isMediaServer)

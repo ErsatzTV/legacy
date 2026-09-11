@@ -82,6 +82,21 @@ public class GetSubtitlePathByIdHandler(IDbContextFactory<TvContext> dbContextFa
                 .Map(Optional);
         }
 
+        // check for plex other video
+        if (maybePlexId.IsNone)
+        {
+            maybePlexId = await dbContext.Connection.QuerySingleOrDefaultAsync<int?>(
+                    @"select PMS.Id from PlexMediaSource PMS
+                     inner join Library L on PMS.Id = L.MediaSourceId
+                     inner join LibraryPath LP on L.Id = LP.LibraryId
+                     inner join MediaItem MI on LP.Id = MI.LibraryPathId
+                     inner join OtherVideoMetadata OVM on OVM.OtherVideoId = MI.Id
+                     inner join Subtitle S on OVM.Id = S.OtherVideoMetadataId
+                     where S.Id = @SubtitleId",
+                    new { SubtitleId = subtitleId })
+                .Map(Optional);
+        }
+
         foreach (int plexMediaSourceId in maybePlexId)
         {
             foreach (string subtitlePath in maybeSubtitle.Map(s => s.Path))
