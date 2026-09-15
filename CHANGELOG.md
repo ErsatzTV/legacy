@@ -29,6 +29,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Fixed
 - Next engine:
   - Fix many issues with subtitles that caused black/silence (error output from next)
+  - Fix AAC audio encoding when FFmpeg Profile is configured to output more than 2 channels
 - Fix health checks causing a flood of (harmless) logged errors when quickly navigating away from home page
   - Health check results will now be cached for 5 minutes by default; a refresh button has been added to immediately re-run all checks
 - Fix `/api/sessions` response when channels use Next streaming engine
