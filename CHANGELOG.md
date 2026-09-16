@@ -25,6 +25,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Optimize QSV pipelines by merging consecutive vpp_qsv filters as much as possible (e.g. tonemap, scale and format using a single filter)
   - Show error messages over black/silence fallback streams by default
     - To disable, create the file `next/channel-config-overlays/default.json` in ETV's config folder with the contents `{"fallback":{"show_error":false}}`
+- Graphics engine:
+  - Use `Seek Seconds` in playback troubleshooter directly as `MediaItem_SeekSeconds` in templates
+    - Previously, `MediaItem_SeekSeconds` was always zero, so graphics elements often started wherever troubleshooting playback started instead of being anchored
 
 ### Fixed
 - Next engine:
@@ -36,6 +39,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Save and restore sequential schedule mid-roll, post-roll, and graphics state between builds
 - Fix subtitle playback with Plex other video libraries
 - Fix Plex other video tag generation when Plex server and ETV server use different path separators (i.e. Windows and Linux)
+- Graphics engine:
+  - Fix motion element timing, including hold behavior when seeking into hold
 
 ## [26.9.0] - 2026-09-06
 ### Fixed

@@ -228,24 +228,21 @@ public class PrepareTroubleshootingPlaybackHandler(
         // we cannot burst live input
         bool hlsRealtime = mediaItem is RemoteStream { IsLive: true };
 
-        TimeSpan inPoint = TimeSpan.Zero;
-        TimeSpan outPoint = duration;
+        TimeSpan seek = TimeSpan.Zero;
         if (!hlsRealtime)
         {
             foreach (int seekSeconds in request.SeekSeconds)
             {
-                inPoint = TimeSpan.FromSeconds(seekSeconds);
-                if (inPoint > version.Duration)
+                seek = TimeSpan.FromSeconds(seekSeconds);
+                if (seek > version.Duration)
                 {
-                    inPoint = version.Duration - duration;
+                    seek = version.Duration - duration;
                 }
 
-                if (inPoint + duration > version.Duration)
+                if (seek + duration > version.Duration)
                 {
-                    duration = version.Duration - inPoint;
+                    duration = version.Duration - seek;
                 }
-
-                outPoint = inPoint + duration;
             }
         }
 
@@ -284,8 +281,8 @@ public class PrepareTroubleshootingPlaybackHandler(
                     mediaItem,
                     ffmpegProfile,
                     channel,
-                    inPoint,
-                    outPoint,
+                    seek,
+                    duration,
                     watermarks,
                     graphicsElements,
                     cancellationToken);
@@ -299,7 +296,8 @@ public class PrepareTroubleshootingPlaybackHandler(
                     ffprobePath,
                     ffmpegProfile,
                     channel,
-                    inPoint,
+                    seek,
+                    duration,
                     watermarks,
                     graphicsElements,
                     cancellationToken);
@@ -311,8 +309,8 @@ public class PrepareTroubleshootingPlaybackHandler(
         MediaItem mediaItem,
         FFmpegProfile ffmpegProfile,
         Channel channel,
-        TimeSpan inPoint,
-        TimeSpan outPoint,
+        TimeSpan seek,
+        TimeSpan duration,
         List<WatermarkOptions> watermarks,
         List<GraphicsElement> graphicsElements,
         CancellationToken cancellationToken)
@@ -325,7 +323,7 @@ public class PrepareTroubleshootingPlaybackHandler(
 
         string channelBinary = channelBinaryResult.SuccessToSeq().Head();
 
-        // ignore fractional seconds so virtual start and playout item start always match
+        // ignore fractional seconds so the virtual playback position has an exact seek
         DateTimeOffset start = DateTimeOffset.FromUnixTimeSeconds(DateTimeOffset.Now.ToUnixTimeSeconds());
 
         ChannelConfig config = await channelConfigConverter.ToNext(
@@ -343,8 +341,9 @@ public class PrepareTroubleshootingPlaybackHandler(
         {
             MediaItem = mediaItem,
             MediaItemId = mediaItem.Id,
-            Start = start.UtcDateTime,
-            Finish = start.UtcDateTime.Add(outPoint - inPoint),
+            // model joining an already-running item so canvas offsets include the seek
+            Start = start.UtcDateTime.Subtract(seek),
+            Finish = start.UtcDateTime.Add(duration),
             GuideStart = null,
             GuideFinish = null,
             CustomTitle = null,
@@ -352,8 +351,8 @@ public class PrepareTroubleshootingPlaybackHandler(
             FillerKind = FillerKind.None,
             Playout = null,
             PlayoutId = 0,
-            InPoint = inPoint,
-            OutPoint = outPoint,
+            InPoint = TimeSpan.Zero,
+            OutPoint = seek + duration,
             ChapterTitle = null,
             Watermarks = [.. watermarks.Map(wm => wm.Watermark)],
             DisableWatermarks = request.WatermarkIds.Count == 0,
@@ -378,7 +377,7 @@ public class PrepareTroubleshootingPlaybackHandler(
                 [],
                 TimeSpan.Zero,
                 playoutItem,
-                await GetNextSubtitles(mediaItem, channel, request, inPoint),
+                await GetNextSubtitles(mediaItem, channel, request, playoutItem.InPoint),
                 shouldLogMessages: true,
                 cancellationToken);
 
@@ -433,7 +432,8 @@ public class PrepareTroubleshootingPlaybackHandler(
         string ffprobePath,
         FFmpegProfile ffmpegProfile,
         Channel channel,
-        TimeSpan inPoint,
+        TimeSpan seek,
+        TimeSpan duration,
         List<WatermarkOptions> watermarks,
         List<GraphicsElement> graphicsElements,
         CancellationToken cancellationToken)
@@ -485,12 +485,6 @@ public class PrepareTroubleshootingPlaybackHandler(
 
         DateTimeOffset now = DateTimeOffset.Now;
 
-        var duration = TimeSpan.FromSeconds(Math.Min(version.Duration.TotalSeconds, 30));
-        if (duration <= TimeSpan.Zero)
-        {
-            duration = TimeSpan.FromSeconds(30);
-        }
-
         // we cannot burst live input
         bool hlsRealtime = mediaItem is RemoteStream { IsLive: true };
 
@@ -508,7 +502,8 @@ public class PrepareTroubleshootingPlaybackHandler(
             string.Empty,
             string.Empty,
             SubtitleMode,
-            now,
+            // graphics use elapsed item time; an in-point alone only seeks the media
+            now - seek,
             now + duration,
             now,
             duration,
@@ -521,8 +516,8 @@ public class PrepareTroubleshootingPlaybackHandler(
             hlsRealtime,
             mediaItem is RemoteStream { IsLive: true } ? StreamInputKind.Live : StreamInputKind.Vod,
             FillerKind.None,
-            inPoint,
-            channelStartTime: DateTimeOffset.Now,
+            inPoint: TimeSpan.Zero,
+            channelStartTime: now,
             TimeSpan.Zero,
             Option<FrameRate>.None,
             FileSystemLayout.TranscodeTroubleshootingFolder,
