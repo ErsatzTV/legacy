@@ -122,7 +122,7 @@ public class UpdateFFmpegProfileHandler(IDbContextFactory<TvContext> dbContextFa
         CancellationToken cancellationToken) =>
         dbContext.FFmpegProfiles
             .SelectOneAsync(p => p.Id, p => p.Id == updateFFmpegProfile.FFmpegProfileId, cancellationToken)
-            .Map(o => o.ToValidation<BaseError>("FFmpegProfile does not exist."));
+            .Map(o => o.ToValidation(BaseError.NotFound("FFmpegProfile does not exist.")));
 
     private static async Task<Validation<BaseError, string>> ValidateName(
         TvContext dbContext,
@@ -130,7 +130,7 @@ public class UpdateFFmpegProfileHandler(IDbContextFactory<TvContext> dbContextFa
     {
         if (updateFFmpegProfile.Name.Length > 50)
         {
-            return BaseError.New($"FFmpeg profile name \"{updateFFmpegProfile.Name}\" is invalid");
+            return BaseError.BadRequest($"FFmpeg profile name \"{updateFFmpegProfile.Name}\" is invalid");
         }
 
         Option<FFmpegProfile> maybeExisting = await dbContext.FFmpegProfiles
@@ -140,7 +140,7 @@ public class UpdateFFmpegProfileHandler(IDbContextFactory<TvContext> dbContextFa
             .Map(Optional);
 
         return maybeExisting.IsSome
-            ? BaseError.New($"An ffmpeg profile named \"{updateFFmpegProfile.Name}\" already exists in the database")
+            ? BaseError.Conflict($"An ffmpeg profile named \"{updateFFmpegProfile.Name}\" already exists in the database")
             : Success<BaseError, string>(updateFFmpegProfile.Name);
     }
 
@@ -154,5 +154,6 @@ public class UpdateFFmpegProfileHandler(IDbContextFactory<TvContext> dbContextFa
         dbContext.Resolutions
             .SelectOneAsync(r => r.Id, r => r.Id == updateFFmpegProfile.ResolutionId, cancellationToken)
             .MapT(r => r.Id)
-            .Map(o => o.ToValidation<BaseError>($"[Resolution] {updateFFmpegProfile.ResolutionId} does not exist"));
+            .Map(o => o.ToValidation(
+                BaseError.BadRequest($"[Resolution] {updateFFmpegProfile.ResolutionId} does not exist")));
 }

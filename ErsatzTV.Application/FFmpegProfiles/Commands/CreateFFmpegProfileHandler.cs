@@ -42,7 +42,7 @@ public class CreateFFmpegProfileHandler :
         TvContext dbContext,
         CreateFFmpegProfile request,
         CancellationToken cancellationToken) =>
-        (ValidateName(request), ValidateThreadCount(request),
+        (await ValidateName(dbContext, request), ValidateThreadCount(request),
             await ResolutionMustExist(dbContext, request, cancellationToken))
         .Apply((name, threadCount, resolutionId) =>
         {
@@ -103,9 +103,24 @@ public class CreateFFmpegProfileHandler :
             };
         });
 
-    private static Validation<BaseError, string> ValidateName(CreateFFmpegProfile createFFmpegProfile) =>
-        createFFmpegProfile.NotEmpty(x => x.Name)
-            .Bind(_ => createFFmpegProfile.NotLongerThan(50)(x => x.Name));
+    private static async Task<Validation<BaseError, string>> ValidateName(
+        TvContext dbContext, CreateFFmpegProfile createFFmpegProfile)
+    {
+        if (string.IsNullOrWhiteSpace(createFFmpegProfile.Name) || createFFmpegProfile.Name.Length > 50)
+        {
+            return BaseError.BadRequest($"FFmpeg profile name \"{createFFmpegProfile.Name}\" is invalid");
+        }
+
+        Option<FFmpegProfile> maybeExisting = await dbContext.FFmpegProfiles
+            .AsNoTracking()
+            .FirstOrDefaultAsync(ff => ff.Name == createFFmpegProfile.Name)
+            .Map(Optional);
+
+        return maybeExisting.IsSome
+            ? BaseError.Conflict(
+                $"An ffmpeg profile named \"{createFFmpegProfile.Name}\" already exists in the database")
+            : Success<BaseError, string>(createFFmpegProfile.Name);
+    }
 
     private static Validation<BaseError, int> ValidateThreadCount(CreateFFmpegProfile createFFmpegProfile) =>
         createFFmpegProfile.AtLeast(0)(p => p.ThreadCount);
@@ -117,5 +132,6 @@ public class CreateFFmpegProfileHandler :
         dbContext.Resolutions
             .SelectOneAsync(r => r.Id, r => r.Id == createFFmpegProfile.ResolutionId, cancellationToken)
             .MapT(r => r.Id)
-            .Map(o => o.ToValidation<BaseError>($"[Resolution] {createFFmpegProfile.ResolutionId} does not exist"));
+            .Map(o => o.ToValidation(
+                BaseError.BadRequest($"[Resolution] {createFFmpegProfile.ResolutionId} does not exist")));
 }

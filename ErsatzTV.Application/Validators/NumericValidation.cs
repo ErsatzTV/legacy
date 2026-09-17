@@ -10,6 +10,5 @@ public static partial class Validators
         value => Optional(value)
             .Map(i => i.Compile()(input))
             .Where(i => i >= minimum)
-            .ToValidation<BaseError>(
-                $"[{GetMemberName(value)}] must be greater or equal to {minimum}");
+            .ToValidation(BaseError.BadRequest($"[{GetMemberName(value)}] must be greater or equal to {minimum}"));
 }

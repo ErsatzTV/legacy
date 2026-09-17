@@ -1,5 +1,5 @@
 ﻿using System.Diagnostics.CodeAnalysis;
-using LanguageExt.Common;
+using ErsatzTV.Core;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ErsatzTV.Extensions;
@@ -7,21 +7,20 @@ namespace ErsatzTV.Extensions;
 [SuppressMessage("ReSharper", "VSTHRD003")]
 public static class EitherToActionResult
 {
-    public static Task<IActionResult> ToActionResult<TL, TR>(this Task<Either<TL, TR>> either) => either.Map(Match);
+    public static Task<IActionResult> ToActionResult<TRight>(this Task<Either<BaseError, TRight>> either) =>
+        either.Map(Match);
 
-    public static Task<IActionResult> ToActionResult(this Task<Either<Error, Task>> either) => either.Bind(Match);
-
-    private static IActionResult Match<TL, TR>(this Either<TL, TR> either) =>
+    private static IActionResult Match<TRight>(this Either<BaseError, TRight> either) =>
         either.Match<IActionResult>(
-            Left: l => new BadRequestObjectResult(l),
-            Right: r => new OkObjectResult(r));
-
-    private static Task<IActionResult> Match(Either<Error, Task> either) =>
-        either.Match<Task<IActionResult>>(
-            async t =>
+            Left: l =>
             {
-                await t;
-                return new OkResult();
+                return l switch
+                {
+                    { Kind: BaseErrorKind.BadRequest } => new BadRequestObjectResult(l.ToString()),
+                    { Kind: BaseErrorKind.NotFound } => new NotFoundObjectResult(l.ToString()),
+                    { Kind: BaseErrorKind.Conflict } => new ConflictObjectResult(l.ToString()),
+                    _ => new ObjectResult(l.ToString()) { StatusCode = StatusCodes.Status500InternalServerError }
+                };
             },
-            e => Task.FromResult((IActionResult)new BadRequestObjectResult(e)));
+            Right: r => new OkObjectResult(r));
 }

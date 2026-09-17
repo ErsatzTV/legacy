@@ -82,7 +82,7 @@ public class
         CancellationToken cancellationToken) =>
         dbContext.SmartCollections
             .SelectOneAsync(c => c.Id, c => c.Id == updateCollection.Id, cancellationToken)
-            .Map(o => o.ToValidation<BaseError>("SmartCollection does not exist."));
+            .Map(o => o.ToValidation(BaseError.NotFound($"SmartCollection {updateCollection.Id} does not exist.")));
 
     private static async Task<Validation<BaseError, string>> ValidateName(
         TvContext dbContext,
@@ -95,7 +95,7 @@ public class
             .AnyAsync(c => c.Id != updateCollection.Id && c.Name == updateCollection.Name);
 
         Validation<BaseError, Unit> result2 = duplicateName
-            ? Fail<BaseError, Unit>("SmartCollection name must be unique")
+            ? Fail<BaseError, Unit>(BaseError.BadRequest("SmartCollection name must be unique"))
             : Success<BaseError, Unit>(Unit.Default);
 
         return (result1, result2).Apply((_, _) => updateCollection.Name);

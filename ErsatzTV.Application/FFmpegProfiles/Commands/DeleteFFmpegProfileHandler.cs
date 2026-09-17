@@ -46,7 +46,7 @@ public class DeleteFFmpegProfileHandler(
         CancellationToken cancellationToken) =>
         dbContext.FFmpegProfiles
             .SelectOneAsync(p => p.Id, p => p.Id == request.FFmpegProfileId, cancellationToken)
-            .Map(o => o.ToValidation<BaseError>($"FFmpegProfile {request.FFmpegProfileId} does not exist"));
+            .Map(o => o.ToValidation(BaseError.NotFound($"FFmpegProfile {request.FFmpegProfileId} does not exist")));
 
     private static async Task<Validation<BaseError, Unit>> FFmpegProfileMustNotBeUsed(
         TvContext dbContext,
@@ -60,7 +60,7 @@ public class DeleteFFmpegProfileHandler(
 
         if (count > 0)
         {
-            return BaseError.New(
+            return BaseError.Conflict(
                 $"Cannot delete FFmpeg Profile that is used by {count} {(count > 1 ? "channels" : "channel")}");
         }
 
@@ -76,7 +76,7 @@ public class DeleteFFmpegProfileHandler(
 
         if (defaultFFmpegProfileId.Any(id => id == request.FFmpegProfileId))
         {
-            return BaseError.New("Cannot delete default FFmpeg Profile");
+            return BaseError.BadRequest("Cannot delete default FFmpeg Profile");
         }
 
         return Unit.Default;

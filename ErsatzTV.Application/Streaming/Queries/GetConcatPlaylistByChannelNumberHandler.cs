@@ -26,5 +26,5 @@ public class
 
     private async Task<Validation<BaseError, Channel>> ChannelMustExist(GetConcatPlaylistByChannelNumber request) =>
         (await _channelRepository.GetByNumber(request.ChannelNumber))
-        .ToValidation<BaseError>($"Channel number {request.ChannelNumber} does not exist.");
+        .ToValidation(BaseError.NotFound($"Channel number {request.ChannelNumber} does not exist."));
 }

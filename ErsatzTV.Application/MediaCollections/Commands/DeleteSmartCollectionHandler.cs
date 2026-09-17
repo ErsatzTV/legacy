@@ -54,5 +54,6 @@ public class DeleteSmartCollectionHandler : IRequestHandler<DeleteSmartCollectio
         CancellationToken cancellationToken) =>
         dbContext.SmartCollections
             .SelectOneAsync(c => c.Id, c => c.Id == request.SmartCollectionId, cancellationToken)
-            .Map(o => o.ToValidation<BaseError>($"SmartCollection {request.SmartCollectionId} does not exist."));
+            .Map(o => o.ToValidation(
+                BaseError.NotFound($"SmartCollection {request.SmartCollectionId} does not exist.")));
 }

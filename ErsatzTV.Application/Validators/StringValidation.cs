@@ -11,10 +11,10 @@ public static partial class Validators
         expression => Optional(expression)
             .Map(exp => exp.Compile()(input))
             .Where(s => s.Length <= maxLength)
-            .ToValidation<BaseError>($"[{GetMemberName(expression)}] must not be longer than {maxLength}");
+            .ToValidation(BaseError.BadRequest($"[{GetMemberName(expression)}] must not be longer than {maxLength}"));
 
     public static Validation<BaseError, string> NotEmpty<T>(this T input, Expression<Func<T, string>> expression) =>
         Optional(expression.Compile()(input))
             .Where(s => !string.IsNullOrWhiteSpace(s))
-            .ToValidation<BaseError>($"[{GetMemberName(expression)}] is an empty string");
+            .ToValidation(BaseError.BadRequest($"[{GetMemberName(expression)}] is an empty string"));
 }
