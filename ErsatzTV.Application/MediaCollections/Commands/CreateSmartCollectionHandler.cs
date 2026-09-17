@@ -63,7 +63,7 @@ public class CreateSmartCollectionHandler :
             .AnyAsync(c => c.Name == createSmartCollection.Name);
 
         Validation<BaseError, Unit> result2 = duplicateName
-            ? Fail<BaseError, Unit>(BaseError.BadRequest("SmartCollection name must be unique"))
+            ? Fail<BaseError, Unit>(BaseError.Conflict("SmartCollection name must be unique"))
             : Success<BaseError, Unit>(Unit.Default);
 
         Validation<BaseError, string> result1 = createSmartCollection.NotEmpty(c => c.Name)
