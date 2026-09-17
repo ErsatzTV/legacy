@@ -1,15 +1,36 @@
+using System.IO.Abstractions;
 using System.IO.Compression;
 using ErsatzTV.Core;
 using ErsatzTV.Core.Interfaces.Metadata;
 
 namespace ErsatzTV.Application.Troubleshooting;
 
-public class ArchiveTroubleshootingResultsHandler(ILocalFileSystem localFileSystem)
+public class ArchiveTroubleshootingResultsHandler(IFileSystem fileSystem, ILocalFileSystem localFileSystem)
     : IRequestHandler<ArchiveTroubleshootingResults, Option<string>>
 {
     public Task<Option<string>> Handle(ArchiveTroubleshootingResults request, CancellationToken cancellationToken)
     {
         string tempFile = Path.GetTempFileName();
+        var hasReport = false;
+
+        try
+        {
+            hasReport = AddResults(tempFile);
+        }
+        finally
+        {
+            // the archive must be closed before the file can be deleted
+            if (!hasReport)
+            {
+                fileSystem.File.Delete(tempFile);
+            }
+        }
+
+        return Task.FromResult(hasReport ? tempFile : Option<string>.None);
+    }
+
+    private bool AddResults(string tempFile)
+    {
         using ZipArchive zipArchive = ZipFile.Open(tempFile, ZipArchiveMode.Update);
 
         var hasReport = false;
@@ -77,6 +98,6 @@ public class ArchiveTroubleshootingResultsHandler(ILocalFileSystem localFileSyst
             }
         }
 
-        return Task.FromResult(hasReport ? tempFile : Option<string>.None);
+        return hasReport;
     }
 }

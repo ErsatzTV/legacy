@@ -37,7 +37,7 @@ public class InMemorySink : ILogEventSink
     public IEnumerable<string> GetLogs(Guid correlationId)
     {
         _logs.TryGetValue(correlationId, out ConcurrentQueue<string> logs);
-        return logs ?? Enumerable.Empty<string>();
+        return [.. logs ?? Enumerable.Empty<string>()];
     }
 
     public void ClearLogs(Guid correlationId)

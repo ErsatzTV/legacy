@@ -65,6 +65,9 @@ public class PrepareTroubleshootingPlaybackHandler(
         var currentStreamingLevel = loggingLevelSwitches.StreamingLevelSwitch.MinimumLevel;
         loggingLevelSwitches.StreamingLevelSwitch.MinimumLevel = LogEventLevel.Debug;
 
+        // only release the lock if this request took it; a "locked" error means another session holds it
+        var lockTaken = false;
+
         try
         {
             using var logContext = LogContext.PushProperty(InMemoryLogService.CorrelationIdKey, request.SessionId);
@@ -77,12 +80,12 @@ public class PrepareTroubleshootingPlaybackHandler(
                     return BaseError.New("Channel start is required");
                 }
 
-                if (entityLocker.IsTroubleshootingPlaybackLocked())
+                if (!entityLocker.LockTroubleshootingPlayback())
                 {
                     return BaseError.New("Troubleshooting playback is locked");
                 }
 
-                entityLocker.LockTroubleshootingPlayback();
+                lockTaken = true;
 
                 localFileSystem.EnsureFolderExists(FileSystemLayout.TranscodeTroubleshootingFolder);
                 localFileSystem.EmptyFolder(FileSystemLayout.TranscodeTroubleshootingFolder);
@@ -140,20 +143,51 @@ public class PrepareTroubleshootingPlaybackHandler(
                 dbContext,
                 request,
                 cancellationToken);
+
             return await validation.Match(
-                tuple => GetProcess(
-                    dbContext,
-                    request,
-                    tuple.Item1,
-                    tuple.Item2,
-                    tuple.Item3,
-                    tuple.Item4,
-                    cancellationToken),
+                async tuple =>
+                {
+                    if (!entityLocker.LockTroubleshootingPlayback())
+                    {
+                        return BaseError.New("Troubleshooting playback is locked");
+                    }
+
+                    lockTaken = true;
+
+                    Either<BaseError, PlayoutItemResult> result = await GetProcess(
+                        dbContext,
+                        request,
+                        tuple.Item1,
+                        tuple.Item2,
+                        tuple.Item3,
+                        tuple.Item4,
+                        cancellationToken);
+
+                    foreach (BaseError error in result.LeftToSeq())
+                    {
+                        await mediator.Publish(
+                            new PlaybackTroubleshootingCompletedNotification(
+                                -1,
+#pragma warning disable CA2201
+                                new Exception(error.ToString()),
+#pragma warning restore CA2201
+                                Option<double>.None),
+                            cancellationToken);
+                        entityLocker.UnlockTroubleshootingPlayback();
+                        lockTaken = false;
+                    }
+
+                    return result;
+                },
                 error => Task.FromResult<Either<BaseError, PlayoutItemResult>>(error.Join()));
         }
         catch (Exception ex)
         {
-            entityLocker.UnlockTroubleshootingPlayback();
+            if (lockTaken)
+            {
+                entityLocker.UnlockTroubleshootingPlayback();
+            }
+
             await mediator.Publish(
                 new PlaybackTroubleshootingCompletedNotification(-1, ex, Option<double>.None),
                 cancellationToken);
@@ -175,132 +209,135 @@ public class PrepareTroubleshootingPlaybackHandler(
         FFmpegProfile ffmpegProfile,
         CancellationToken cancellationToken)
     {
-        if (entityLocker.IsTroubleshootingPlaybackLocked())
+        try
         {
-            return BaseError.New("Troubleshooting playback is locked");
-        }
+            localFileSystem.EnsureFolderExists(FileSystemLayout.TranscodeTroubleshootingFolder);
+            localFileSystem.EmptyFolder(FileSystemLayout.TranscodeTroubleshootingFolder);
 
-        entityLocker.LockTroubleshootingPlayback();
-
-        localFileSystem.EnsureFolderExists(FileSystemLayout.TranscodeTroubleshootingFolder);
-        localFileSystem.EmptyFolder(FileSystemLayout.TranscodeTroubleshootingFolder);
-
-        string mediaPath = await GetMediaItemPath(dbContext, mediaItem, cancellationToken);
-        if (string.IsNullOrEmpty(mediaPath))
-        {
-            logger.LogWarning("Media item {MediaItemId} does not exist on disk; cannot troubleshoot.", mediaItem.Id);
-            return BaseError.New("Media item does not exist on disk");
-        }
-
-        var channel = new Channel(Guid.Empty)
-        {
-            Artwork = [],
-            Name = "ETV",
-            Number = FileSystemLayout.TranscodeTroubleshootingChannel,
-            FFmpegProfile = ffmpegProfile,
-            StreamingEngine = request.StreamingEngine,
-            StreamingMode = request.StreamingMode,
-            StreamSelectorMode = ChannelStreamSelectorMode.Troubleshooting,
-            SubtitleMode = SubtitleMode
-            //SongVideoMode = ChannelSongVideoMode.WithProgress
-        };
-
-        if (!string.IsNullOrEmpty(request.StreamSelector))
-        {
-            channel.StreamSelectorMode = ChannelStreamSelectorMode.Custom;
-            channel.StreamSelector = request.StreamSelector;
-        }
-
-        if (mediaItem is MusicVideo && !string.IsNullOrWhiteSpace(request.MusicVideoCreditsTemplate))
-        {
-            channel.MusicVideoCreditsMode = ChannelMusicVideoCreditsMode.GenerateSubtitles;
-            channel.MusicVideoCreditsTemplate = request.MusicVideoCreditsTemplate;
-        }
-
-        MediaVersion version = mediaItem.GetHeadVersion();
-
-        var duration = TimeSpan.FromSeconds(Math.Min(version.Duration.TotalSeconds, 30));
-        if (duration <= TimeSpan.Zero)
-        {
-            duration = TimeSpan.FromSeconds(30);
-        }
-
-        // we cannot burst live input
-        bool hlsRealtime = mediaItem is RemoteStream { IsLive: true };
-
-        TimeSpan seek = TimeSpan.Zero;
-        if (!hlsRealtime)
-        {
-            foreach (int seekSeconds in request.SeekSeconds)
+            string mediaPath = await GetMediaItemPath(dbContext, mediaItem, cancellationToken);
+            if (string.IsNullOrEmpty(mediaPath))
             {
-                seek = TimeSpan.FromSeconds(seekSeconds);
-                if (seek > version.Duration)
-                {
-                    seek = version.Duration - duration;
-                }
+                logger.LogWarning(
+                    "Media item {MediaItemId} does not exist on disk; cannot troubleshoot.",
+                    mediaItem.Id);
+                return BaseError.New("Media item does not exist on disk");
+            }
 
-                if (seek + duration > version.Duration)
+            var channel = new Channel(Guid.Empty)
+            {
+                Artwork = [],
+                Name = "ETV",
+                Number = FileSystemLayout.TranscodeTroubleshootingChannel,
+                FFmpegProfile = ffmpegProfile,
+                StreamingEngine = request.StreamingEngine,
+                StreamingMode = request.StreamingMode,
+                StreamSelectorMode = ChannelStreamSelectorMode.Troubleshooting,
+                SubtitleMode = SubtitleMode
+                //SongVideoMode = ChannelSongVideoMode.WithProgress
+            };
+
+            if (!string.IsNullOrEmpty(request.StreamSelector))
+            {
+                channel.StreamSelectorMode = ChannelStreamSelectorMode.Custom;
+                channel.StreamSelector = request.StreamSelector;
+            }
+
+            if (mediaItem is MusicVideo && !string.IsNullOrWhiteSpace(request.MusicVideoCreditsTemplate))
+            {
+                channel.MusicVideoCreditsMode = ChannelMusicVideoCreditsMode.GenerateSubtitles;
+                channel.MusicVideoCreditsTemplate = request.MusicVideoCreditsTemplate;
+            }
+
+            MediaVersion version = mediaItem.GetHeadVersion();
+
+            var duration = TimeSpan.FromSeconds(Math.Min(version.Duration.TotalSeconds, 30));
+            if (duration <= TimeSpan.Zero)
+            {
+                duration = TimeSpan.FromSeconds(30);
+            }
+
+            // we cannot burst live input
+            bool hlsRealtime = mediaItem is RemoteStream { IsLive: true };
+
+            TimeSpan seek = TimeSpan.Zero;
+            if (!hlsRealtime)
+            {
+                foreach (int seekSeconds in request.SeekSeconds)
                 {
-                    duration = version.Duration - seek;
+                    seek = TimeSpan.FromSeconds(seekSeconds);
+                    if (seek > version.Duration)
+                    {
+                        seek = version.Duration - duration;
+                    }
+
+                    if (seek + duration > version.Duration)
+                    {
+                        duration = version.Duration - seek;
+                    }
                 }
             }
-        }
 
-        List<WatermarkOptions> watermarks = [];
-        if (request.WatermarkIds.Count > 0)
-        {
-            List<ChannelWatermark> channelWatermarks = await dbContext.ChannelWatermarks
-                .AsNoTracking()
-                .Where(w => request.WatermarkIds.Contains(w.Id))
-                .ToListAsync(cancellationToken);
-
-            foreach (var watermark in channelWatermarks)
+            List<WatermarkOptions> watermarks = [];
+            if (request.WatermarkIds.Count > 0)
             {
-                watermarks.AddRange(
-                    watermarkSelector.GetWatermarkOptions(
+                List<ChannelWatermark> channelWatermarks = await dbContext.ChannelWatermarks
+                    .AsNoTracking()
+                    .Where(w => request.WatermarkIds.Contains(w.Id))
+                    .ToListAsync(cancellationToken);
+
+                foreach (var watermark in channelWatermarks)
+                {
+                    watermarks.AddRange(
+                        watermarkSelector.GetWatermarkOptions(
+                            channel,
+                            watermark,
+                            Option<ChannelWatermark>.None,
+                            shouldLogMessages: true));
+                }
+            }
+
+            List<GraphicsElement> graphicsElements = [];
+            if (request.GraphicsElementIds.Count > 0)
+            {
+                graphicsElements = await dbContext.GraphicsElements
+                    .Where(ge => request.GraphicsElementIds.Contains(ge.Id))
+                    .ToListAsync(cancellationToken);
+            }
+
+            switch (request.StreamingEngine)
+            {
+                case StreamingEngine.Next:
+                    return await GetNextProcess(
+                        request,
+                        mediaItem,
+                        ffmpegProfile,
                         channel,
-                        watermark,
-                        Option<ChannelWatermark>.None,
-                        shouldLogMessages: true));
+                        seek,
+                        duration,
+                        watermarks,
+                        graphicsElements,
+                        cancellationToken);
+                default:
+                    return await GetLegacyProcess(
+                        dbContext,
+                        request,
+                        mediaItem,
+                        mediaPath,
+                        ffmpegPath,
+                        ffprobePath,
+                        ffmpegProfile,
+                        channel,
+                        seek,
+                        duration,
+                        watermarks,
+                        graphicsElements,
+                        cancellationToken);
             }
         }
-
-        List<GraphicsElement> graphicsElements = [];
-        if (request.GraphicsElementIds.Count > 0)
+        catch (Exception ex)
         {
-            graphicsElements = await dbContext.GraphicsElements
-                .Where(ge => request.GraphicsElementIds.Contains(ge.Id))
-                .ToListAsync(cancellationToken);
-        }
-
-        switch (request.StreamingEngine)
-        {
-            case StreamingEngine.Next:
-                return await GetNextProcess(
-                    request,
-                    mediaItem,
-                    ffmpegProfile,
-                    channel,
-                    seek,
-                    duration,
-                    watermarks,
-                    graphicsElements,
-                    cancellationToken);
-            default:
-                return await GetLegacyProcess(
-                    dbContext,
-                    request,
-                    mediaItem,
-                    mediaPath,
-                    ffmpegPath,
-                    ffprobePath,
-                    ffmpegProfile,
-                    channel,
-                    seek,
-                    duration,
-                    watermarks,
-                    graphicsElements,
-                    cancellationToken);
+            logger.LogError(ex, "Failed to get playout item process");
+            return BaseError.New("Failed to get playout item process");
         }
     }
 

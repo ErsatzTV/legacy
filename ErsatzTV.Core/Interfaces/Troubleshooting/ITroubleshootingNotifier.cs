@@ -6,5 +6,9 @@ public interface ITroubleshootingNotifier
 
     void NotifyFailed(Guid sessionId);
 
+    bool IsCompleted(Guid sessionId);
+
+    void NotifyCompleted(Guid sessionId);
+
     void RemoveSession(Guid sessionId);
 }

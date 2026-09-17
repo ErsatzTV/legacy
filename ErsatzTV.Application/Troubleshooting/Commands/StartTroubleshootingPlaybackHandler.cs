@@ -144,6 +144,9 @@ public class StartTroubleshootingPlaybackHandler(
             }
 
             Option<Pipe> maybePipe = Option<Pipe>.None;
+            var progressParser = new FFmpegProgress();
+            int exitCode = -1;
+            Option<Exception> maybeException = Option<Exception>.None;
 
             try
             {
@@ -165,8 +168,6 @@ public class StartTroubleshootingPlaybackHandler(
                         linkedCts.Token);
                 }
 
-                var progressParser = new FFmpegProgress();
-
                 var outputPipe = request.StreamingEngine is StreamingEngine.Legacy
                     ? PipeTarget.ToDelegate(progressParser.ParseLine)
                     : PipeTarget.ToDelegate(l => NextLogger.LogNextLine(l, logger));
@@ -182,6 +183,8 @@ public class StartTroubleshootingPlaybackHandler(
                     .WithValidation(CommandResultValidation.None)
                     .ExecuteAsync(linkedCts.Token);
 
+                exitCode = commandResult.ExitCode;
+
                 string processName = request.StreamingEngine is StreamingEngine.Legacy
                     ? "ffmpeg"
                     : "ersatztv-channel";
@@ -189,7 +192,7 @@ public class StartTroubleshootingPlaybackHandler(
                 logger.LogDebug(
                     "Troubleshooting playback ({ProcessName}) completed with exit code {ExitCode}",
                     processName,
-                    commandResult.ExitCode);
+                    exitCode);
 
                 if (request.StreamingEngine is StreamingEngine.Next)
                 {
@@ -214,40 +217,25 @@ public class StartTroubleshootingPlaybackHandler(
                     FileSystemLayout.TranscodeTroubleshootingChannel,
                     logger);
 
-                try
-                {
-                    IEnumerable<string> logs = logService.Sink.GetLogs(request.SessionId);
-                    await File.WriteAllLinesAsync(
-                        Path.Combine(FileSystemLayout.TranscodeTroubleshootingFolder, "logs.txt"),
-                        logs,
-                        linkedCts.Token);
-                    logService.Sink.ClearLogs(request.SessionId);
-                }
-                catch (Exception)
-                {
-                    // do nothing
-                }
-
-                await mediator.Publish(
-                    new PlaybackTroubleshootingCompletedNotification(
-                        commandResult.ExitCode,
-                        Option<Exception>.None,
-                        progressParser.Speed),
-                    linkedCts.Token);
-
-                if (commandResult.ExitCode != 0)
+                if (exitCode != 0)
                 {
                     await linkedCts.CancelAsync();
-                    notifier.NotifyFailed(request.SessionId);
                 }
             }
-            catch (TaskCanceledException)
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
-                // do nothing
+                notifier.NotifyFailed(request.SessionId);
+                return;
             }
-            catch (Exception e)
+            catch (OperationCanceledException)
             {
-                Console.WriteLine(e);
+                logger.LogWarning("Troubleshooting playback timed out after 2 minutes");
+                maybeException = new TimeoutException("Troubleshooting playback timed out after 2 minutes");
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Troubleshooting playback failed");
+                maybeException = ex;
             }
             finally
             {
@@ -256,9 +244,37 @@ public class StartTroubleshootingPlaybackHandler(
                     await pipe.Writer.CompleteAsync();
                 }
             }
+
+            try
+            {
+                IEnumerable<string> logs = logService.Sink.GetLogs(request.SessionId);
+                await File.WriteAllLinesAsync(
+                    Path.Combine(FileSystemLayout.TranscodeTroubleshootingFolder, "logs.txt"),
+                    logs,
+                    cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Failed to write troubleshooting logs");
+            }
+
+            // unblock the controller before publishing, since a subscriber exception propagates out of Publish
+            if (exitCode == 0 && maybeException.IsNone)
+            {
+                notifier.NotifyCompleted(request.SessionId);
+            }
+            else
+            {
+                notifier.NotifyFailed(request.SessionId);
+            }
+
+            await mediator.Publish(
+                new PlaybackTroubleshootingCompletedNotification(exitCode, maybeException, progressParser.Speed),
+                cancellationToken);
         }
         finally
         {
+            logService.Sink.ClearLogs(request.SessionId);
             troubleshootingPlayoutItemStore.Clear();
             entityLocker.UnlockTroubleshootingPlayback();
             loggingLevelSwitches.StreamingLevelSwitch.MinimumLevel = currentStreamingLevel;

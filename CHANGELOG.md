@@ -46,6 +46,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Fix Plex other video tag generation when Plex server and ETV server use different path separators (i.e. Windows and Linux)
 - Graphics engine:
   - Fix motion element timing, including hold behavior when seeking into hold
+- Many reliability fixes to playback troubleshooter; e.g. so it doesn't stay locked until ETV is restarted
 
 ## [26.9.0] - 2026-09-06
 ### Fixed

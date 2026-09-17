@@ -47,7 +47,14 @@ public class ArchiveMediaSampleHandler(
 
             foreach (string mediaSample in maybeMediaSample)
             {
-                return await GetArchive(request, mediaSample, cancellationToken);
+                try
+                {
+                    return await GetArchive(request, mediaSample, cancellationToken);
+                }
+                finally
+                {
+                    _fileSystem.File.Delete(mediaSample);
+                }
             }
         }
 

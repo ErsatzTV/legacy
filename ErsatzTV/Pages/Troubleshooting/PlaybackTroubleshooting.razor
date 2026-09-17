@@ -257,6 +257,9 @@
     {
         _cts?.Cancel();
         _cts?.Dispose();
+
+        Locker.OnTroubleshootingPlaybackChanged -= LockChanged;
+        Courier.UnSubscribe<PlaybackTroubleshootingCompletedNotification>(HandleTroubleshootingCompleted);
     }
 
     protected override void OnInitialized()
@@ -464,36 +467,43 @@
 
     private async Task HandleTroubleshootingCompleted(PlaybackTroubleshootingCompletedNotification result)
     {
-        await InvokeAsync(async () => { await _logsField.SetTextAsync(string.Empty); });
-        _lastSpeed = null;
+        try
+        {
+            await InvokeAsync(async () => { await _logsField.SetTextAsync(string.Empty); });
+            _lastSpeed = null;
 
-        foreach (double speed in result.MaybeSpeed)
-        {
-            _lastSpeed = speed;
-        }
-
-        if (result.ExitCode == 0)
-        {
-            Snackbar.Add("FFmpeg troubleshooting process exited successfully", Severity.Success);
-        }
-        else
-        {
-            Snackbar.Add($"FFmpeg troubleshooting process exited with code {result.ExitCode}", Severity.Warning);
-        }
-
-        string logFileName = Path.Combine(FileSystemLayout.TranscodeTroubleshootingFolder, "logs.txt");
-        if (FileSystem.File.Exists(logFileName))
-        {
-            string text = await File.ReadAllTextAsync(logFileName);
-            await InvokeAsync(async () => { await _logsField.SetTextAsync(text); });
-        }
-        else
-        {
-            foreach (var exception in result.MaybeException)
+            foreach (double speed in result.MaybeSpeed)
             {
-                string text = exception.Message + Environment.NewLine + Environment.NewLine + exception;
+                _lastSpeed = speed;
+            }
+
+            if (result.ExitCode == 0)
+            {
+                Snackbar.Add("FFmpeg troubleshooting process exited successfully", Severity.Success);
+            }
+            else
+            {
+                Snackbar.Add($"FFmpeg troubleshooting process exited with code {result.ExitCode}", Severity.Warning);
+            }
+
+            string logFileName = Path.Combine(FileSystemLayout.TranscodeTroubleshootingFolder, "logs.txt");
+            if (FileSystem.File.Exists(logFileName))
+            {
+                string text = await File.ReadAllTextAsync(logFileName);
                 await InvokeAsync(async () => { await _logsField.SetTextAsync(text); });
             }
+            else
+            {
+                foreach (var exception in result.MaybeException)
+                {
+                    string text = exception.Message + Environment.NewLine + Environment.NewLine + exception;
+                    await InvokeAsync(async () => { await _logsField.SetTextAsync(text); });
+                }
+            }
+        }
+        catch (Exception)
+        {
+            // ignore
         }
     }
 
