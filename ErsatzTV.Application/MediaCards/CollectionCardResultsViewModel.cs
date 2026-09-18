@@ -14,4 +14,9 @@ public record CollectionCardResultsViewModel(
     List<RemoteStreamCardViewModel> RemoteStreamCards)
 {
     public bool UseCustomPlaybackOrder { get; set; }
+
+    public bool SupportsCustomOrdering => MovieCards.Count > 0 && ShowCards.Count == 0 && SeasonCards.Count == 0 &&
+                                          EpisodeCards.Count == 0 && ArtistCards.Count == 0
+                                          && MusicVideoCards.Count == 0 && OtherVideoCards.Count == 0 &&
+                                          SongCards.Count == 0 && ImageCards.Count == 0 && RemoteStreamCards.Count == 0;
 }

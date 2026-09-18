@@ -10,14 +10,6 @@
       ]
     },
     {
-      "provider": "jsdelivr",
-      "library": "sortablejs@1.15.6",
-      "destination": "wwwroot/lib/sortablejs",
-      "files": [
-        "Sortable.js"
-      ]
-    },
-    {
       "library": "jqueryui@1.14.1",
       "destination": "wwwroot/lib/jqueryui",
       "files": [

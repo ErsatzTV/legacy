@@ -3,7 +3,6 @@
 @using ErsatzTV.Application.MediaCollections
 @inherits MultiSelectBase<CollectionItems>
 @inject NavigationManager NavigationManager
-@inject IJSRuntime JsRuntime
 
 <MudForm Style="max-height: 100%">
 <MudPaper Square="true" Style="display: flex; height: 64px; min-height: 64px; width: 100%; z-index: 100;">
@@ -92,13 +91,14 @@
                         <MudLink Class="ml-4" Href="@(NavigationManager.Uri.Split("#").Head() + "#remote_streams")">@_data.RemoteStreamCards.Count Remote Streams</MudLink>
                     }
                 </div>
-                @if (SupportsCustomOrdering())
+                @if (_data?.SupportsCustomOrdering == true)
                 {
                     <div class="d-none d-md-flex" style="margin-left: auto">
                         <MudSwitch T="bool"
                                    Value="@(_data?.UseCustomPlaybackOrder == true)"
                                    Color="Color.Primary"
                                    ValueChanged="@OnUseCustomOrderChanged"
+                                   Disabled="@_savingOrder"
                                    Label="Use Custom Playback Order"/>
                     </div>
                 }
@@ -121,18 +121,22 @@
             </MudText>
             <MudDivider Class="mb-6"/>
 
-            <MudStack Row="true" Wrap="Wrap.Wrap" UserAttributes="@(new Dictionary<string, object> { { "id", "sortable-collection" } })" Class="mb-10">
-                @foreach (MovieCardViewModel card in OrderMovies(_data.MovieCards))
-                {
-                    <MediaCard Data="@card"
-                               Href="@($"media/movies/{card.MovieId}")"
-                               DeleteClicked="@RemoveMovieFromCollection"
-                               SelectColor="@Color.Error"
-                               SelectClicked="@(e => SelectClicked(card, e))"
-                               IsSelected="@IsSelected(card)"
-                               IsSelectMode="@IsSelectMode()"/>
-                }
-            </MudStack>
+            <Sortable TItem="MovieCardViewModel"
+                      Items="_orderedMovies"
+                      Context="card"
+                      ItemKeySelector="@(movie => movie.MovieId)"
+                      Disabled="@(!_data.UseCustomPlaybackOrder || _savingOrder || IsSelectMode())"
+                      OnUpdate="SaveMovieOrder"
+                      Style="display: flex; flex-wrap: wrap; gap: 12px"
+                      Class="mb-10">
+                <MediaCard Data="@card"
+                           Href="@($"media/movies/{card.MovieId}")"
+                           DeleteClicked="@RemoveMovieFromCollection"
+                           SelectColor="@Color.Error"
+                           SelectClicked="@(e => SelectClicked(card, e))"
+                           IsSelected="@IsSelected(card)"
+                           IsSelectMode="@IsSelectMode()"/>
+            </Sortable>
         }
 
         @if (_data?.ShowCards.Count > 0)
@@ -369,9 +373,8 @@
     public int Id { get; set; }
 
     private CollectionCardResultsViewModel _data;
-
-    private bool SupportsCustomOrdering() =>
-        _data is not null && _data.MovieCards.Any() && !_data.ShowCards.Any() && !_data.SeasonCards.Any() && !_data.EpisodeCards.Any();
+    private List<MovieCardViewModel> _orderedMovies = [];
+    private bool _savingOrder;
 
     protected override async Task OnParametersSetAsync() => await RefreshData(CancellationToken);
 
@@ -381,7 +384,11 @@
             await Mediator.Send(new GetCollectionCards(Id), cancellationToken);
 
         maybeResult.Match(
-            result => _data = result,
+            result =>
+            {
+                _data = result;
+                _orderedMovies = OrderMovies(_data.MovieCards).ToList();
+            },
             _ => NavigationManager.NavigateTo("404"));
     }
 
@@ -395,33 +402,56 @@
         return movies.OrderBy(m => m.SortTitle);
     }
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
+    private async Task SaveMovieOrder(SortableEventArgs<MovieCardViewModel> _)
     {
+        var cancellationToken = CancellationToken;
+        _savingOrder = true;
         try
         {
-            await JsRuntime.InvokeVoidAsync("sortableCollection", Id);
-            if (_data.UseCustomPlaybackOrder)
-            {
-                await JsRuntime.InvokeVoidAsync("enableSorting");
-            }
-            else
-            {
-                await JsRuntime.InvokeVoidAsync("disableSorting");
-            }
-        }
-        catch (Exception)
-        {
-            // ignored
-        }
+            var request = new UpdateCollectionCustomOrder(
+                Id,
+                _orderedMovies.Select((movie, index) => new MediaItemCustomOrder(movie.MovieId, index)).ToList());
+            Either<BaseError, Unit> result = await Mediator.Send(request, cancellationToken);
+            result.Match(
+                _ =>
+                {
+                    for (int index = 0; index < _orderedMovies.Count; index++)
+                    {
+                        _orderedMovies[index].CustomIndex = index;
+                    }
+                },
+                error =>
+                {
+                    Snackbar.Add(error.Value, Severity.Error);
+                    Logger.LogError("Unexpected error saving collection order: {Error}", error.Value);
+                });
 
-        await base.OnAfterRenderAsync(firstRender);
+            if (result.IsLeft)
+            {
+                await RefreshData(cancellationToken);
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // the page was disposed
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add("Unable to save collection order.", Severity.Error);
+            Logger.LogError(ex, "Unexpected error saving collection order");
+            await RefreshData(cancellationToken);
+        }
+        finally
+        {
+            _savingOrder = false;
+        }
     }
 
     private void SelectClicked(MediaCardViewModel card, MouseEventArgs e)
     {
         List<MediaCardViewModel> GetSortedItems()
         {
-            return _data.MovieCards.OrderBy(m => m.SortTitle)
+            return _orderedMovies.AsEnumerable()
                 .Append<MediaCardViewModel>(_data.ShowCards.OrderBy(s => s.SortTitle))
                 .Append(_data.SeasonCards.OrderBy(s => s.SortTitle))
                 .Append(_data.EpisodeCards.OrderBy(ep => ep.Aired))
@@ -587,6 +617,7 @@
         _data.UseCustomPlaybackOrder = !_data.UseCustomPlaybackOrder;
         var request = new UpdateCollection(Id, _data.Name) { UseCustomPlaybackOrder = _data.UseCustomPlaybackOrder };
         await Mediator.Send(request, CancellationToken);
+        _orderedMovies = OrderMovies(_data.MovieCards).ToList();
     }
 
 }

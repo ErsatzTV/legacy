@@ -47,6 +47,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Graphics engine:
   - Fix motion element timing, including hold behavior when seeking into hold
 - Many reliability fixes to playback troubleshooter; e.g. so it doesn't stay locked until ETV is restarted
+- Fix custom ordering of manual (movie) collections to support dragging posters instead of just titles
 
 ## [26.9.0] - 2026-09-06
 ### Fixed

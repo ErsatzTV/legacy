@@ -18,36 +18,12 @@
     <link href="css/site.css" asp-append-version="true" rel="stylesheet"/>
     <link href="lib/roboto/roboto.css" asp-append-version="true" rel="stylesheet"/>
     <link href="lib/jqueryui/themes/base/jquery-ui.css" asp-append-version="true" rel="stylesheet"/>
-    <link href="_content/BlazorSortable/css/blazor-sortable.css" rel="stylesheet"/>
     <script src="lib/jquery/jquery.min.js" asp-append-version="true"></script>
     <script src="lib/jqueryui/jquery-ui.min.js" asp-append-version="true"></script>
-    <script src="lib/sortablejs/Sortable.js" asp-append-version="true"></script>
     <script type="module" src="lib/media-chrome/media-chrome.min.js" asp-append-version="true"></script>
     <script src="lib/hls/hls.min.js" asp-append-version="true"></script>
     @await Html.PartialAsync("../Shared/_Favicons")
     <script>
-        function sortableCollection(collectionId) {
-            $("#sortable-collection").sortable({
-                update: function(event, ui) {
-                    const data = $(this).sortable('serialize');
-                    $.ajax({
-                        data: data,
-                        type: 'POST',
-                        url: `media/collections/${collectionId}/items`
-                    });
-                }
-            });
-            $("#sortable-collection").disableSelection();
-        }
-
-        function disableSorting() {
-            $("#sortable-collection").sortable("option", "disabled", true);
-        }
-
-        function enableSorting() {
-            $("#sortable-collection").sortable("option", "disabled", false);
-        }
-
         function styleMarkdown() {
             $("h2").addClass("mud-typography mud-typography-h4");
             $("h3").addClass("mud-typography mud-typography-h5");

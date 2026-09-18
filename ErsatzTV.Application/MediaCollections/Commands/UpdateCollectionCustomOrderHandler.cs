@@ -32,10 +32,12 @@ public class UpdateCollectionCustomOrderHandler : IRequestHandler<UpdateCollecti
     {
         await using TvContext dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
         Validation<BaseError, Collection> validation = await Validate(dbContext, request, cancellationToken);
-        return await validation.Apply(c => ApplyUpdateRequest(dbContext, c, request));
+        return await validation.Match(
+            c => ApplyUpdateRequest(dbContext, c, request),
+            error => Task.FromResult<Either<BaseError, Unit>>(error.Join()));
     }
 
-    private async Task<Unit> ApplyUpdateRequest(
+    private async Task<Either<BaseError, Unit>> ApplyUpdateRequest(
         TvContext dbContext,
         Collection c,
         UpdateCollectionCustomOrder request)
@@ -44,6 +46,12 @@ public class UpdateCollectionCustomOrderHandler : IRequestHandler<UpdateCollecti
         {
             Option<CollectionItem> maybeCollectionItem = c.CollectionItems
                 .FirstOrDefault(ci => ci.MediaItemId == updateItem.MediaItemId);
+
+            if (maybeCollectionItem.IsNone)
+            {
+                return BaseError.BadRequest(
+                    $"Collection {request.CollectionId} does not contain media item {updateItem.MediaItemId}");
+            }
 
             foreach (CollectionItem collectionItem in maybeCollectionItem)
             {
@@ -77,5 +85,5 @@ public class UpdateCollectionCustomOrderHandler : IRequestHandler<UpdateCollecti
         dbContext.Collections
             .Include(c => c.CollectionItems)
             .SelectOneAsync(c => c.Id, c => c.Id == request.CollectionId, cancellationToken)
-            .Map(o => o.ToValidation<BaseError>("Collection does not exist."));
+            .Map(o => o.ToValidation(BaseError.NotFound("Collection does not exist.")));
 }
