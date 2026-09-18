@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using Microsoft.Extensions.Logging;
 using SkiaSharp;
 using Topten.RichTextKit;
@@ -6,7 +7,7 @@ namespace ErsatzTV.Infrastructure.Streaming.Graphics;
 
 public sealed class CustomFontMapper(ILogger<CustomFontMapper> logger) : FontMapper
 {
-    private readonly Dictionary<string, List<SKTypeface>> _customFonts = new();
+    private readonly ConcurrentDictionary<string, List<SKTypeface>> _customFonts = new();
 
     public void LoadPrivateFont(Stream stream, string familyName)
     {
@@ -19,13 +20,7 @@ public sealed class CustomFontMapper(ILogger<CustomFontMapper> logger) : FontMap
             qualifiedName += "-Italic";
         }
 
-        if (!_customFonts.TryGetValue(qualifiedName, out List<SKTypeface> listFonts))
-        {
-            listFonts = [];
-            _customFonts[qualifiedName] = listFonts;
-        }
-
-        listFonts.Add(typeface);
+        _customFonts.AddOrUpdate(qualifiedName, _ => [typeface], (_, existing) => [.. existing, typeface]);
     }
 
     public override SKTypeface TypefaceFromStyle(IStyle style, bool ignoreFontVariants)
