@@ -10,12 +10,13 @@ public class EntityLocker(IMediator mediator) : IEntityLocker
     private readonly ConcurrentDictionary<int, byte> _lockedLibraries = new();
     private readonly ConcurrentDictionary<int, byte> _lockedPlayouts = new();
     private readonly ConcurrentDictionary<Type, byte> _lockedRemoteMediaSourceTypes = new();
-    private bool _embyCollections;
-    private bool _jellyfinCollections;
-    private bool _plex;
-    private bool _plexCollections;
-    private bool _trakt;
-    private bool _troubleshootingPlayback;
+    // 0 = unlocked, 1 = locked; int so Interlocked can flip them atomically
+    private int _embyCollections;
+    private int _jellyfinCollections;
+    private int _plex;
+    private int _plexCollections;
+    private int _trakt;
+    private int _troubleshootingPlayback;
 
     public event EventHandler OnLibraryChanged;
     public event EventHandler OnPlexChanged;
@@ -53,9 +54,8 @@ public class EntityLocker(IMediator mediator) : IEntityLocker
 
     public bool LockPlex()
     {
-        if (!_plex)
+        if (TryLock(ref _plex))
         {
-            _plex = true;
             OnPlexChanged?.Invoke(this, EventArgs.Empty);
             return true;
         }
@@ -65,9 +65,8 @@ public class EntityLocker(IMediator mediator) : IEntityLocker
 
     public bool UnlockPlex()
     {
-        if (_plex)
+        if (TryUnlock(ref _plex))
         {
-            _plex = false;
             OnPlexChanged?.Invoke(this, EventArgs.Empty);
             return true;
         }
@@ -75,7 +74,7 @@ public class EntityLocker(IMediator mediator) : IEntityLocker
         return false;
     }
 
-    public bool IsPlexLocked() => _plex;
+    public bool IsPlexLocked() => Volatile.Read(ref _plex) == 1;
 
     public bool IsRemoteMediaSourceLocked<TMediaSource>() =>
         _lockedRemoteMediaSourceTypes.ContainsKey(typeof(TMediaSource));
@@ -109,9 +108,8 @@ public class EntityLocker(IMediator mediator) : IEntityLocker
 
     public bool LockTrakt()
     {
-        if (!_trakt)
+        if (TryLock(ref _trakt))
         {
-            _trakt = true;
             OnTraktChanged?.Invoke(this, EventArgs.Empty);
             return true;
         }
@@ -121,9 +119,8 @@ public class EntityLocker(IMediator mediator) : IEntityLocker
 
     public bool UnlockTrakt()
     {
-        if (_trakt)
+        if (TryUnlock(ref _trakt))
         {
-            _trakt = false;
             OnTraktChanged?.Invoke(this, EventArgs.Empty);
             return true;
         }
@@ -131,13 +128,12 @@ public class EntityLocker(IMediator mediator) : IEntityLocker
         return false;
     }
 
-    public bool IsTraktLocked() => _trakt;
+    public bool IsTraktLocked() => Volatile.Read(ref _trakt) == 1;
 
     public bool LockEmbyCollections()
     {
-        if (!_embyCollections)
+        if (TryLock(ref _embyCollections))
         {
-            _embyCollections = true;
             OnEmbyCollectionsChanged?.Invoke(this, EventArgs.Empty);
             return true;
         }
@@ -147,9 +143,8 @@ public class EntityLocker(IMediator mediator) : IEntityLocker
 
     public bool UnlockEmbyCollections()
     {
-        if (_embyCollections)
+        if (TryUnlock(ref _embyCollections))
         {
-            _embyCollections = false;
             OnEmbyCollectionsChanged?.Invoke(this, EventArgs.Empty);
             return true;
         }
@@ -157,13 +152,12 @@ public class EntityLocker(IMediator mediator) : IEntityLocker
         return false;
     }
 
-    public bool AreEmbyCollectionsLocked() => _embyCollections;
+    public bool AreEmbyCollectionsLocked() => Volatile.Read(ref _embyCollections) == 1;
 
     public bool LockJellyfinCollections()
     {
-        if (!_jellyfinCollections)
+        if (TryLock(ref _jellyfinCollections))
         {
-            _jellyfinCollections = true;
             OnJellyfinCollectionsChanged?.Invoke(this, EventArgs.Empty);
             return true;
         }
@@ -173,9 +167,8 @@ public class EntityLocker(IMediator mediator) : IEntityLocker
 
     public bool UnlockJellyfinCollections()
     {
-        if (_jellyfinCollections)
+        if (TryUnlock(ref _jellyfinCollections))
         {
-            _jellyfinCollections = false;
             OnJellyfinCollectionsChanged?.Invoke(this, EventArgs.Empty);
             return true;
         }
@@ -183,13 +176,12 @@ public class EntityLocker(IMediator mediator) : IEntityLocker
         return false;
     }
 
-    public bool AreJellyfinCollectionsLocked() => _jellyfinCollections;
+    public bool AreJellyfinCollectionsLocked() => Volatile.Read(ref _jellyfinCollections) == 1;
 
     public bool LockPlexCollections()
     {
-        if (!_plexCollections)
+        if (TryLock(ref _plexCollections))
         {
-            _plexCollections = true;
             OnPlexCollectionsChanged?.Invoke(this, EventArgs.Empty);
             return true;
         }
@@ -199,9 +191,8 @@ public class EntityLocker(IMediator mediator) : IEntityLocker
 
     public bool UnlockPlexCollections()
     {
-        if (_plexCollections)
+        if (TryUnlock(ref _plexCollections))
         {
-            _plexCollections = false;
             OnPlexCollectionsChanged?.Invoke(this, EventArgs.Empty);
             return true;
         }
@@ -209,7 +200,7 @@ public class EntityLocker(IMediator mediator) : IEntityLocker
         return false;
     }
 
-    public bool ArePlexCollectionsLocked() => _plexCollections;
+    public bool ArePlexCollectionsLocked() => Volatile.Read(ref _plexCollections) == 1;
 
     public async Task<bool> LockPlayout(int playoutId)
     {
@@ -237,9 +228,8 @@ public class EntityLocker(IMediator mediator) : IEntityLocker
 
     public bool LockTroubleshootingPlayback()
     {
-        if (!_troubleshootingPlayback)
+        if (TryLock(ref _troubleshootingPlayback))
         {
-            _troubleshootingPlayback = true;
             OnTroubleshootingPlaybackChanged?.Invoke(this, EventArgs.Empty);
             return true;
         }
@@ -249,9 +239,8 @@ public class EntityLocker(IMediator mediator) : IEntityLocker
 
     public bool UnlockTroubleshootingPlayback()
     {
-        if (_troubleshootingPlayback)
+        if (TryUnlock(ref _troubleshootingPlayback))
         {
-            _troubleshootingPlayback = false;
             OnTroubleshootingPlaybackChanged?.Invoke(this, EventArgs.Empty);
             return true;
         }
@@ -259,5 +248,9 @@ public class EntityLocker(IMediator mediator) : IEntityLocker
         return false;
     }
 
-    public bool IsTroubleshootingPlaybackLocked() => _troubleshootingPlayback;
+    public bool IsTroubleshootingPlaybackLocked() => Volatile.Read(ref _troubleshootingPlayback) == 1;
+
+    private static bool TryLock(ref int flag) => Interlocked.CompareExchange(ref flag, 1, 0) == 0;
+
+    private static bool TryUnlock(ref int flag) => Interlocked.CompareExchange(ref flag, 0, 1) == 1;
 }
