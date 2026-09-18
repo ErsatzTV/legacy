@@ -87,7 +87,7 @@ public class SchedulerService : BackgroundService
                 {
                     await Task.Delay(TimeSpan.FromMinutes(toWait), stoppingToken);
                 }
-                catch (Exception ex) when (ex is TaskCanceledException or OperationCanceledException)
+                catch (OperationCanceledException)
                 {
                     // do nothing
                 }
@@ -116,7 +116,7 @@ public class SchedulerService : BackgroundService
 
             stoppingToken.ThrowIfCancellationRequested();
         }
-        catch (Exception ex) when (ex is TaskCanceledException or OperationCanceledException)
+        catch (OperationCanceledException)
         {
             _logger.LogInformation("Scheduler service shutting down");
         }
@@ -144,13 +144,13 @@ public class SchedulerService : BackgroundService
 
             await ReleaseMemory(cancellationToken);
         }
-        catch (Exception ex) when (ex is TaskCanceledException or OperationCanceledException)
+        catch (OperationCanceledException)
         {
             // do nothing
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Error during scheduler run");
+            _logger.LogError(ex, "Error during SchedulerService.{Method}", nameof(DoWork));
         }
     }
 
@@ -182,218 +182,407 @@ public class SchedulerService : BackgroundService
                 }
             }
         }
+        catch (OperationCanceledException)
+        {
+            // do nothing
+        }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Error during scheduler run");
+            _logger.LogError(ex, "Error queueing resets for all daily rebuild playouts");
         }
     }
 
     private async Task BuildPlayouts(CancellationToken cancellationToken)
     {
-        using IServiceScope scope = _serviceScopeFactory.CreateScope();
-        TvContext dbContext = scope.ServiceProvider.GetRequiredService<TvContext>();
-
-        List<Playout> playouts = await dbContext.Playouts
-            .AsNoTracking()
-            .Include(p => p.Channel)
-            .ToListAsync(cancellationToken);
-
-        foreach (Playout playout in playouts.OrderBy(p => decimal.Parse(
-                     p.Channel.Number,
-                     CultureInfo.InvariantCulture)))
+        try
         {
-            await _workerChannel.WriteAsync(
-                new BuildPlayout(playout.Id, PlayoutBuildMode.Continue),
-                cancellationToken);
+            using IServiceScope scope = _serviceScopeFactory.CreateScope();
+            TvContext dbContext = scope.ServiceProvider.GetRequiredService<TvContext>();
+
+            List<Playout> playouts = await dbContext.Playouts
+                .AsNoTracking()
+                .Include(p => p.Channel)
+                .ToListAsync(cancellationToken);
+
+            foreach (Playout playout in playouts.OrderBy(p => decimal.Parse(
+                         p.Channel.Number,
+                         CultureInfo.InvariantCulture)))
+            {
+                await _workerChannel.WriteAsync(
+                    new BuildPlayout(playout.Id, PlayoutBuildMode.Continue),
+                    cancellationToken);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // do nothing
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error queueing builds for all playouts");
         }
     }
 
-    private ValueTask RefreshChannelGuideChannelList(CancellationToken cancellationToken) =>
-        _workerChannel.WriteAsync(new RefreshChannelList(), cancellationToken);
+    private async ValueTask RefreshChannelGuideChannelList(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _workerChannel.WriteAsync(new RefreshChannelList(), cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            // do nothing
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "Error queueing message in SchedulerService.{Method}",
+                nameof(RefreshChannelGuideChannelList));
+        }
+    }
 
     private async Task ScanLocalMediaSources(CancellationToken cancellationToken)
     {
-        using IServiceScope scope = _serviceScopeFactory.CreateScope();
-        TvContext dbContext = scope.ServiceProvider.GetRequiredService<TvContext>();
-
-        foreach (int libraryId in dbContext.LocalMediaSources.SelectMany(ms => ms.Libraries).Map(l => l.Id))
+        try
         {
-            if (_entityLocker.LockLibrary(libraryId))
+            using IServiceScope scope = _serviceScopeFactory.CreateScope();
+            TvContext dbContext = scope.ServiceProvider.GetRequiredService<TvContext>();
+
+            foreach (int libraryId in dbContext.LocalMediaSources.SelectMany(ms => ms.Libraries).Map(l => l.Id))
             {
-                await _scannerWorkerChannel.WriteAsync(new ScanLocalLibraryIfNeeded(libraryId), cancellationToken);
+                if (_entityLocker.LockLibrary(libraryId))
+                {
+                    await _scannerWorkerChannel.WriteAsync(new ScanLocalLibraryIfNeeded(libraryId), cancellationToken);
+                }
             }
+        }
+        catch (OperationCanceledException)
+        {
+            // do nothing
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error queueing scans for all local media sources");
         }
     }
 
     private async Task ScanPlexMediaSources(CancellationToken cancellationToken)
     {
-        using IServiceScope scope = _serviceScopeFactory.CreateScope();
-        TvContext dbContext = scope.ServiceProvider.GetRequiredService<TvContext>();
-
-        var mediaSourceIds = new System.Collections.Generic.HashSet<int>();
-
-        // servers that plex.tv no longer lists cannot be reached, so don't queue scans for them
-        List<int> missingMediaSourceIds = await dbContext.PlexMediaSources
-            .AsNoTracking()
-            .Filter(s => s.MissingSince != null)
-            .Map(s => s.Id)
-            .ToListAsync(cancellationToken);
-
-        foreach (PlexLibrary library in dbContext.PlexLibraries.AsNoTracking().Filter(l => l.ShouldSyncItems))
+        try
         {
-            if (missingMediaSourceIds.Contains(library.MediaSourceId))
+            using IServiceScope scope = _serviceScopeFactory.CreateScope();
+            TvContext dbContext = scope.ServiceProvider.GetRequiredService<TvContext>();
+
+            var mediaSourceIds = new System.Collections.Generic.HashSet<int>();
+
+            // servers that plex.tv no longer lists cannot be reached, so don't queue scans for them
+            List<int> missingMediaSourceIds = await dbContext.PlexMediaSources
+                .AsNoTracking()
+                .Filter(s => s.MissingSince != null)
+                .Map(s => s.Id)
+                .ToListAsync(cancellationToken);
+
+            foreach (PlexLibrary library in dbContext.PlexLibraries.AsNoTracking().Filter(l => l.ShouldSyncItems))
             {
-                continue;
-            }
+                if (missingMediaSourceIds.Contains(library.MediaSourceId))
+                {
+                    continue;
+                }
 
-            mediaSourceIds.Add(library.MediaSourceId);
+                mediaSourceIds.Add(library.MediaSourceId);
 
-            if (_entityLocker.LockLibrary(library.Id))
-            {
-                await _scannerWorkerChannel.WriteAsync(
-                    new SynchronizePlexLibraryByIdIfNeeded(library.Id),
-                    cancellationToken);
-
-                if (library.MediaKind is LibraryMediaKind.Shows)
+                if (_entityLocker.LockLibrary(library.Id))
                 {
                     await _scannerWorkerChannel.WriteAsync(
-                        new SynchronizePlexNetworks(library.Id, false),
+                        new SynchronizePlexLibraryByIdIfNeeded(library.Id),
                         cancellationToken);
+
+                    if (library.MediaKind is LibraryMediaKind.Shows)
+                    {
+                        await _scannerWorkerChannel.WriteAsync(
+                            new SynchronizePlexNetworks(library.Id, false),
+                            cancellationToken);
+                    }
                 }
             }
-        }
 
-        foreach (int mediaSourceId in mediaSourceIds)
+            foreach (int mediaSourceId in mediaSourceIds)
+            {
+                await _scannerWorkerChannel.WriteAsync(
+                    new SynchronizePlexCollections(mediaSourceId, false, false),
+                    cancellationToken);
+            }
+        }
+        catch (OperationCanceledException)
         {
-            await _scannerWorkerChannel.WriteAsync(
-                new SynchronizePlexCollections(mediaSourceId, false, false),
-                cancellationToken);
+            // do nothing
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error queueing scans for all plex media sources");
         }
     }
 
     private async Task ScanJellyfinMediaSources(CancellationToken cancellationToken)
     {
-        using IServiceScope scope = _serviceScopeFactory.CreateScope();
-        TvContext dbContext = scope.ServiceProvider.GetRequiredService<TvContext>();
-
-        var mediaSourceIds = new System.Collections.Generic.HashSet<int>();
-
-        foreach (JellyfinLibrary library in dbContext.JellyfinLibraries.AsNoTracking().Filter(l => l.ShouldSyncItems))
+        try
         {
-            mediaSourceIds.Add(library.MediaSourceId);
+            using IServiceScope scope = _serviceScopeFactory.CreateScope();
+            TvContext dbContext = scope.ServiceProvider.GetRequiredService<TvContext>();
 
-            if (_entityLocker.LockLibrary(library.Id))
+            var mediaSourceIds = new System.Collections.Generic.HashSet<int>();
+
+            foreach (JellyfinLibrary library in dbContext.JellyfinLibraries.AsNoTracking()
+                         .Filter(l => l.ShouldSyncItems))
+            {
+                mediaSourceIds.Add(library.MediaSourceId);
+
+                if (_entityLocker.LockLibrary(library.Id))
+                {
+                    await _scannerWorkerChannel.WriteAsync(
+                        new SynchronizeJellyfinLibraryByIdIfNeeded(library.Id),
+                        cancellationToken);
+                }
+            }
+
+            foreach (int mediaSourceId in mediaSourceIds)
             {
                 await _scannerWorkerChannel.WriteAsync(
-                    new SynchronizeJellyfinLibraryByIdIfNeeded(library.Id),
+                    new SynchronizeJellyfinCollections(mediaSourceId, false, false),
                     cancellationToken);
             }
         }
-
-        foreach (int mediaSourceId in mediaSourceIds)
+        catch (OperationCanceledException)
         {
-            await _scannerWorkerChannel.WriteAsync(
-                new SynchronizeJellyfinCollections(mediaSourceId, false, false),
-                cancellationToken);
+            // do nothing
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error queueing scans for all jellyfin media sources");
         }
     }
 
     private async Task ScanEmbyMediaSources(CancellationToken cancellationToken)
     {
-        using IServiceScope scope = _serviceScopeFactory.CreateScope();
-        TvContext dbContext = scope.ServiceProvider.GetRequiredService<TvContext>();
-
-        var mediaSourceIds = new System.Collections.Generic.HashSet<int>();
-
-        foreach (EmbyLibrary library in dbContext.EmbyLibraries.AsNoTracking().Filter(l => l.ShouldSyncItems))
+        try
         {
-            mediaSourceIds.Add(library.MediaSourceId);
+            using IServiceScope scope = _serviceScopeFactory.CreateScope();
+            TvContext dbContext = scope.ServiceProvider.GetRequiredService<TvContext>();
 
-            if (_entityLocker.LockLibrary(library.Id))
+            var mediaSourceIds = new System.Collections.Generic.HashSet<int>();
+
+            foreach (EmbyLibrary library in dbContext.EmbyLibraries.AsNoTracking().Filter(l => l.ShouldSyncItems))
+            {
+                mediaSourceIds.Add(library.MediaSourceId);
+
+                if (_entityLocker.LockLibrary(library.Id))
+                {
+                    await _scannerWorkerChannel.WriteAsync(
+                        new SynchronizeEmbyLibraryByIdIfNeeded(library.Id),
+                        cancellationToken);
+                }
+            }
+
+            foreach (int mediaSourceId in mediaSourceIds)
             {
                 await _scannerWorkerChannel.WriteAsync(
-                    new SynchronizeEmbyLibraryByIdIfNeeded(library.Id),
+                    new SynchronizeEmbyCollections(mediaSourceId, false, false),
                     cancellationToken);
             }
         }
-
-        foreach (int mediaSourceId in mediaSourceIds)
+        catch (OperationCanceledException)
         {
-            await _scannerWorkerChannel.WriteAsync(
-                new SynchronizeEmbyCollections(mediaSourceId, false, false),
-                cancellationToken);
+            // do nothing
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error queueing scans for all emby media sources");
         }
     }
 
     private async Task RefreshTraktLists(CancellationToken cancellationToken)
     {
-        using IServiceScope scope = _serviceScopeFactory.CreateScope();
-        TvContext dbContext = scope.ServiceProvider.GetRequiredService<TvContext>();
-
-        DateTime target = DateTime.UtcNow.AddDays(-1);
-
-        List<TraktList> traktLists = await dbContext.TraktLists
-            .AsNoTracking()
-            .Filter(tl => tl.AutoRefresh && (tl.LastUpdate == null || tl.LastUpdate <= target))
-            .ToListAsync(cancellationToken);
-
-        if (traktLists.Count != 0 && _entityLocker.LockTrakt())
+        try
         {
-            TraktList last = traktLists.Last();
-            foreach (TraktList list in traktLists)
+            using IServiceScope scope = _serviceScopeFactory.CreateScope();
+            TvContext dbContext = scope.ServiceProvider.GetRequiredService<TvContext>();
+
+            DateTime target = DateTime.UtcNow.AddDays(-1);
+
+            List<TraktList> traktLists = await dbContext.TraktLists
+                .AsNoTracking()
+                .Filter(tl => tl.AutoRefresh && (tl.LastUpdate == null || tl.LastUpdate <= target))
+                .ToListAsync(cancellationToken);
+
+            if (traktLists.Count != 0 && _entityLocker.LockTrakt())
             {
-                await _workerChannel.WriteAsync(
-                    AddTraktList.Existing(list.User, list.List, list == last),
-                    cancellationToken);
+                TraktList last = traktLists.Last();
+                foreach (TraktList list in traktLists)
+                {
+                    await _workerChannel.WriteAsync(
+                        AddTraktList.Existing(list.User, list.List, list == last),
+                        cancellationToken);
+                }
             }
+        }
+        catch (OperationCanceledException)
+        {
+            // do nothing
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error queueing refreshes for all trakt lists");
         }
     }
 
     private async Task MatchTraktLists(CancellationToken cancellationToken)
     {
-        using IServiceScope scope = _serviceScopeFactory.CreateScope();
-        TvContext dbContext = scope.ServiceProvider.GetRequiredService<TvContext>();
-
-        DateTime target = DateTime.UtcNow.AddHours(-1);
-
-        List<TraktList> traktLists = await dbContext.TraktLists
-            .AsNoTracking()
-            .Filter(tl => tl.LastMatch == null || tl.LastMatch <= target)
-            .ToListAsync(cancellationToken);
-
-        if (traktLists.Count != 0 && _entityLocker.LockTrakt())
+        try
         {
-            TraktList last = traktLists.Last();
-            foreach (TraktList list in traktLists)
+            using IServiceScope scope = _serviceScopeFactory.CreateScope();
+            TvContext dbContext = scope.ServiceProvider.GetRequiredService<TvContext>();
+
+            DateTime target = DateTime.UtcNow.AddHours(-1);
+
+            List<TraktList> traktLists = await dbContext.TraktLists
+                .AsNoTracking()
+                .Filter(tl => tl.LastMatch == null || tl.LastMatch <= target)
+                .ToListAsync(cancellationToken);
+
+            if (traktLists.Count != 0 && _entityLocker.LockTrakt())
             {
-                await _workerChannel.WriteAsync(
-                    new MatchTraktListItems(list.Id, list == last),
-                    cancellationToken);
+                TraktList last = traktLists.Last();
+                foreach (TraktList list in traktLists)
+                {
+                    await _workerChannel.WriteAsync(
+                        new MatchTraktListItems(list.Id, list == last),
+                        cancellationToken);
+                }
             }
+        }
+        catch (OperationCanceledException)
+        {
+            // do nothing
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error queueing matches for all trakt lists");
         }
     }
 
     private async Task RefreshMpegTsScripts(CancellationToken _)
     {
-        using IServiceScope scope = _serviceScopeFactory.CreateScope();
-        var service = scope.ServiceProvider.GetRequiredService<IMpegTsScriptService>();
-        await service.RefreshScripts();
+        try
+        {
+            using IServiceScope scope = _serviceScopeFactory.CreateScope();
+            var service = scope.ServiceProvider.GetRequiredService<IMpegTsScriptService>();
+            await service.RefreshScripts();
+        }
+        catch (OperationCanceledException)
+        {
+            // do nothing
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error refreshing mpeg-ts scripts");
+        }
     }
 
-    private ValueTask RefreshGraphicsElements(CancellationToken cancellationToken) =>
-        _workerChannel.WriteAsync(new RefreshGraphicsElements(), cancellationToken);
+    private async ValueTask RefreshGraphicsElements(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _workerChannel.WriteAsync(new RefreshGraphicsElements(), cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            // do nothing
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "Error queueing message in SchedulerService.{Method}",
+                nameof(RefreshGraphicsElements));
+        }
+    }
 
-    private ValueTask DeleteOrphanedSubtitles(CancellationToken cancellationToken) =>
-        _workerChannel.WriteAsync(new DeleteOrphanedSubtitles(), cancellationToken);
+    private async ValueTask DeleteOrphanedSubtitles(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _workerChannel.WriteAsync(new DeleteOrphanedSubtitles(), cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            // do nothing
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "Error queueing message in SchedulerService.{Method}",
+                nameof(DeleteOrphanedSubtitles));
+        }
+    }
 
-    private ValueTask DeleteOrphanedArtwork(CancellationToken cancellationToken) =>
-        _workerChannel.WriteAsync(new DeleteOrphanedArtwork(100_000), cancellationToken);
+    private async ValueTask DeleteOrphanedArtwork(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _workerChannel.WriteAsync(new DeleteOrphanedArtwork(100_000), cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            // do nothing
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "Error queueing message in SchedulerService.{Method}",
+                nameof(DeleteOrphanedArtwork));
+        }
+    }
 
-    private ValueTask ReleaseMemory(CancellationToken cancellationToken) =>
-        _workerChannel.WriteAsync(new ReleaseMemory(false), cancellationToken);
+    private async ValueTask ReleaseMemory(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _workerChannel.WriteAsync(new ReleaseMemory(false), cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            // do nothing
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "Error queueing message in SchedulerService.{Method}",
+                nameof(ReleaseMemory));
+        }
+    }
 
-    private ValueTask QueueFFmpegCapabilitiesRefresh(CancellationToken cancellationToken) =>
-        _workerChannel.WriteAsync(new RefreshFFmpegCapabilities(), cancellationToken);
+    private async ValueTask QueueFFmpegCapabilitiesRefresh(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _workerChannel.WriteAsync(new RefreshFFmpegCapabilities(), cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            // do nothing
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "Error queueing message in SchedulerService.{Method}",
+                nameof(QueueFFmpegCapabilitiesRefresh));
+        }
+    }
 
     private async Task SyncAllNextPlayouts(CancellationToken cancellationToken)
     {
@@ -411,9 +600,13 @@ public class SchedulerService : BackgroundService
                 await _workerChannel.WriteAsync(new SyncNextPlayout(channel.Number), cancellationToken);
             }
         }
+        catch (OperationCanceledException)
+        {
+            // do nothing
+        }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Error synchronizing all next playouts");
+            _logger.LogError(ex, "Error queueing synchronize for all next playouts");
         }
     }
 }
