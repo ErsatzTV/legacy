@@ -7,14 +7,12 @@
 @using ErsatzTV.Application.Watermarks
 @using ErsatzTV.Core.Domain.Filler
 @using ErsatzTV.Core.FFmpeg
-@using ErsatzTV.Core.Interfaces.FFmpeg
 @using ErsatzTV.FFmpeg.OutputFormat
 @implements IDisposable
 @inject IMediator Mediator
 @inject ISnackbar Snackbar
 @inject ILogger<FFmpegSettings> Logger
 @inject IDialogService Dialog
-@inject IMpegTsScriptService MpegTsScriptService
 
 <MudForm @ref="_form" @bind-IsValid="@_success" Style="max-height: 100%">
     <MudPaper Square="true" Style="display: flex; height: 64px; min-height: 64px; width: 100%; z-index: 100; align-items: center">
@@ -209,7 +207,6 @@
             _fillerPresets = await Mediator.Send(new GetAllFillerPresets(), token)
                 .Map(list => list.Filter(fp => fp.FillerKind == FillerKind.Fallback).ToList());
 
-            await MpegTsScriptService.RefreshScripts(token);
             _mpegTsScripts.Clear();
             _mpegTsScripts.AddRange(await Mediator.Send(new GetMpegTsScripts(), token));
             if (_mpegTsScripts.All(s => s.Id != _ffmpegSettings.DefaultMpegTsScript) && _mpegTsScripts.Any())
