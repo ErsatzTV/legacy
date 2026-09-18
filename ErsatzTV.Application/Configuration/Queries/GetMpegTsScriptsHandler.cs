@@ -8,7 +8,7 @@ public class GetMpegTsScriptsHandler(IMpegTsScriptService mpegTsScriptService)
 {
     public async Task<List<MpegTsScript>> Handle(GetMpegTsScripts request, CancellationToken cancellationToken)
     {
-        await mpegTsScriptService.RefreshScripts();
+        await mpegTsScriptService.RefreshScripts(cancellationToken);
         return mpegTsScriptService.GetScripts().OrderBy(x => x.Name).ToList();
     }
 }

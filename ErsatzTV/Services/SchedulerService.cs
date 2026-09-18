@@ -471,13 +471,13 @@ public class SchedulerService : BackgroundService
         }
     }
 
-    private async Task RefreshMpegTsScripts(CancellationToken _)
+    private async Task RefreshMpegTsScripts(CancellationToken cancellationToken)
     {
         try
         {
             using IServiceScope scope = _serviceScopeFactory.CreateScope();
             var service = scope.ServiceProvider.GetRequiredService<IMpegTsScriptService>();
-            await service.RefreshScripts();
+            await service.RefreshScripts(cancellationToken);
         }
         catch (OperationCanceledException)
         {

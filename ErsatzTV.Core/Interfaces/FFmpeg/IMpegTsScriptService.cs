@@ -6,7 +6,7 @@ namespace ErsatzTV.Core.Interfaces.FFmpeg;
 
 public interface IMpegTsScriptService
 {
-    Task RefreshScripts();
+    Task RefreshScripts(CancellationToken cancellationToken);
 
     List<MpegTsScript> GetScripts();
 

@@ -1049,6 +1049,14 @@ public class FFmpegLibraryProcessService : IFFmpegProcessService
                 channel,
                 concatInputFile.Url,
                 ffmpegPath);
+
+            if (maybeCommand.IsNone)
+            {
+                _logger.LogWarning(
+                    "mpeg-ts script {NameOrId} did not produce a command; falling back to built-in pipeline",
+                    string.IsNullOrWhiteSpace(script.Name) ? script.Id : script.Name);
+            }
+
             foreach (var command in maybeCommand)
             {
                 return command;
