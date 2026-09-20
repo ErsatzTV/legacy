@@ -35,7 +35,7 @@
                 <div class="d-flex">
                     <MudText>Block Group</MudText>
                 </div>
-                <MudSelect T="string" ValueChanged="@(name => UpdateBlockGroupItems(name))">
+                <MudSelect T="string" ValueChanged="@OnBlockGroupChanged">
                     @foreach (BlockGroupViewModel blockGroup in _blockGroups)
                     {
                         <MudSelectItem Value="@blockGroup.Name">@blockGroup.Name</MudSelectItem>
@@ -184,6 +184,7 @@
             _template.Items.AddRange(items.Map(ProjectToEditViewModel));
         }
 
+        _blockGroups.Clear();
         _blockGroups.AddRange(await Mediator.Send(new GetAllBlockGroups(), cancellationToken));
     }
 
@@ -208,6 +209,12 @@
         }
     }
 
+    private Task OnBlockGroupChanged(string blockGroupName)
+    {
+        _selectedBlock = null;
+        return UpdateBlockGroupItems(blockGroupName);
+    }
+
     private void UpdateSelectedBlock(string blockName)
     {
         _selectedBlock = _blocks.Find(bg => bg.Name == blockName);
@@ -216,6 +223,11 @@
 
     private void AddBlockToTemplate()
     {
+        if (_selectedBlock is null)
+        {
+            return;
+        }
+
         // find first time where this block will fit
         DateTime maybeStart = _selectedBlockStart;
         while (maybeStart.Date == DateTime.Today)

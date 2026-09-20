@@ -307,7 +307,7 @@
                 </div>
                 <MudSelect T="PlaylistGroupViewModel"
                            Value="@_selectedPlaylistGroup"
-                           ValueChanged="@(vm => UpdatePlaylistGroupItems(vm))">
+                           ValueChanged="@OnPlaylistGroupChanged">
                     @foreach (PlaylistGroupViewModel playlistGroup in _playlistGroups)
                     {
                         <MudSelectItem Value="@playlistGroup">@playlistGroup.Name</MudSelectItem>
@@ -664,6 +664,8 @@
         {
             _watermarks = await Mediator.Send(new GetAllWatermarks(), token);
             _graphicsElements = await Mediator.Send(new GetAllGraphicsElements(), token);
+
+            _playlistGroups.Clear();
             _playlistGroups.AddRange(await Mediator.Send(new GetAllPlaylistGroups(), token));
 
             Option<DecoViewModel> maybeDeco = await Mediator.Send(new GetDecoById(Id), token);
@@ -852,6 +854,12 @@
 
         _playlists.Clear();
         _playlists.AddRange(await Mediator.Send(new GetPlaylistsByPlaylistGroupId(playlistGroup.Id), _cts.Token));
+    }
+
+    private Task OnPlaylistGroupChanged(PlaylistGroupViewModel group)
+    {
+        _selectedBreakContent?.Playlist = null;
+        return UpdatePlaylistGroupItems(group);
     }
 
     private void AddBreakContent()

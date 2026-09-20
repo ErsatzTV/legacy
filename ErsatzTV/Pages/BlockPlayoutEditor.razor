@@ -42,7 +42,7 @@
                     </div>
                     <MudSelect T="DecoGroupViewModel"
                                Value="@_selectedDefaultDecoGroup"
-                               ValueChanged="@(vm => UpdateDefaultDecoTemplateGroupItems(vm))">
+                               ValueChanged="@OnDefaultDecoGroupChanged">
                         @foreach (DecoGroupViewModel decoGroup in _decoGroups)
                         {
                             <MudSelectItem Value="@decoGroup">@decoGroup.Name</MudSelectItem>
@@ -148,6 +148,12 @@
 
         _decos.Clear();
         _decos.AddRange(await Mediator.Send(new GetDecosByDecoGroupId(_selectedDefaultDecoGroup.Id), _cts.Token));
+    }
+
+    private Task OnDefaultDecoGroupChanged(DecoGroupViewModel group)
+    {
+        _defaultDeco = null;
+        return UpdateDefaultDecoTemplateGroupItems(group);
     }
 
     private async Task EraseItems(bool eraseHistory)

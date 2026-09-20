@@ -319,7 +319,7 @@
             </div>
             <MudSelect T="PlaylistGroupViewModel"
                        Value="@_selectedPlaylistGroup"
-                       ValueChanged="@(vm => UpdatePlaylistGroupItems(vm))">
+                       ValueChanged="@OnPlaylistGroupChanged">
                 @foreach (PlaylistGroupViewModel playlistGroup in _playlistGroups)
                 {
                     <MudSelectItem Value="@playlistGroup">@playlistGroup.Name</MudSelectItem>
@@ -800,6 +800,8 @@
             _graphicsElements = await Mediator.Send(new GetAllGraphicsElements(), token)
                 .Map(list => list.OrderBy(vm => vm.Name, StringComparer.CurrentCultureIgnoreCase).ToList());
             _availableCultures = await Mediator.Send(new GetAllLanguageCodes(), token);
+
+            _playlistGroups.Clear();
             _playlistGroups.AddRange(await Mediator.Send(new GetAllPlaylistGroups(), token));
 
             string name = string.Empty;
@@ -815,6 +817,10 @@
                 await Mediator.Send(new GetProgramScheduleItems(Id), token);
             foreach (IEnumerable<ProgramScheduleItemViewModel> items in maybeResults)
             {
+                _selectedItem = null;
+                _selectedPlaylistGroup = null;
+                _playlists.Clear();
+
                 _schedule = new ProgramScheduleItemsEditViewModel
                 {
                     Name = name,
@@ -1133,6 +1139,12 @@
                 await UpdatePlaylistGroupItems(group);
             }
         }
+    }
+
+    private Task OnPlaylistGroupChanged(PlaylistGroupViewModel group)
+    {
+        _selectedItem.Playlist = null;
+        return UpdatePlaylistGroupItems(group);
     }
 
     private string SelectedRowClassFunc(ProgramScheduleItemEditViewModel element, int rowNumber) => _selectedItem != null && _selectedItem == element ? "selected" : string.Empty;

@@ -17,7 +17,7 @@
                        T="PlaylistGroupViewModel"
                        Label="Playlist Group"
                        Value="_selectedPlaylistGroup"
-                       ValueChanged="@(vm => UpdatePlaylistGroupItems(vm))">
+                       ValueChanged="OnPlaylistGroupChanged">
                 @foreach (PlaylistGroupViewModel playlistGroup in _playlistGroups)
                 {
                     <MudSelectItem Value="@playlistGroup">@playlistGroup.Name</MudSelectItem>
@@ -88,6 +88,7 @@
 
         try
         {
+            _playlistGroups.Clear();
             _playlistGroups.AddRange(await Mediator.Send(new GetAllPlaylistGroups(), token));
 
             if (MemoryCache.TryGetValue("AddToPlaylistDialog.SelectedPlaylistGroupId", out int groupId))
@@ -117,6 +118,12 @@
 
         _playlists.Clear();
         _playlists.AddRange(await Mediator.Send(new GetPlaylistsByPlaylistGroupId(playlistGroup.Id), _cts.Token));
+    }
+
+    private Task OnPlaylistGroupChanged(PlaylistGroupViewModel group)
+    {
+        _selectedPlaylist = null;
+        return UpdatePlaylistGroupItems(group);
     }
 
     private async Task Submit()

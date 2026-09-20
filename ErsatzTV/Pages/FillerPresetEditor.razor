@@ -210,7 +210,7 @@
                     </div>
                     <MudSelect T="PlaylistGroupViewModel"
                                Value="@_selectedPlaylistGroup"
-                               ValueChanged="@(vm => UpdatePlaylistGroupItems(vm))">
+                               ValueChanged="@OnPlaylistGroupChanged">
                         @foreach (PlaylistGroupViewModel playlistGroup in _playlistGroups)
                         {
                             <MudSelectItem Value="@playlistGroup">@playlistGroup.Name</MudSelectItem>
@@ -309,25 +309,37 @@
 
         try
         {
+            _mediaCollections.Clear();
             _mediaCollections.AddRange(
                 await Mediator.Send(new GetAllCollections(), token)
                     .Map(list => list.OrderBy(vm => vm.Name, StringComparer.CurrentCultureIgnoreCase).ToList()));
+
+            _multiCollections.Clear();
             _multiCollections.AddRange(
                 await Mediator.Send(new GetAllMultiCollections(), token)
                     .Map(list => list.OrderBy(vm => vm.Name, StringComparer.CurrentCultureIgnoreCase).ToList()));
+
+            _smartCollections.Clear();
             _smartCollections.AddRange(
                 await Mediator.Send(new GetAllSmartCollections(), token)
                     .Map(list => list.OrderBy(vm => vm.Name, StringComparer.CurrentCultureIgnoreCase).ToList()));
+
+            _televisionShows.Clear();
             _televisionShows.AddRange(
                 await Mediator.Send(new GetAllTelevisionShows(), token)
                     .Map(list => list.OrderBy(vm => vm.Name, StringComparer.CurrentCultureIgnoreCase).ToList()));
+
+            _televisionSeasons.Clear();
             _televisionSeasons.AddRange(
                 await Mediator.Send(new GetAllTelevisionSeasons(), token)
                     .Map(list => list.OrderBy(vm => vm.Name, StringComparer.CurrentCultureIgnoreCase).ToList()));
+
+            _artists.Clear();
             _artists.AddRange(
                 await Mediator.Send(new GetAllArtists(), token)
                     .Map(list => list.OrderBy(vm => vm.Name, StringComparer.CurrentCultureIgnoreCase).ToList()));
 
+            _playlistGroups.Clear();
             _playlistGroups.AddRange(await Mediator.Send(new GetAllPlaylistGroups(), token));
 
             if (IsEdit)
@@ -391,6 +403,12 @@
 
         _playlists.Clear();
         _playlists.AddRange(await Mediator.Send(new GetPlaylistsByPlaylistGroupId(playlistGroup.Id), _cts.Token));
+    }
+
+    private Task OnPlaylistGroupChanged(PlaylistGroupViewModel group)
+    {
+        _model?.Playlist = null;
+        return UpdatePlaylistGroupItems(group);
     }
 
     private async Task HandleSubmitAsync()

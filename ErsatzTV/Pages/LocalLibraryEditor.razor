@@ -180,6 +180,7 @@
         {
             _model.HasChanges = true;
             _model.Paths.Remove(libraryPath);
+            return;
         }
 
         int count = await Mediator.Send(new CountMediaItemsByLibraryPath(libraryPath.Id), _cts.Token);

@@ -93,6 +93,8 @@
     {
         _cts?.Cancel();
         _cts?.Dispose();
+
+        Locker.OnTraktChanged -= LockChanged;
     }
 
     protected override void OnInitialized() => Locker.OnTraktChanged += LockChanged;

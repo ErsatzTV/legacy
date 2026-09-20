@@ -35,7 +35,7 @@
                 <div class="d-flex">
                     <MudText>Deco Group</MudText>
                 </div>
-                <MudSelect T="DecoGroupViewModel" ValueChanged="@(vm => UpdateDecoGroupItems(vm))">
+                <MudSelect T="DecoGroupViewModel" ValueChanged="@OnDecoGroupChanged">
                     @foreach (DecoGroupViewModel decoGroup in _decoGroups)
                     {
                         <MudSelectItem Value="@decoGroup">@decoGroup.Name</MudSelectItem>
@@ -210,6 +210,7 @@
             _decoTemplate.Items.AddRange(items.Map(ProjectToEditViewModel));
         }
 
+        _decoGroups.Clear();
         _decoGroups.AddRange(await Mediator.Send(new GetAllDecoGroups(), cancellationToken));
     }
 
@@ -230,8 +231,19 @@
         _decos.AddRange(await Mediator.Send(new GetDecosByDecoGroupId(_selectedDecoGroup.Id), _cts.Token));
     }
 
+    private Task OnDecoGroupChanged(DecoGroupViewModel group)
+    {
+        _selectedDeco = null;
+        return UpdateDecoGroupItems(group);
+    }
+
     private void AddDecoToDecoTemplate()
     {
+        if (_selectedDeco is null)
+        {
+            return;
+        }
+
         // find first time where this deco will fit
         DateTime maybeStart = _selectedDecoStart;
         while (maybeStart.Date == DateTime.Today)

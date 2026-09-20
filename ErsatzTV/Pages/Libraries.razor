@@ -1,4 +1,5 @@
 ﻿@page "/media/libraries"
+@using System.Collections.Concurrent
 @using ErsatzTV.Application.Emby
 @using ErsatzTV.Application.Jellyfin
 @using ErsatzTV.Application.Libraries
@@ -72,7 +73,7 @@
                             @if (IsLibraryLocked(context.Id))
                             {
                                 <div style="width: 48px">
-                                    @if (_progressByLibrary[context.Id] > 0)
+                                    @if (_progressByLibrary.GetValueOrDefault(context.Id) > 0)
                                     {
                                         <MudText Color="Color.Primary">
                                             @($"{_progressByLibrary[context.Id]} %")
@@ -178,7 +179,7 @@
 
     private IList<LibraryViewModel> _libraries = new List<LibraryViewModel>();
     private IList<LibraryViewModel> _externalCollections = new List<LibraryViewModel>();
-    private Dictionary<int, int> _progressByLibrary = new();
+    private ConcurrentDictionary<int, int> _progressByLibrary = new();
     private bool _showServerNames;
 
     protected override void OnInitialized()
@@ -298,11 +299,14 @@
     {
         try
         {
-            if (_progressByLibrary != null && _progressByLibrary.ContainsKey(libraryScanProgress.LibraryId))
+            await InvokeAsync(() =>
             {
-                _progressByLibrary[libraryScanProgress.LibraryId] = (int)(libraryScanProgress.Progress * 100);
-                await InvokeAsync(StateHasChanged);
-            }
+                if (_progressByLibrary != null && _progressByLibrary.ContainsKey(libraryScanProgress.LibraryId))
+                {
+                    _progressByLibrary[libraryScanProgress.LibraryId] = (int)(libraryScanProgress.Progress * 100);
+                    StateHasChanged();
+                }
+            });
         }
         catch (Exception)
         {

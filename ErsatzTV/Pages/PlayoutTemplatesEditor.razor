@@ -102,7 +102,7 @@
                     <div class="d-flex">
                         <MudText>Template Group</MudText>
                     </div>
-                    <MudSelect T="TemplateGroupViewModel" Value="@_selectedGroup" ValueChanged="@(vm => UpdateTemplateGroupItems(vm))">
+                    <MudSelect T="TemplateGroupViewModel" Value="@_selectedGroup" ValueChanged="@OnTemplateGroupChanged">
                         @foreach (TemplateGroupViewModel templateGroup in _templateGroups)
                         {
                             <MudSelectItem Value="@templateGroup">
@@ -126,7 +126,7 @@
                     <div class="d-flex">
                         <MudText>Deco Template Group</MudText>
                     </div>
-                    <MudSelect T="DecoTemplateGroupViewModel" Value="@_selectedDecoTemplateGroup" ValueChanged="@(vm => UpdateDecoTemplateGroupItems(vm))">
+                    <MudSelect T="DecoTemplateGroupViewModel" Value="@_selectedDecoTemplateGroup" ValueChanged="@OnDecoTemplateGroupChanged">
                         @foreach (DecoTemplateGroupViewModel decoTemplateGroup in _decoTemplateGroups)
                         {
                             <MudSelectItem Value="@decoTemplateGroup">
@@ -375,6 +375,18 @@
         {
             await UpdateDecoTemplateGroupItems(group);
         }
+    }
+
+    private Task OnTemplateGroupChanged(TemplateGroupViewModel group)
+    {
+        _selectedItem?.Template = null;
+        return UpdateTemplateGroupItems(group);
+    }
+
+    private Task OnDecoTemplateGroupChanged(DecoTemplateGroupViewModel group)
+    {
+        _selectedItem?.DecoTemplate = null;
+        return UpdateDecoTemplateGroupItems(group);
     }
 
     private void SelectWeekdays()
