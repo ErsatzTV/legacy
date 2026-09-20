@@ -110,10 +110,7 @@ public class GetMusicVideoCreditsByPlayoutItemIdHandler(
         }
         else
         {
-            logger.LogWarning(
-                "Music video credits template {Template} does not exist; falling back to built-in template",
-                templateName);
-
+            logger.LogWarning("Music video credits template name is missing; falling back to built-in template");
             maybeSubtitle = await musicVideoCreditsGenerator.GenerateCreditsSubtitle(
                 musicVideo,
                 channel.FFmpegProfile);
