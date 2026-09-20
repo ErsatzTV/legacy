@@ -265,6 +265,14 @@ public class HlsSessionWorker : IHlsSessionWorker
                 }
             }
         }
+        catch (OperationCanceledException)
+        {
+            _logger.LogInformation("HLS worker has been canceled for channel {ChannelNumber}", _channelNumber);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Exception in HLS worker for channel {ChannelNumber}", _channelNumber);
+        }
         finally
         {
             if (_timer is not null)
@@ -638,7 +646,7 @@ public class HlsSessionWorker : IHlsSessionWorker
                         return false;
                     }
                 }
-                catch (Exception ex) when (ex is TaskCanceledException or OperationCanceledException)
+                catch (OperationCanceledException)
                 {
                     _logger.LogInformation("Terminating HLS session for channel {Channel}", _channelNumber);
                     return false;
