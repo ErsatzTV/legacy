@@ -635,10 +635,12 @@ public class ScriptedScheduleController(IScriptedPlayoutBuilderService scriptedP
             return NotFound($"Active build engine not found for build {buildId}.");
         }
 
-        if (TimeOnly.TryParse(request.When, out TimeOnly waitUntil))
+        if (!TimeOnly.TryParse(request.When, out TimeOnly waitUntil))
         {
-            engine.WaitUntil(waitUntil, request.Tomorrow, request.RewindOnReset);
+            return BadRequest("Invalid time.");
         }
+
+        engine.WaitUntil(waitUntil, request.Tomorrow, request.RewindOnReset);
 
         return GetContextInternal(engine);
     }

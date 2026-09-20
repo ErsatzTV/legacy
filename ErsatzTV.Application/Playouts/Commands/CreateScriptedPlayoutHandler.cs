@@ -4,7 +4,6 @@ using System.Threading.Channels;
 using ErsatzTV.Application.Channels;
 using ErsatzTV.Core;
 using ErsatzTV.Core.Domain;
-using ErsatzTV.Core.Interfaces.Metadata;
 using ErsatzTV.Core.Scheduling;
 using ErsatzTV.Infrastructure.Data;
 using ErsatzTV.Infrastructure.Extensions;
@@ -80,6 +79,11 @@ public class CreateScriptedPlayoutHandler(
     private Validation<BaseError, string> ValidateScheduleFile(CreateScriptedPlayout request)
     {
         var args = CommandLineParser.SplitCommandLine(request.ScheduleFile).ToList();
+        if (args.Count == 0)
+        {
+            return BaseError.New("Scripted schedule does not exist!");
+        }
+
         string scriptFile = args[0];
         if (!fileSystem.File.Exists(scriptFile))
         {

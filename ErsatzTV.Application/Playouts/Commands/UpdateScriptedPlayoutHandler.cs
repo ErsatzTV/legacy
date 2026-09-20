@@ -62,6 +62,11 @@ public class
     private Validation<BaseError, string> ValidateScheduleFile(UpdateScriptedPlayout request)
     {
         var args = CommandLineParser.SplitCommandLine(request.ScheduleFile).ToList();
+        if (args.Count == 0)
+        {
+            return BaseError.New("Scripted schedule does not exist!");
+        }
+
         string scriptFile = args[0];
         if (!fileSystem.File.Exists(scriptFile))
         {

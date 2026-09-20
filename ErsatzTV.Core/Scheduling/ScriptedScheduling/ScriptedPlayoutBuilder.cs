@@ -35,6 +35,10 @@ public class ScriptedPlayoutBuilder(
         try
         {
             var args = CommandLineParser.SplitCommandLine(playout.ScheduleFile).ToList();
+            if (args.Count == 0)
+            {
+                return BaseError.New("Scripted schedule does not exist!");
+            }
 
             string scriptFile = args[0];
             string[] scriptArgs = args.Skip(1).ToArray();
