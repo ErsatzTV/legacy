@@ -317,30 +317,37 @@
 
     public async Task HandlePlayoutUpdated(PlayoutUpdatedNotification notification, CancellationToken cancellationToken)
     {
-        // only refresh detail table on unlock operations (after playout has been modified)
-        if (!notification.IsLocked)
+        try
         {
-            int? previouslySelected = _selectedPlayoutId;
-
-            if (_table != null)
+            // only refresh detail table on unlock operations (after playout has been modified)
+            if (!notification.IsLocked)
             {
-                await InvokeAsync(() => _table.ReloadServerData());
-            }
+                int? previouslySelected = _selectedPlayoutId;
 
-            _buildMessage = string.Empty;
-            _selectedPlayoutId = null;
-
-            if (notification.PlayoutId == previouslySelected)
-            {
-                Option<PlayoutNameViewModel> maybeItem = _currentPage.Find(i => i.PlayoutId == previouslySelected);
-                foreach (var item in maybeItem)
+                if (_table != null)
                 {
-                    await InvokeAsync(() => PlayoutSelected(item));
+                    await InvokeAsync(() => _table.ReloadServerData());
+                }
+
+                _buildMessage = string.Empty;
+                _selectedPlayoutId = null;
+
+                if (notification.PlayoutId == previouslySelected)
+                {
+                    Option<PlayoutNameViewModel> maybeItem = _currentPage.Find(i => i.PlayoutId == previouslySelected);
+                    foreach (var item in maybeItem)
+                    {
+                        await InvokeAsync(() => PlayoutSelected(item));
+                    }
                 }
             }
-        }
 
-        await InvokeAsync(StateHasChanged);
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (Exception)
+        {
+            // ignore
+        }
     }
 
     protected override async Task OnParametersSetAsync()

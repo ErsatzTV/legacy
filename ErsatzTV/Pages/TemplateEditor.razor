@@ -147,6 +147,7 @@
 
             DateTime start = DateTime.Today;
             _selectedBlockStart = start;
+            _startTimes.Clear();
             while (start.Date == DateTime.Today.Date)
             {
                 _startTimes.Add(start);
