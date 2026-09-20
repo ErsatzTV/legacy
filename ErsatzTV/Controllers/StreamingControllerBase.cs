@@ -55,10 +55,13 @@ public abstract class StreamingControllerBase(IGraphicsEngine graphicsEngine, IL
         var pipe = new Pipe();
         var stdErrBuffer = new StringBuilder();
 
+        Option<Pipe> maybeGePipe = Option<Pipe>.None;
+
         Command processWithPipe = process;
         foreach (GraphicsEngineContext graphicsEngineContext in processModel.GraphicsEngineContext)
         {
             var gePipe = new Pipe();
+            maybeGePipe = gePipe;
             processWithPipe = process.WithStandardInputPipe(PipeSource.FromStream(gePipe.Reader.AsStream()));
 
             // fire and forget graphics engine task
@@ -78,9 +81,18 @@ public abstract class StreamingControllerBase(IGraphicsEngine graphicsEngine, IL
         _ = task.Task.ContinueWith(
             (t, _) =>
             {
+                foreach (Pipe gePipe in maybeGePipe)
+                {
+                    gePipe.Writer.Complete(t.Exception);
+                }
+
                 pipe.Writer.Complete(t.Exception);
                 ffmpegProcess.Dispose();
+
+                linkedCts.Cancel();
                 linkedCts.Dispose();
+
+                cts.Cancel();
                 cts.Dispose();
             },
             null,
