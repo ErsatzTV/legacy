@@ -99,6 +99,13 @@ public class QsvPipelineBuilder : SoftwarePipelineBuilder
             decodeCapability = FFmpegCapability.Software;
         }
 
+        // hardware decoders bypass ffmpeg's auto-rotation, so decode rotated video in software
+        if (videoStream.Rotation != 0)
+        {
+            _logger.LogDebug("Forcing software decode for rotated video ({Rotation} degrees)", videoStream.Rotation);
+            decodeCapability = FFmpegCapability.Software;
+        }
+
         // give a bogus value so no cuda devices are visible to ffmpeg
         pipelineSteps.Add(new CudaVisibleDevicesVariable("999"));
 

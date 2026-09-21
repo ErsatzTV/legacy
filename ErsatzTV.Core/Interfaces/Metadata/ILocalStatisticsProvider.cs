@@ -1,4 +1,4 @@
-﻿using ErsatzTV.Core.Domain;
+using ErsatzTV.Core.Domain;
 
 namespace ErsatzTV.Core.Interfaces.Metadata;
 
@@ -17,6 +17,11 @@ public interface ILocalStatisticsProvider
 
     Task<Option<int>> GetProfileCount(
         string ffmpegPath,
+        MediaItem mediaItem,
+        CancellationToken cancellationToken);
+
+    Task<Option<int>> GetRotation(
+        string ffprobePath,
         MediaItem mediaItem,
         CancellationToken cancellationToken);
 }

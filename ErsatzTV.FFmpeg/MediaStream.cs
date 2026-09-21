@@ -1,4 +1,4 @@
-﻿using System.Diagnostics.CodeAnalysis;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using ErsatzTV.FFmpeg.Format;
 
@@ -33,6 +33,11 @@ public record VideoStream(
     public ColorParams ColorParams { get; private set; } = ColorParams;
 
     public bool HasMultipleProfiles { get; set; }
+
+    // rotation (0, 90, 180, 270) from display matrix side data; FrameSize is already swapped for 90/270
+    public int Rotation { get; init; }
+
+    public bool IsRotatedQuarterTurn => Rotation is 90 or 270;
 
     public int BitDepth => PixelFormat.Map(pf => pf.BitDepth).IfNone(8);
 

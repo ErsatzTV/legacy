@@ -1,4 +1,4 @@
-﻿using System.Collections.Immutable;
+using System.Collections.Immutable;
 using System.Text;
 using CliWrap;
 using CliWrap.Buffered;
@@ -250,6 +250,25 @@ public class FFmpegLibraryProcessService : IFFmpegProcessService
             hasMultipleProfiles = await ProbeHasMultipleProfiles(ffmpegPath, videoVersion.MediaItem, cancellationToken);
         }
 
+        // media servers report the stored (landscape) frame size for rotated phone video,
+        // but ffmpeg auto-rotates on decode, so probe for rotation and swap dimensions to match
+        var rotation = 0;
+        var frameSize = new FrameSize(videoVersion.MediaVersion.Width, videoVersion.MediaVersion.Height);
+        string sampleAspectRatio = videoVersion.MediaVersion.SampleAspectRatio;
+        string displayAspectRatio = videoVersion.MediaVersion.DisplayAspectRatio;
+        if (videoPath == audioPath && streamInputKind is StreamInputKind.Vod)
+        {
+            rotation = await ProbeRotation(ffprobePath, videoVersion.MediaItem, cancellationToken);
+            if (rotation is 90 or 270)
+            {
+                frameSize = new FrameSize(frameSize.Height, frameSize.Width);
+
+                // rotated phone video has square pixels; DAR from the media server describes the un-rotated frame
+                sampleAspectRatio = "1:1";
+                displayAspectRatio = $"{frameSize.Width}:{frameSize.Height}";
+            }
+        }
+
         var ffmpegVideoStream = new VideoStream(
             videoStream.Index,
             videoStream.Codec,
@@ -260,14 +279,15 @@ public class FFmpegLibraryProcessService : IFFmpegProcessService
                 videoStream.ColorSpace,
                 videoStream.ColorTransfer,
                 videoStream.ColorPrimaries),
-            new FrameSize(videoVersion.MediaVersion.Width, videoVersion.MediaVersion.Height),
-            videoVersion.MediaVersion.SampleAspectRatio,
-            videoVersion.MediaVersion.DisplayAspectRatio,
+            frameSize,
+            sampleAspectRatio,
+            displayAspectRatio,
             new FrameRate(videoVersion.MediaVersion.RFrameRate),
             videoPath != audioPath, // still image when paths are different
             scanKind)
         {
-            HasMultipleProfiles = hasMultipleProfiles
+            HasMultipleProfiles = hasMultipleProfiles,
+            Rotation = rotation
         };
 
         var videoInputFile = new VideoInputFile(
@@ -664,6 +684,21 @@ public class FFmpegLibraryProcessService : IFFmpegProcessService
             "Content has interlaced ratio of {Ratio} - will consider as {ScanKind}",
             headVersion.InterlacedRatio,
             result);
+        return result;
+    }
+
+    private async Task<int> ProbeRotation(
+        string ffprobePath,
+        MediaItem mediaItem,
+        CancellationToken cancellationToken)
+    {
+        Option<int> rotation = await _localStatisticsProvider.GetRotation(ffprobePath, mediaItem, cancellationToken);
+        int result = await rotation.IfNoneAsync(0);
+        if (result != 0)
+        {
+            _logger.LogDebug("Content has rotation {Rotation}; will decode in software and swap dimensions", result);
+        }
+
         return result;
     }
 

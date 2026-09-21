@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO.Abstractions;
@@ -381,6 +381,68 @@ public partial class LocalStatisticsProvider : ILocalStatisticsProvider
         }
 
         return stats;
+    }
+
+    public async Task<Option<int>> GetRotation(
+        string ffprobePath,
+        MediaItem mediaItem,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            string filePath = await PathForMediaItem(mediaItem);
+            return await GetRotation(ffprobePath, filePath, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to check rotation for media item {Id}", mediaItem.Id);
+        }
+
+        return Option<int>.None;
+    }
+
+    private async Task<Option<int>> GetRotation(
+        string ffprobePath,
+        string filePath,
+        CancellationToken cancellationToken)
+    {
+        // phones store portrait video as a landscape frame with a display matrix (rotation) side data entry
+        string[] arguments =
+        [
+            "-hide_banner",
+            "-v", "quiet",
+            "-select_streams", "v:0",
+            "-show_entries", "stream_side_data=rotation",
+            "-of", "default=noprint_wrappers=1:nokey=1",
+            "-i", filePath
+        ];
+
+        BufferedCommandResult probe = await Cli.Wrap(ffprobePath)
+            .WithArguments(arguments)
+            .WithValidation(CommandResultValidation.None)
+            .ExecuteBufferedAsync(Encoding.UTF8, cancellationToken);
+
+        if (probe.ExitCode != 0)
+        {
+            _logger.LogInformation(
+                "FFprobe rotation check with arguments {Arguments} exited with code {ExitCode}",
+                arguments,
+                probe.ExitCode);
+
+            return Option<int>.None;
+        }
+
+        foreach (string line in probe.StandardOutput.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (double.TryParse(line.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out double rotation))
+            {
+                // normalize to 0, 90, 180, 270
+                int normalized = ((int)Math.Round(rotation) % 360 + 360) % 360;
+                return normalized;
+            }
+        }
+
+        return 0;
     }
 
     private async Task<Option<int>> GetProfileCount(

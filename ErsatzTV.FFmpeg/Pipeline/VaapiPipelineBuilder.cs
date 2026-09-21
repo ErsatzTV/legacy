@@ -101,6 +101,12 @@ public class VaapiPipelineBuilder : SoftwarePipelineBuilder
             }
         }
 
+        // hardware decoders bypass ffmpeg's auto-rotation, so decode rotated video in software
+        if (videoStream.Rotation != 0)
+        {
+            decodeCapability = FFmpegCapability.Software;
+        }
+
         foreach (string vaapiDevice in ffmpegState.VaapiDevice)
         {
             pipelineSteps.Add(new VaapiHardwareAccelerationOption(vaapiDevice, decodeCapability));

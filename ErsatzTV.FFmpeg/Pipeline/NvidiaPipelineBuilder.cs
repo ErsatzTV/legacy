@@ -85,6 +85,13 @@ public class NvidiaPipelineBuilder : SoftwarePipelineBuilder
             decodeCapability = FFmpegCapability.Software;
         }
 
+        // hardware decoders bypass ffmpeg's auto-rotation, so decode rotated video in software
+        if (videoStream.Rotation != 0)
+        {
+            _logger.LogDebug("Forcing software decode for rotated video ({Rotation} degrees)", videoStream.Rotation);
+            decodeCapability = FFmpegCapability.Software;
+        }
+
         bool isHdrTonemap = decodeCapability == FFmpegCapability.Hardware
                             && _ffmpegCapabilities.HasHardwareAcceleration(HardwareAccelerationMode.Vulkan)
                             && videoStream.ColorParams.IsHdr
