@@ -51,7 +51,7 @@ public abstract class LocalFolderScanner
 
     public static readonly ImmutableHashSet<string> RemoteStreamExtensions = new[]
     {
-        "yml"
+        "yaml", "yml"
     }.ToImmutableHashSet(StringComparer.OrdinalIgnoreCase);
 
     private readonly IFFmpegPngService _ffmpegPngService;
