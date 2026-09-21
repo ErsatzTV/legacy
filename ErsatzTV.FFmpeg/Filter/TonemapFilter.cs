@@ -19,8 +19,10 @@ public class TonemapFilter : BaseFilter
     {
         get
         {
+            // convert to linear light with a nominal peak, tonemap, then convert primaries and matrix
+            // from bt2020 to bt709 - without the primaries/matrix conversion the SDR output is washed out
             var tonemap =
-                $"zscale=transfer=linear,tonemap={_ffmpegState.TonemapAlgorithm},zscale=transfer=bt709,format={_desiredPixelFormat.FFmpegName}";
+                $"zscale=transfer=linear:npl=100,format=gbrpf32le,zscale=primaries=bt709,tonemap={_ffmpegState.TonemapAlgorithm}:desat=0,zscale=transfer=bt709:matrix=bt709:range=tv,format={_desiredPixelFormat.FFmpegName}";
 
             if (_currentState.FrameDataLocation == FrameDataLocation.Hardware)
             {
