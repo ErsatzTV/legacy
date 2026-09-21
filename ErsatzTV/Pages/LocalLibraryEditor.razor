@@ -1,6 +1,7 @@
 ﻿@page "/media/sources/local/{Id:int}/edit"
 @page "/media/sources/local/add"
 @using ErsatzTV.Application.Libraries
+@using ErsatzTV.Core.Libraries
 @implements IDisposable
 @inject IDialogService Dialog
 @inject IEntityLocker Locker
@@ -209,13 +210,19 @@
             return;
         }
 
-        if (!Directory.Exists(_newPath.Path))
+        if (!LocalLibraryPaths.IsFullyQualified(_newPath.Path))
         {
-            Snackbar.Add("Path must exist on filesystem", Severity.Error);
+            Snackbar.Add($"Path [{_newPath.Path}] must be an absolute path", Severity.Error);
             return;
         }
 
-        if (!string.IsNullOrWhiteSpace(_newPath.Path) && _model.Paths.All(p => NormalizePath(p.Path) != NormalizePath(_newPath.Path)))
+        if (!Directory.Exists(_newPath.Path))
+        {
+            Snackbar.Add($"Path [{_newPath.Path}] must exist on filesystem", Severity.Error);
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(_newPath.Path) && _model.Paths.All(p => LocalLibraryPaths.NormalizePath(p.Path) != LocalLibraryPaths.NormalizePath(_newPath.Path)))
         {
             _model.HasChanges = true;
             _model.Paths.Add(
@@ -256,10 +263,6 @@
                 });
         }
     }
-
-    private string NormalizePath(string path) => Path.GetFullPath(new Uri(path).LocalPath)
-        .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
-        .ToUpperInvariant();
 
     void IDisposable.Dispose()
     {

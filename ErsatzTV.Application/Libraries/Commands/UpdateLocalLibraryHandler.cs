@@ -3,6 +3,7 @@ using Dapper;
 using ErsatzTV.Application.MediaSources;
 using ErsatzTV.Core;
 using ErsatzTV.Core.Domain;
+using ErsatzTV.Core.Libraries;
 using ErsatzTV.Core.Interfaces.Locking;
 using ErsatzTV.Core.Interfaces.Search;
 using ErsatzTV.Infrastructure.Data;
@@ -47,10 +48,10 @@ public class UpdateLocalLibraryHandler : LocalLibraryHandlerBase,
         existing.Name = incoming.Name;
 
         var toAdd = incoming.Paths
-            .Filter(p => existing.Paths.All(ep => NormalizePath(ep.Path) != NormalizePath(p.Path)))
+            .Filter(p => existing.Paths.All(ep => LocalLibraryPaths.NormalizePath(ep.Path) != LocalLibraryPaths.NormalizePath(p.Path)))
             .ToList();
         var toRemove = existing.Paths
-            .Filter(ep => incoming.Paths.All(p => NormalizePath(p.Path) != NormalizePath(ep.Path)))
+            .Filter(ep => incoming.Paths.All(p => LocalLibraryPaths.NormalizePath(p.Path) != LocalLibraryPaths.NormalizePath(ep.Path)))
             .ToList();
 
         var toRemoveIds = toRemove.Map(lp => lp.Id).ToHashSet();
@@ -109,6 +110,7 @@ public class UpdateLocalLibraryHandler : LocalLibraryHandlerBase,
         CancellationToken cancellationToken) =>
         LocalLibraryMustExist(dbContext, request, cancellationToken)
             .BindT(parameters => NameMustBeValid(request, parameters.Incoming).MapT(_ => parameters))
+            .BindT(parameters => PathsMustBeFullyQualified(parameters.Incoming).MapT(_ => parameters))
             .BindT(parameters => PathsMustBeValid(dbContext, parameters.Incoming, parameters.Existing.Id)
                 .MapT(_ => parameters));
 
@@ -132,11 +134,6 @@ public class UpdateLocalLibraryHandler : LocalLibraryHandlerBase,
                 return new Parameters(existing, incoming);
             })
             .Map(o => o.ToValidation<BaseError>("LocalLibrary does not exist."));
-
-    private static string NormalizePath(string path) =>
-        Path.GetFullPath(new Uri(path).LocalPath)
-            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
-            .ToUpperInvariant();
 
     private sealed record Parameters(LocalLibrary Existing, LocalLibrary Incoming);
 }

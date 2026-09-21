@@ -1,7 +1,8 @@
-﻿using ErsatzTV.Core;
+using ErsatzTV.Core;
 using ErsatzTV.Core.Domain;
 using ErsatzTV.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using static ErsatzTV.Core.Libraries.LocalLibraryPaths;
 
 namespace ErsatzTV.Application.Libraries;
 
@@ -13,6 +14,14 @@ public abstract class LocalLibraryHandlerBase
         request.NotEmpty(c => c.Name)
             .Bind(_ => request.NotLongerThan(50)(c => c.Name))
             .Map(_ => localLibrary).AsTask();
+
+    protected static Task<Validation<BaseError, LocalLibrary>> PathsMustBeFullyQualified(LocalLibrary localLibrary) =>
+        localLibrary.Paths.Map(lp => lp.Path)
+            .Find(path => !IsFullyQualified(path))
+            .Match(
+                path => Fail<BaseError, LocalLibrary>($"Path [{path}] must be an absolute path"),
+                () => Success<BaseError, LocalLibrary>(localLibrary))
+            .AsTask();
 
     protected static async Task<Validation<BaseError, LocalLibrary>> PathsMustBeValid(
         TvContext dbContext,
@@ -27,36 +36,10 @@ public abstract class LocalLibraryHandlerBase
 
         var localPaths = localLibrary.Paths.Map(lp => new LocalPath(localLibrary.MediaKind, lp.Path)).ToList();
 
-        return Optional(localPaths.Count(folder => allPaths.Any(f => AreSubPaths(f, folder))))
-            .Where(length => length == 0)
-            .Map(_ => localLibrary)
-            .ToValidation<BaseError>("Path must not belong to another library path");
+        // List<T>.Find shadows the LanguageExt Find extension
+        return Optional(localPaths.Find(folder => allPaths.Any(f => Conflicts(f, folder))))
+            .Match(
+                folder => Fail<BaseError, LocalLibrary>($"Path [{folder.Path}] must not belong to another library path"),
+                () => Success<BaseError, LocalLibrary>(localLibrary));
     }
-
-    private static bool AreSubPaths(LocalPath path1, LocalPath path2)
-    {
-        string one = path1.Path + Path.DirectorySeparatorChar;
-        string two = path2.Path + Path.DirectorySeparatorChar;
-
-        bool isConflict = one == two || one.StartsWith(two, StringComparison.OrdinalIgnoreCase) ||
-                          two.StartsWith(one, StringComparison.OrdinalIgnoreCase);
-
-        // Images and OtherVideos do not conflict
-        if (isConflict)
-        {
-            bool imagesAndOtherVideos = path1.MediaKind is LibraryMediaKind.Images &&
-                                        path2.MediaKind is LibraryMediaKind.OtherVideos
-                                        || path2.MediaKind is LibraryMediaKind.Images &&
-                                        path1.MediaKind is LibraryMediaKind.OtherVideos;
-
-            if (imagesAndOtherVideos)
-            {
-                isConflict = false;
-            }
-        }
-
-        return isConflict;
-    }
-
-    protected record LocalPath(LibraryMediaKind MediaKind, string Path);
 }

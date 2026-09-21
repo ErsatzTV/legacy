@@ -55,6 +55,7 @@ public class CreateLocalLibraryHandler : LocalLibraryHandlerBase,
         CreateLocalLibrary request) =>
         MediaSourceMustExist(dbContext, request)
             .BindT(localLibrary => NameMustBeValid(request, localLibrary))
+            .BindT(PathsMustBeFullyQualified)
             .BindT(localLibrary => PathsMustBeValid(dbContext, localLibrary));
 
     private static Task<Validation<BaseError, LocalLibrary>> MediaSourceMustExist(

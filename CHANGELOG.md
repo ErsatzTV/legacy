@@ -47,6 +47,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Graphics engine:
   - Fix motion element timing, including hold behavior when seeking into hold
 - Many reliability fixes to playback troubleshooter; e.g. so it doesn't stay locked until ETV is restarted
+- Improve local library path validation
+  - Paths must now be absolute; e.g. a relative path saved on macOS could previously break all future edits to that library
+  - Validation errors now include the problematic path
 - Fix custom ordering of manual (movie) collections to support dragging posters instead of just titles
 - Fix remote stream libraries to allow `.yaml` extension (previously only allowed `.yml`)
 
