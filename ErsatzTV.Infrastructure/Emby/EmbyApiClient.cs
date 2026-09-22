@@ -928,7 +928,8 @@ public class EmbyApiClient : IEmbyApiClient
                     ColorRange = (videoStream.ColorRange ?? string.Empty).ToLowerInvariant(),
                     ColorSpace = (videoStream.ColorSpace ?? string.Empty).ToLowerInvariant(),
                     ColorTransfer = (videoStream.ColorTransfer ?? string.Empty).ToLowerInvariant(),
-                    ColorPrimaries = (videoStream.ColorPrimaries ?? string.Empty).ToLowerInvariant()
+                    ColorPrimaries = (videoStream.ColorPrimaries ?? string.Empty).ToLowerInvariant(),
+                    Rotation = videoStream.Rotation.HasValue ? (videoStream.Rotation.Value % 360 + 360) % 360 : 0
                 });
 
             foreach (EmbyMediaStreamResponse audioStream in streams.Filter(s => s.Type == EmbyMediaStreamType.Audio))

@@ -22,5 +22,6 @@ public class EmbyMediaStreamResponse
     public string ColorSpace { get; set; }
     public string ColorTransfer { get; set; }
     public string ColorPrimaries { get; set; }
+    public int? Rotation { get; set; }
     public double? RealFrameRate { get; set; }
 }
