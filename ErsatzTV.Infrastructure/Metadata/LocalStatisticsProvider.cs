@@ -673,6 +673,13 @@ public partial class LocalStatisticsProvider : ILocalStatisticsProvider
                             stream.HasHdr10Metadata = true;
                         }
 
+                        // ffprobe reports the display matrix as a signed ccw angle (e.g. -90); normalize to 0..360
+                        stream.Rotation = sideDataList
+                            .Where(sd => sd.rotation.HasValue)
+                            .Map(sd => ((int)Math.Round(sd.rotation.Value) % 360 + 360) % 360)
+                            .HeadOrNone()
+                            .IfNone(0);
+
                         version.Streams.Add(stream);
                     }
 
@@ -895,7 +902,7 @@ public partial class LocalStatisticsProvider : ILocalStatisticsProvider
     }
 
     [SuppressMessage("Naming", "CA1707:Identifiers should not contain underscores")]
-    public record FFprobeSideData(string side_data_type, int? dv_profile);
+    public record FFprobeSideData(string side_data_type, int? dv_profile, double? rotation);
     // ReSharper restore InconsistentNaming
 
     [GeneratedRegex(@"\[SAR\s+([0-9]+:[0-9]+)\s+DAR\s+([0-9]+:[0-9]+)\]")]

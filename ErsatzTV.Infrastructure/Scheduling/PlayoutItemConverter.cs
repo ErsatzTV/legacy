@@ -33,6 +33,8 @@ public class PlayoutItemConverter(
     IDbContextFactory<TvContext> dbContextFactory,
     ILogger<PlayoutItemConverter> logger) : IPlayoutItemConverter
 {
+    public static readonly string PlayoutVersion = "https://ersatztv.org/playout/version/0.0.5";
+
     public async Task<Option<Core.Next.PlayoutItem>> ToNext(
         string channelNumber,
         PlayoutItem playoutItem,
@@ -143,6 +145,7 @@ public class PlayoutItemConverter(
                     ColorTransfer = s.ColorTransfer,
                     DvProfile = s.DvProfile,
                     HasHdr10Metadata = s.HasHdr10Metadata,
+                    Rotation = s.Rotation
                 }).ToList();
             var sourceAudioHints = headVersion.Streams
                 .Where(s => s.MediaStreamKind is MediaStreamKind.Audio)
