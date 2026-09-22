@@ -100,7 +100,7 @@ public class PlayoutItemConverterTests
 
         using JsonDocument json = JsonDocument.Parse(Next.Serialize.ToJson(new Next.Playout
         {
-            Version = "https://ersatztv.org/playout/version/0.0.4", Items = [result]
+            Version = PlayoutItemConverter.PlayoutVersion, Items = [result]
         }));
         JsonElement serialized = json.RootElement.GetProperty("items")[0]
             .GetProperty("tracks").GetProperty("subtitle").GetProperty("source");

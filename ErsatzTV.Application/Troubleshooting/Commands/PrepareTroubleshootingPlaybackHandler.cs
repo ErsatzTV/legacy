@@ -22,6 +22,7 @@ using ErsatzTV.FFmpeg;
 using ErsatzTV.FFmpeg.State;
 using ErsatzTV.Infrastructure.Data;
 using ErsatzTV.Infrastructure.Extensions;
+using ErsatzTV.Infrastructure.Scheduling;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Serilog.Context;
@@ -422,7 +423,7 @@ public class PrepareTroubleshootingPlaybackHandler(
         {
             var playout = new Core.Next.Playout
             {
-                Version = "https://ersatztv.org/playout/version/0.0.4",
+                Version = PlayoutItemConverter.PlayoutVersion,
                 Items = [nextPlayoutItem]
             };
 

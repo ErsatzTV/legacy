@@ -538,6 +538,17 @@ namespace ErsatzTV.Core.Next
         public string? Profile { get; set; }
 
         /// <summary>
+        /// Display rotation in counter-clockwise degrees from the stream's display matrix,
+        /// normalized to 0, 90, 180, or 270. The channel rotates frames explicitly after
+        /// deinterlacing and before scaling, using hardware filters when supported and software
+        /// otherwise. A 90/270 rotation swaps width and height and inverts pixel and display aspect
+        /// ratios. Omit when unknown; for local sources the channel then reads it from the file
+        /// header.
+        /// </summary>
+        [JsonPropertyName("rotation")]
+        public long? Rotation { get; set; }
+
+        /// <summary>
         /// Sample (pixel) aspect ratio, e.g. "1:1". Omit for square pixels.
         /// </summary>
         [JsonPropertyName("sample_aspect_ratio")]
