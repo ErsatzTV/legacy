@@ -86,4 +86,14 @@ public class PlexStreamResponse
 
     [XmlAttribute("extendedDisplayTitle")]
     public string ExtendedDisplayTitle { get; set; }
+
+    [XmlIgnore]
+    public int? Orientation { get; set; }
+
+    [XmlAttribute("orientation")]
+    public string OrientationString
+    {
+        get => Orientation.HasValue ? Orientation.Value.ToString(CultureInfo.InvariantCulture) : string.Empty;
+        set => Orientation = !string.IsNullOrEmpty(value) ? int.Parse(value, CultureInfo.InvariantCulture) : null;
+    }
 }

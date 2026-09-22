@@ -795,6 +795,16 @@ public class PlexServerApiClient(PlexEtag plexEtag, ILogger<PlexServerApiClient>
                 Chapters = Optional(response.Chapters).Flatten().Map(ProjectToModel).ToList()
             };
 
+            // orientation is omitted when content should not be rotated
+            // plex seems to return "inverted" exif values
+            int rotation = videoStream.Orientation switch
+            {
+                8 => 270,
+                3 => 180,
+                6 => 90,
+                _ => 0
+            };
+
             version.Streams.Add(
                 new MediaStream
                 {
@@ -810,7 +820,8 @@ public class PlexServerApiClient(PlexEtag plexEtag, ILogger<PlexServerApiClient>
                     ColorRange = (videoStream.ColorRange ?? string.Empty).ToLowerInvariant(),
                     ColorSpace = (videoStream.ColorSpace ?? string.Empty).ToLowerInvariant(),
                     ColorTransfer = (videoStream.ColorTrc ?? string.Empty).ToLowerInvariant(),
-                    ColorPrimaries = (videoStream.ColorPrimaries ?? string.Empty).ToLowerInvariant()
+                    ColorPrimaries = (videoStream.ColorPrimaries ?? string.Empty).ToLowerInvariant(),
+                    Rotation = rotation
                 });
 
             foreach (PlexStreamResponse audioStream in streams.Filter(s => s.StreamType == 2 && s.Index.HasValue))

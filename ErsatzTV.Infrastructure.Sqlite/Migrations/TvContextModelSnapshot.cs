@@ -1358,6 +1358,9 @@ namespace ErsatzTV.Infrastructure.Sqlite.Migrations
                     b.Property<string>("Profile")
                         .HasColumnType("TEXT");
 
+                    b.Property<int?>("Rotation")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("Title")
                         .HasColumnType("TEXT");
 

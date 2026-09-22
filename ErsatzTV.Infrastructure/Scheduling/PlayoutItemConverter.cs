@@ -145,6 +145,7 @@ public class PlayoutItemConverter(
                     ColorTransfer = s.ColorTransfer,
                     DvProfile = s.DvProfile,
                     HasHdr10Metadata = s.HasHdr10Metadata,
+                    Rotation = s.Rotation
                 }).ToList();
             var sourceAudioHints = headVersion.Streams
                 .Where(s => s.MediaStreamKind is MediaStreamKind.Audio)
