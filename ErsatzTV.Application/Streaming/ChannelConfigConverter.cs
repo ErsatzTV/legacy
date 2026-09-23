@@ -129,9 +129,10 @@ public class ChannelConfigConverter(IConfigElementRepository configElementReposi
             VaapiDevice = ffmpegProfile.VaapiDevice,
             VaapiDriver = ffmpegProfile.VaapiDriver switch
             {
+                VaapiDriver.iHD => VaapiDriverEnum.Ihd,
                 VaapiDriver.i965 => VaapiDriverEnum.I965,
                 VaapiDriver.RadeonSI => VaapiDriverEnum.Radeonsi,
-                _ => VaapiDriverEnum.Ihd
+                _ => null
             }
         };
 
