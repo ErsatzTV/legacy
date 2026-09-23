@@ -139,6 +139,15 @@ public class JellyfinTelevisionRepository : IJellyfinTelevisionRepository
             foreach (JellyfinSeason jellyfinSeason in maybeExisting)
             {
                 var result = new MediaItemScanResult<JellyfinSeason>(jellyfinSeason) { IsAdded = false };
+
+                // show id can change without etag changing
+                if (item.ShowId != 0 && jellyfinSeason.ShowId != item.ShowId)
+                {
+                    jellyfinSeason.ShowId = item.ShowId;
+                    await dbContext.SaveChangesAsync(cancellationToken);
+                    result.IsUpdated = true;
+                }
+
                 if (jellyfinSeason.Etag != item.Etag)
                 {
                     await UpdateSeason(dbContext, jellyfinSeason, item, cancellationToken);

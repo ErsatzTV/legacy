@@ -472,6 +472,11 @@ public class JellyfinApiClient : IJellyfinApiClient
     {
         try
         {
+            if (item.Type != "Movie")
+            {
+                return None;
+            }
+
             if (item.LocationType != "FileSystem")
             {
                 return None;
@@ -665,6 +670,11 @@ public class JellyfinApiClient : IJellyfinApiClient
     {
         try
         {
+            if (item.Type != "Series")
+            {
+                return None;
+            }
+
             ShowMetadata metadata = ProjectToShowMetadata(item);
 
             var show = new JellyfinShow
@@ -758,6 +768,11 @@ public class JellyfinApiClient : IJellyfinApiClient
     {
         try
         {
+            if (item.Type != "Season")
+            {
+                return None;
+            }
+
             DateTime dateAdded = item.DateCreated.UtcDateTime;
             // DateTime lastWriteTime = DateTimeOffset.FromUnixTimeSeconds(response.UpdatedAt).DateTime;
 
@@ -831,6 +846,11 @@ public class JellyfinApiClient : IJellyfinApiClient
     {
         try
         {
+            if (item.Type != "BoxSet")
+            {
+                return None;
+            }
+
             return new JellyfinCollection
             {
                 ItemId = item.Id,
@@ -849,6 +869,11 @@ public class JellyfinApiClient : IJellyfinApiClient
     {
         try
         {
+            if (item.Type != "Episode")
+            {
+                return None;
+            }
+
             if (item.LocationType != "FileSystem")
             {
                 return None;
