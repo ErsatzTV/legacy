@@ -172,9 +172,15 @@ namespace ErsatzTV.Core.Next.Config
         [JsonPropertyName("scaling_mode")]
         public ScalingMode? ScalingMode { get; set; }
 
+        /// <summary>
+        /// Unset uses `/dev/dri/renderD128`.
+        /// </summary>
         [JsonPropertyName("vaapi_device")]
         public string? VaapiDevice { get; set; }
 
+        /// <summary>
+        /// Unset lets libva select the driver for `vaapi_device`.
+        /// </summary>
         [JsonPropertyName("vaapi_driver")]
         public VaapiDriverEnum? VaapiDriver { get; set; }
 

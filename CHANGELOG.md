@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Next engine:
   - Properly rotate content that contains orientation metadata (e.g. from phones)
 
+### Fixed
+- Next engine:
+  - Fix AMD VAAPI hardware acceleration when FFmpeg Profile is configured with VAAPI Driver `Default`
+
 ## [26.10.0] - 2026-09-21
 ### Added
 - Next engine:
