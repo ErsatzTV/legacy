@@ -12,6 +12,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Next engine:
   - Fix AMD VAAPI hardware acceleration when FFmpeg Profile is configured with VAAPI Driver `Default`
 - Improve performance of graphics engine subtitle elements
+- Fix Jellyfin 12 shows that belong to a Jellyfin collection being replaced by the collection itself
+  - The collection would appear as a show, and the real show would be flagged as missing
+  - To repair affected libraries after updating:
+    - Scan the affected Jellyfin show libraries
+    - Empty the trash to remove the bogus collection shows
+    - Deep scan Jellyfin collections to restore collection search results
 
 ## [26.10.0] - 2026-09-21
 ### Added

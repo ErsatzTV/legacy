@@ -3,6 +3,8 @@ using Refit;
 
 namespace ErsatzTV.Infrastructure.Jellyfin;
 
+// collapseBoxSetItems=false: Jellyfin 12 collapses collection members into their BoxSet
+// for queries without a user, regardless of server grouping settings
 [Headers("Accept: application/json")]
 public interface IJellyfinApi
 {
@@ -22,7 +24,7 @@ public interface IJellyfinApi
         [Header("Authorization")]
         string authorizationHeader);
 
-    [Get("/Items?sortOrder=Ascending&sortBy=SortName")]
+    [Get("/Items?sortOrder=Ascending&sortBy=SortName&collapseBoxSetItems=false")]
     Task<JellyfinLibraryItemsResponse> GetMovieLibraryItems(
         [Header("Authorization")]
         string authorizationHeader,
@@ -42,7 +44,7 @@ public interface IJellyfinApi
         [Query]
         int limit = 0);
 
-    [Get("/Items?sortOrder=Ascending&sortBy=SortName")]
+    [Get("/Items?sortOrder=Ascending&sortBy=SortName&collapseBoxSetItems=false")]
     Task<JellyfinLibraryItemsResponse> GetShowLibraryItemsWithoutPeople(
         [Header("Authorization")]
         string authorizationHeader,
@@ -62,7 +64,7 @@ public interface IJellyfinApi
         [Query]
         string ids = null);
 
-    [Get("/Items?sortOrder=Ascending&sortBy=SortName")]
+    [Get("/Items?sortOrder=Ascending&sortBy=SortName&collapseBoxSetItems=false")]
     Task<JellyfinLibraryItemsResponse> GetShowLibraryItems(
         [Header("Authorization")]
         string authorizationHeader,
@@ -82,7 +84,7 @@ public interface IJellyfinApi
         [Query]
         string ids = null);
 
-    [Get("/Items?sortOrder=Ascending&sortBy=SortName")]
+    [Get("/Items?sortOrder=Ascending&sortBy=SortName&collapseBoxSetItems=false")]
     Task<JellyfinLibraryItemsResponse> GetSeasonLibraryItems(
         [Header("Authorization")]
         string authorizationHeader,
@@ -99,7 +101,7 @@ public interface IJellyfinApi
         [Query]
         int limit = 0);
 
-    [Get("/Items?sortOrder=Ascending&sortBy=SortName")]
+    [Get("/Items?sortOrder=Ascending&sortBy=SortName&collapseBoxSetItems=false")]
     Task<JellyfinLibraryItemsResponse> GetEpisodeLibraryItems(
         [Header("Authorization")]
         string authorizationHeader,
@@ -118,7 +120,7 @@ public interface IJellyfinApi
         [Query]
         string ids = null);
 
-    [Get("/Items?sortOrder=Ascending&sortBy=SortName")]
+    [Get("/Items?sortOrder=Ascending&sortBy=SortName&collapseBoxSetItems=false")]
     Task<JellyfinLibraryItemsResponse> GetEpisodeLibraryItemsWithoutPeople(
         [Header("Authorization")]
         string authorizationHeader,
@@ -135,7 +137,7 @@ public interface IJellyfinApi
         [Query]
         int limit = 0);
 
-    [Get("/Items?sortOrder=Ascending&sortBy=SortName")]
+    [Get("/Items?sortOrder=Ascending&sortBy=SortName&collapseBoxSetItems=false")]
     Task<JellyfinLibraryItemsResponse> GetCollectionLibraryItems(
         [Header("Authorization")]
         string authorizationHeader,
@@ -152,7 +154,7 @@ public interface IJellyfinApi
         [Query]
         int limit = 0);
 
-    [Get("/Items?sortOrder=Ascending&sortBy=SortName")]
+    [Get("/Items?sortOrder=Ascending&sortBy=SortName&collapseBoxSetItems=false")]
     Task<JellyfinLibraryItemsResponse> GetCollectionItems(
         [Header("Authorization")]
         string authorizationHeader,
