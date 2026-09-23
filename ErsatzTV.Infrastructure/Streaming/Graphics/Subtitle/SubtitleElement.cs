@@ -27,8 +27,8 @@ public class SubtitleElement(
     private CommandTask<CommandResult> _commandTask;
     private int _frameSize;
     private PipeReader _pipeReader;
-    private SKPointI _point;
     private SKBitmap _videoFrame;
+    private SKBitmap _visibleFrame;
     private bool _isFinished;
 
     public override int ZIndex { get; } = subtitleElement.ZIndex ?? 0;
@@ -55,6 +55,7 @@ public class SubtitleElement(
 
         _cancellationTokenSource?.Dispose();
 
+        _visibleFrame?.Dispose();
         _videoFrame?.Dispose();
     }
 
@@ -62,19 +63,25 @@ public class SubtitleElement(
     {
         try
         {
-            var pipe = new Pipe();
-            _pipeReader = pipe.Reader;
-
             // video size is the same as the main frame size
             _frameSize = context.FrameSize.Width * context.FrameSize.Height * 4;
+
+            // buffer a few frames so ffmpeg can render ahead of the engine
+            var pipe = new Pipe(
+                new PipeOptions(
+                    minimumSegmentSize: 1024 * 1024,
+                    pauseWriterThreshold: _frameSize * 4L,
+                    resumeWriterThreshold: _frameSize * 2L));
+            _pipeReader = pipe.Reader;
+
+            // blending onto a transparent black canvas makes ffmpeg's output premultiplied
             _videoFrame = new SKBitmap(
                 context.FrameSize.Width,
                 context.FrameSize.Height,
                 SKColorType.Bgra8888,
-                SKAlphaType.Unpremul);
+                SKAlphaType.Premul);
 
-            // subtitles contain their own positioning info
-            _point = SKPointI.Empty;
+            _visibleFrame = new SKBitmap();
 
             string subtitleTemplateFile = tempFilePool.GetNextTempFile(TempFileCategory.Subtitle);
 
@@ -161,16 +168,35 @@ public class SubtitleElement(
                 {
                     ReadOnlySequence<byte> sequence = buffer.Slice(0, _frameSize);
 
+                    SKRectI bounds;
                     using (SKPixmap pixmap = _videoFrame.PeekPixels())
                     {
-                        sequence.CopyTo(pixmap.GetPixelSpan());
+                        Span<byte> pixels = pixmap.GetPixelSpan();
+                        sequence.CopyTo(pixels);
+                        bounds = GetVisibleBounds(pixels, pixmap.Width);
                     }
 
                     // mark this frame as consumed
                     consumed = sequence.End;
+                    examined = consumed;
 
-                    // we are done, return the frame
-                    return new PreparedElementImage(_videoFrame, _point, 1.0f, ZIndex, false);
+                    // compositing a full frame is expensive, so only hand over the visible region
+                    if (bounds.IsEmpty)
+                    {
+                        return Option<PreparedElementImage>.None;
+                    }
+
+                    if (!_videoFrame.ExtractSubset(_visibleFrame, bounds))
+                    {
+                        return new PreparedElementImage(_videoFrame, SKPointI.Empty, 1.0f, ZIndex, false);
+                    }
+
+                    return new PreparedElementImage(
+                        _visibleFrame,
+                        new SKPointI(bounds.Left, bounds.Top),
+                        1.0f,
+                        ZIndex,
+                        false);
                 }
 
                 if (readResult.IsCompleted)
@@ -185,10 +211,39 @@ public class SubtitleElement(
             {
                 if (!_isFinished)
                 {
-                    // advance the reader, consuming the processed frame and examining the entire buffer
+                    // leave unread frames available without waiting for more data
                     _pipeReader.AdvanceTo(consumed, examined);
                 }
             }
         }
+    }
+
+    private static SKRectI GetVisibleBounds(ReadOnlySpan<byte> pixels, int width)
+    {
+        int stride = width * 4;
+
+        int first = pixels.IndexOfAnyExcept((byte)0);
+        if (first < 0)
+        {
+            return SKRectI.Empty;
+        }
+
+        int top = first / stride;
+        int bottom = pixels.LastIndexOfAnyExcept((byte)0) / stride;
+
+        int left = width;
+        var right = 0;
+        for (int y = top; y <= bottom; y++)
+        {
+            ReadOnlySpan<byte> row = pixels.Slice(y * stride, stride);
+            int rowFirst = row.IndexOfAnyExcept((byte)0);
+            if (rowFirst >= 0)
+            {
+                left = Math.Min(left, rowFirst / 4);
+                right = Math.Max(right, row.LastIndexOfAnyExcept((byte)0) / 4);
+            }
+        }
+
+        return new SKRectI(left, top, right + 1, bottom + 1);
     }
 }
