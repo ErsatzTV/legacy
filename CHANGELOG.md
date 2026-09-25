@@ -8,9 +8,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Next engine:
   - Properly rotate content that contains orientation metadata (e.g. from phones)
 
+### Changed
+- Next engine:
+  - Improve watermark quality with VAAPI and QSV by avoiding an unnecessary lossy color conversion
+  - Optimize intermittent watermarks by converting the watermark image once instead of on every frame
+
 ### Fixed
 - Next engine:
   - Fix AMD VAAPI hardware acceleration when FFmpeg Profile is configured with VAAPI Driver `Default`
+  - Fix performance regression with permanent and intermittent watermarks by overlaying them directly instead of using the graphics engine
+  - Fix watermark opacity having no effect on images without transparency (e.g. JPG)
 - Improve performance of graphics engine subtitle elements
 - Fix Jellyfin 12 shows that belong to a Jellyfin collection being replaced by the collection itself
   - The collection would appear as a show, and the real show would be flagged as missing

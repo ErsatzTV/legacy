@@ -8,6 +8,7 @@ using ErsatzTV.Core.Interfaces.FFmpeg;
 using ErsatzTV.Core.Interfaces.Jellyfin;
 using ErsatzTV.Core.Interfaces.Plex;
 using ErsatzTV.Core.Security;
+using ErsatzTV.FFmpeg.State;
 using ErsatzTV.Infrastructure.Data;
 using ErsatzTV.Infrastructure.Scheduling;
 using LanguageExt;
@@ -29,6 +30,8 @@ public class PlayoutItemConverterTests
     private MockFileSystem _fileSystem = null!;
     private PlayoutItemConverter _converter = null!;
     private Channel _channel = null!;
+    private IWatermarkSelector _watermarks = null!;
+    private IGraphicsElementSelector _graphics = null!;
     private DateTimeOffset _start;
 
     [SetUp]
@@ -49,16 +52,21 @@ public class PlayoutItemConverterTests
         selector.SelectSubtitleStream(default!, default!, default!, default, default, default)
             .ReturnsForAnyArgs(call => Task.FromResult(
                 call.Arg<ImmutableList<Subtitle>>().HeadOrNone()));
-        var watermarks = Substitute.For<IWatermarkSelector>();
-        watermarks.SelectWatermarks(default, default!, default!, default, default).ReturnsForAnyArgs([]);
-        var graphics = Substitute.For<IGraphicsElementSelector>();
-        graphics.SelectGraphicsElements(default!, default!, default, default).ReturnsForAnyArgs([]);
+        _watermarks = Substitute.For<IWatermarkSelector>();
+        _watermarks.SelectWatermarks(default, default!, default!, default, default).ReturnsForAnyArgs([]);
+        _graphics = Substitute.For<IGraphicsElementSelector>();
+        _graphics.SelectGraphicsElements(default!, default!, default, default).ReturnsForAnyArgs([]);
         _converter = new PlayoutItemConverter(
             _fileSystem, plex, jellyfin, emby,
-            Substitute.For<ICustomStreamSelector>(), selector, watermarks, graphics,
+            Substitute.For<ICustomStreamSelector>(), selector, _watermarks, _graphics,
             Substitute.For<IDbContextFactory<TvContext>>(),
             Substitute.For<ILogger<PlayoutItemConverter>>());
-        _channel = new Channel(Guid.NewGuid()) { StreamSelectorMode = ChannelStreamSelectorMode.Default };
+        _channel = new Channel(Guid.NewGuid())
+        {
+            Number = "1",
+            StreamSelectorMode = ChannelStreamSelectorMode.Default,
+            FFmpegProfile = new FFmpegProfile { Resolution = new Resolution { Width = 1920, Height = 1080 } }
+        };
     }
 
     [TestCase("jellyfin", null)]
@@ -239,6 +247,91 @@ public class PlayoutItemConverterTests
         subtitles.Count.ShouldBe(2);
         await Convert(new JellyfinMovie(), subtitles, suppliedSubtitles: Some(subtitles));
         subtitles.Count.ShouldBe(2);
+    }
+
+    [Test]
+    public async Task Plain_watermarks_use_media_layers_in_z_order()
+    {
+        _watermarks.SelectWatermarks(default, default!, default!, default, default).ReturnsForAnyArgs(
+        [
+            new WatermarkOptions(
+                new ChannelWatermark
+                {
+                    Mode = ChannelWatermarkMode.Intermittent,
+                    Location = WatermarkLocation.TopMiddle,
+                    Size = WatermarkSize.Scaled,
+                    WidthPercent = 15,
+                    Opacity = 80,
+                    FrequencyMinutes = 5,
+                    DurationSeconds = 10,
+                    ZIndex = 2
+                },
+                "https://example.com/logo.png",
+                None),
+            new WatermarkOptions(
+                new ChannelWatermark
+                {
+                    Mode = ChannelWatermarkMode.Permanent,
+                    Size = WatermarkSize.ActualSize,
+                    ZIndex = 1
+                },
+                "/images/logo.png",
+                Some(1))
+        ]);
+
+        Next.PlayoutItem result = await Convert(new Movie(), []);
+
+        result.Graphics.ShouldNotBeNull();
+        result.Graphics.Count.ShouldBe(2);
+        result.Graphics.ShouldAllBe(l => l.Kind == Next.GraphicsLayerKind.Media);
+
+        Next.GraphicsLayer permanent = result.Graphics[0];
+        permanent.Source!.SourceType.ShouldBe(Next.SourceType.Local);
+        permanent.Source.Path.ShouldBe("/images/logo.png");
+        permanent.StreamIndex.ShouldBe(1);
+        permanent.WidthPercent.ShouldBeNull();
+        permanent.Timing.ShouldBeNull();
+
+        Next.GraphicsLayer intermittent = result.Graphics[1];
+        intermittent.Source!.SourceType.ShouldBe(Next.SourceType.Http);
+        intermittent.Source.Uri.ShouldBe("https://example.com/logo.png");
+        intermittent.Location.ShouldBe(Next.GraphicsLocation.TopCenter);
+        intermittent.WidthPercent.ShouldBe(15);
+        intermittent.OpacityPercent.ShouldBe(80);
+        intermittent.Timing!.FrequencyMs.ShouldBe(300_000);
+        intermittent.Timing.HoldMs.ShouldBe(10_000);
+    }
+
+    [Test]
+    public async Task Opacity_expression_watermark_uses_canvas()
+    {
+        _watermarks.SelectWatermarks(default, default!, default!, default, default).ReturnsForAnyArgs(
+        [
+            new WatermarkOptions(new ChannelWatermark { Mode = ChannelWatermarkMode.Permanent }, "/a.png", None),
+            new WatermarkOptions(
+                new ChannelWatermark { Mode = ChannelWatermarkMode.OpacityExpression },
+                "/b.png",
+                None)
+        ]);
+
+        Next.PlayoutItem result = await Convert(new Movie(), []);
+
+        result.Graphics.ShouldNotBeNull();
+        result.Graphics.ShouldHaveSingleItem().Kind.ShouldBe(Next.GraphicsLayerKind.Canvas);
+    }
+
+    [Test]
+    public async Task Graphics_elements_put_watermarks_on_canvas()
+    {
+        _watermarks.SelectWatermarks(default, default!, default!, default, default).ReturnsForAnyArgs(
+            [new WatermarkOptions(new ChannelWatermark { Mode = ChannelWatermarkMode.Permanent }, "/a.png", None)]);
+        _graphics.SelectGraphicsElements(default!, default!, default, default).ReturnsForAnyArgs(
+            [new PlayoutItemGraphicsElement { GraphicsElement = new GraphicsElement() }]);
+
+        Next.PlayoutItem result = await Convert(new Movie(), []);
+
+        result.Graphics.ShouldNotBeNull();
+        result.Graphics.ShouldHaveSingleItem().Kind.ShouldBe(Next.GraphicsLayerKind.Canvas);
     }
 
     private async Task<Next.PlayoutItem> Convert(
