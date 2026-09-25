@@ -12,6 +12,7 @@ using ErsatzTV.Core.Interfaces.Jellyfin;
 using ErsatzTV.Core.Interfaces.Plex;
 using ErsatzTV.Core.Interfaces.Scheduling;
 using ErsatzTV.Core.Security;
+using ErsatzTV.FFmpeg.State;
 using ErsatzTV.Infrastructure.Data;
 using ErsatzTV.Infrastructure.Extensions;
 using Microsoft.EntityFrameworkCore;
@@ -591,6 +592,16 @@ public class PlayoutItemConverter(
             return;
         }
 
+        // the canvas costs a full-frame render and overlay for the whole item, so skip it
+        // when every selected graphic is a plain watermark that next can overlay directly
+        if (graphicsElements.Count == 0 && watermarks.All(IsMediaLayerWatermark))
+        {
+            nextPlayoutItem.Graphics.Clear();
+            nextPlayoutItem.Graphics.AddRange(
+                watermarks.OrderBy(wm => wm.Watermark.ZIndex).Select(ToMediaLayer));
+            return;
+        }
+
         var outputFrameSize = new Resolution
         {
             Width = channel.FFmpegProfile.Resolution.Width,
@@ -633,6 +644,64 @@ public class PlayoutItemConverter(
         nextPlayoutItem.Graphics.Clear();
         nextPlayoutItem.Graphics.Add(layer);
     }
+
+    private static bool IsMediaLayerWatermark(WatermarkOptions watermarkOptions) =>
+        watermarkOptions.Watermark.Mode is ChannelWatermarkMode.Permanent or ChannelWatermarkMode.Intermittent;
+
+    private static Core.Next.GraphicsLayer ToMediaLayer(WatermarkOptions watermarkOptions)
+    {
+        ChannelWatermark watermark = watermarkOptions.Watermark;
+
+        var layer = new Core.Next.GraphicsLayer
+        {
+            Kind = Core.Next.GraphicsLayerKind.Media,
+            Location = ToGraphics(watermark.Location),
+            HorizontalMarginPercent = watermark.HorizontalMarginPercent,
+            VerticalMarginPercent = watermark.VerticalMarginPercent,
+            OpacityPercent = watermark.Opacity,
+            StreamIndex = watermarkOptions.ImageStreamIndex.IfNone(0),
+            WithinSourceContent = watermark.PlaceWithinSourceContent,
+            WidthPercent = watermark.Size is WatermarkSize.Scaled ? watermark.WidthPercent : null,
+            Source = IsRemoteUri(watermarkOptions.ImagePath)
+                ? new Core.Next.PlayoutItemSource
+                {
+                    SourceType = Core.Next.SourceType.Http,
+                    Uri = watermarkOptions.ImagePath
+                }
+                : new Core.Next.PlayoutItemSource
+                {
+                    SourceType = Core.Next.SourceType.Local,
+                    Path = watermarkOptions.ImagePath
+                }
+        };
+
+        if (watermark.Mode is ChannelWatermarkMode.Intermittent)
+        {
+            layer.Timing = new Core.Next.Timing
+            {
+                TimingType = Core.Next.TimingType.Periodic,
+                Clock = Core.Next.PeriodicClock.Wall,
+                FrequencyMs = watermark.FrequencyMinutes * 60 * 1000,
+                HoldMs = watermark.DurationSeconds * 1000
+            };
+        }
+
+        return layer;
+    }
+
+    private static Core.Next.GraphicsLocation ToGraphics(WatermarkLocation watermarkLocation) =>
+        watermarkLocation switch
+        {
+            WatermarkLocation.TopMiddle => Core.Next.GraphicsLocation.TopCenter,
+            WatermarkLocation.TopRight => Core.Next.GraphicsLocation.TopRight,
+            WatermarkLocation.LeftMiddle => Core.Next.GraphicsLocation.CenterLeft,
+            WatermarkLocation.MiddleCenter => Core.Next.GraphicsLocation.Center,
+            WatermarkLocation.RightMiddle => Core.Next.GraphicsLocation.CenterRight,
+            WatermarkLocation.BottomLeft => Core.Next.GraphicsLocation.BottomLeft,
+            WatermarkLocation.BottomMiddle => Core.Next.GraphicsLocation.BottomCenter,
+            WatermarkLocation.BottomRight => Core.Next.GraphicsLocation.BottomRight,
+            _ => Core.Next.GraphicsLocation.TopLeft
+        };
 
     private static async Task<List<Subtitle>> GetSubtitles(
         Channel channel,
