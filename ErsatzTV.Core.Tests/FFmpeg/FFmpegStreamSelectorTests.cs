@@ -194,4 +194,157 @@ public class FFmpegStreamSelectorTests
             }
         }
     }
+
+    [TestFixture]
+    public class SelectSubtitleStream
+    {
+        [Test]
+        [CancelAfter(1000)]
+        public async Task Should_Skip_Unextracted_Embedded_Text_Subtitle(
+            [Values] StreamingEngine streamingEngine,
+            CancellationToken cancellationToken)
+        {
+            var subtitles = new List<Subtitle>
+            {
+                EmbeddedText(isExtracted: false, path: null),
+                Sidecar()
+            };
+
+            Option<Subtitle> selected = await Select(
+                subtitles,
+                streamingEngine,
+                useEmbeddedSubtitles: true,
+                cancellationToken);
+
+            selected.Map(s => s.SubtitleKind).ShouldBe(Some(SubtitleKind.Sidecar));
+        }
+
+        [Test]
+        [CancelAfter(1000)]
+        public async Task Should_Select_Extracted_Embedded_Text_Subtitle(
+            [Values] StreamingEngine streamingEngine,
+            CancellationToken cancellationToken)
+        {
+            var subtitles = new List<Subtitle>
+            {
+                EmbeddedText(isExtracted: true, path: "ron.srt"),
+                Sidecar()
+            };
+
+            Option<Subtitle> selected = await Select(
+                subtitles,
+                streamingEngine,
+                useEmbeddedSubtitles: true,
+                cancellationToken);
+
+            selected.Map(s => s.SubtitleKind).ShouldBe(Some(SubtitleKind.Embedded));
+        }
+
+        [Test]
+        [CancelAfter(1000)]
+        public async Task Should_Select_Unextracted_Embedded_Image_Subtitle(
+            [Values] StreamingEngine streamingEngine,
+            CancellationToken cancellationToken)
+        {
+            var subtitles = new List<Subtitle> { EmbeddedImage(), Sidecar() };
+
+            Option<Subtitle> selected = await Select(
+                subtitles,
+                streamingEngine,
+                useEmbeddedSubtitles: true,
+                cancellationToken);
+
+            selected.Map(s => s.SubtitleKind).ShouldBe(Some(SubtitleKind.Embedded));
+        }
+
+        [Test]
+        [CancelAfter(1000)]
+        public async Task Should_Ignore_Embedded_Subtitles_When_Disabled(
+            [Values] StreamingEngine streamingEngine,
+            CancellationToken cancellationToken)
+        {
+            var subtitles = new List<Subtitle>
+            {
+                EmbeddedImage(),
+                EmbeddedText(isExtracted: true, path: "ron.srt"),
+                Sidecar()
+            };
+
+            Option<Subtitle> selected = await Select(
+                subtitles,
+                streamingEngine,
+                useEmbeddedSubtitles: false,
+                cancellationToken);
+
+            selected.Map(s => s.SubtitleKind).ShouldBe(Some(SubtitleKind.Sidecar));
+        }
+
+        private static Subtitle EmbeddedText(bool isExtracted, string path) => new()
+        {
+            StreamIndex = 2,
+            SubtitleKind = SubtitleKind.Embedded,
+            Codec = "mov_text",
+            Language = "ron",
+            Default = true,
+            IsExtracted = isExtracted,
+            Path = path
+        };
+
+        private static Subtitle EmbeddedImage() => new()
+        {
+            StreamIndex = 3,
+            SubtitleKind = SubtitleKind.Embedded,
+            Codec = "hdmv_pgs_subtitle",
+            Language = "ron",
+            Default = true
+        };
+
+        private static Subtitle Sidecar() => new()
+        {
+            StreamIndex = 100001,
+            SubtitleKind = SubtitleKind.Sidecar,
+            Codec = "subrip",
+            Language = "ron"
+        };
+
+        private static async Task<Option<Subtitle>> Select(
+            List<Subtitle> subtitles,
+            StreamingEngine streamingEngine,
+            bool useEmbeddedSubtitles,
+            CancellationToken cancellationToken)
+        {
+            var channel = new Channel(Guid.NewGuid())
+            {
+                StreamingEngine = streamingEngine,
+                StreamingMode = StreamingMode.TransportStreamHybrid
+            };
+
+            IConfigElementRepository configElementRepository = Substitute.For<IConfigElementRepository>();
+            configElementRepository
+                .GetValue<bool>(
+                    Arg.Is<ConfigElementKey>(k => k.Key == ConfigElementKey.FFmpegUseEmbeddedSubtitles.Key),
+                    Arg.Any<CancellationToken>())
+                .Returns(Some(useEmbeddedSubtitles));
+
+            ILanguageCodeService languageCodeService = Substitute.For<ILanguageCodeService>();
+            languageCodeService.GetAllLanguageCodes(Arg.Any<List<string>>())
+                .Returns(["ron", "rum", "ro"]);
+
+            var selector = new FFmpegStreamSelector(
+                new ScriptEngine(Substitute.For<ILogger<ScriptEngine>>()),
+                Substitute.For<IStreamSelectorRepository>(),
+                configElementRepository,
+                new MockFileSystem(),
+                languageCodeService,
+                Substitute.For<ILogger<FFmpegStreamSelector>>());
+
+            return await selector.SelectSubtitleStream(
+                subtitles.ToImmutableList(),
+                channel,
+                "ron",
+                ChannelSubtitleMode.Default,
+                shouldLogMessages: false,
+                cancellationToken);
+        }
+    }
 }

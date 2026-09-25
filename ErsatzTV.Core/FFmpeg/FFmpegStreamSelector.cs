@@ -181,52 +181,49 @@ public class FFmpegStreamSelector : IFFmpegStreamSelector
 
         var candidateSubtitles = subtitles.ToList();
 
-        // next engine doesn't need to specifically enable or pre-extract embedded subtitles
-        if (channel.StreamingEngine != StreamingEngine.Next)
+        bool useEmbeddedSubtitles = await _configElementRepository
+            .GetValue<bool>(ConfigElementKey.FFmpegUseEmbeddedSubtitles, cancellationToken)
+            .IfNoneAsync(true);
+
+        if (!useEmbeddedSubtitles)
         {
-            bool useEmbeddedSubtitles = await _configElementRepository
-                .GetValue<bool>(ConfigElementKey.FFmpegUseEmbeddedSubtitles, cancellationToken)
-                .IfNoneAsync(true);
-
-            if (!useEmbeddedSubtitles)
+            if (shouldLogMessages)
             {
-                if (shouldLogMessages)
-                {
-                    _logger.LogDebug("Ignoring embedded subtitles for channel {Number}", channel.Number);
-                }
-
-                candidateSubtitles =
-                    candidateSubtitles.Filter(s => s.SubtitleKind is not SubtitleKind.Embedded).ToList();
+                _logger.LogDebug("Ignoring embedded subtitles for channel {Number}", channel.Number);
             }
 
-            if (channel.StreamingMode is not StreamingMode.HttpLiveStreamingDirect)
+            candidateSubtitles =
+                candidateSubtitles.Filter(s => s.SubtitleKind is not SubtitleKind.Embedded).ToList();
+        }
+
+        // next also requires embedded text subtitles to be extracted
+        if (channel.StreamingMode is not StreamingMode.HttpLiveStreamingDirect)
+        {
+            foreach (Subtitle subtitle in candidateSubtitles
+                         .Filter(s => s.SubtitleKind is SubtitleKind.Embedded && !s.IsImage)
+                         .ToList())
             {
-                foreach (Subtitle subtitle in candidateSubtitles
-                             .Filter(s => s.SubtitleKind is SubtitleKind.Embedded && !s.IsImage)
-                             .ToList())
+                if (!subtitle.IsExtracted)
                 {
-                    if (!subtitle.IsExtracted)
+                    if (shouldLogMessages)
                     {
-                        if (shouldLogMessages)
-                        {
-                            _logger.LogDebug(
-                                "Ignoring embedded subtitle with index {Index} that has not been extracted",
-                                subtitle.StreamIndex);
-                        }
-
-                        candidateSubtitles.Remove(subtitle);
+                        _logger.LogDebug(
+                            "Ignoring embedded subtitle with index {Index} that has not been extracted",
+                            subtitle.StreamIndex);
                     }
-                    else if (string.IsNullOrWhiteSpace(subtitle.Path))
+
+                    candidateSubtitles.Remove(subtitle);
+                }
+                else if (string.IsNullOrWhiteSpace(subtitle.Path))
+                {
+                    if (shouldLogMessages)
                     {
-                        if (shouldLogMessages)
-                        {
-                            _logger.LogDebug(
-                                "BUG: ignoring embedded subtitle with index {Index} that is missing a path",
-                                subtitle.StreamIndex);
-                        }
-
-                        candidateSubtitles.Remove(subtitle);
+                        _logger.LogDebug(
+                            "BUG: ignoring embedded subtitle with index {Index} that is missing a path",
+                            subtitle.StreamIndex);
                     }
+
+                    candidateSubtitles.Remove(subtitle);
                 }
             }
         }

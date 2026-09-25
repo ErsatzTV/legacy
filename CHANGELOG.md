@@ -18,6 +18,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Fix AMD VAAPI hardware acceleration when FFmpeg Profile is configured with VAAPI Driver `Default`
   - Fix performance regression with permanent and intermittent watermarks by overlaying them directly instead of using the graphics engine
   - Fix watermark opacity having no effect on images without transparency (e.g. JPG)
+  - Fix subtitle selection preferring embedded text subtitles that have not been extracted
+    - These subtitles were selected over usable sidecar subtitles, and then dropped, leaving no subtitles
+    - The FFmpeg `Use Embedded Subtitles` setting is now respected by next engine channels
 - Improve performance of graphics engine subtitle elements
 - Fix Jellyfin 12 shows that belong to a Jellyfin collection being replaced by the collection itself
   - The collection would appear as a show, and the real show would be flagged as missing
