@@ -335,6 +335,8 @@ jobs:
           gh release download develop --repo ErsatzTV/next --pattern "ersatztv-next-*-windows-x64.zip" --dir next-download
           7z x next-download/*.zip -onext-extracted
           mv next-extracted/ersatztv-next-*/ersatztv-channel.exe "$release_name/"
+          mv next-extracted/ersatztv-next-*/libvpl.dll "$release_name/"
+          mv next-extracted/ersatztv-next-*/libvpl-LICENSE.txt "$release_name/"
           rm -rf next-download next-extracted
 
           7z e "ffmpeg/${{ steps.downloadffmpeg.outputs.filename }}" -o"$release_name" '*.exe' -r
