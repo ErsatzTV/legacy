@@ -6,3 +6,5 @@
 *.csx      text diff=csharp
 *.sln      text eol=crlf
 *.csproj   text eol=crlf
+*.sh       text eol=lf
+*.bat      text eol=crlf
