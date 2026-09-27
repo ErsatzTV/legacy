@@ -3,15 +3,15 @@ on:
   workflow_call:
     inputs:
       release_tag:
-        description: 'Release tag'
+        description: 'Release to upload assets to (may be a draft)'
         required: true
         type: string
       release_version:
-        description: 'Release version number (e.g. v0.3.7-alpha)'
+        description: 'Release version used in asset names (e.g. v26.10.0 or v26.10.0-f8410286-develop)'
         required: true
         type: string
       info_version:
-        description: 'Informational version number (e.g. 0.3.7-alpha)'
+        description: 'Numeric version for the macOS bundle (e.g. 26.10.0)'
         required: true
         type: string
     secrets:
@@ -141,19 +141,10 @@ jobs:
           rm -r publish
           rm -r ErsatzTV-Legacy.app
 
-      - name: Delete old release assets
-        if: ${{ inputs.release_tag == 'develop' }}
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release view ${{ inputs.release_tag }} --json assets --jq '.assets[].name' --repo ${{ github.repository }} \
-            | grep '${{ matrix.target }}.dmg' \
-            | xargs -r -I{} gh release delete-asset ${{ inputs.release_tag }} {} --yes --repo ${{ github.repository }}
-
       - name: Publish
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload ${{ inputs.release_tag }} "${{ env.RELEASE_NAME }}.dmg" --repo ${{ github.repository }}
+        run: gh release upload ${{ inputs.release_tag }} "${{ env.RELEASE_NAME }}.dmg" --clobber --repo ${{ github.repository }}
 
   build_and_upload_linux:
     name: Build & Upload Linux
@@ -216,19 +207,10 @@ jobs:
           # Delete output directory
           rm -r "$release_name"
 
-      - name: Delete old release assets
-        if: ${{ inputs.release_tag == 'develop' }}
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release view ${{ inputs.release_tag }} --json assets --jq '.assets[].name' --repo ${{ github.repository }} \
-            | grep '${{ matrix.target }}.tar.gz' \
-            | xargs -r -I{} gh release delete-asset ${{ inputs.release_tag }} {} --yes --repo ${{ github.repository }}
-
       - name: Publish
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload ${{ inputs.release_tag }} "${{ env.RELEASE_NAME }}.tar.gz" --repo ${{ github.repository }}
+        run: gh release upload ${{ inputs.release_tag }} "${{ env.RELEASE_NAME }}.tar.gz" --clobber --repo ${{ github.repository }}
 
   build_dotnet_windows:
     name: Build dotnet for Windows
@@ -344,18 +326,8 @@ jobs:
 
           (cd "${release_name}" && 7z a "../${release_name}.zip" .)
 
-      - name: Delete old release assets
-        if: ${{ inputs.release_tag == 'develop' }}
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release view ${{ inputs.release_tag }} --json assets --jq '.assets[].name' --repo ${{ github.repository }} \
-            | grep 'win-x64.zip' \
-            | xargs -r -I{} gh release delete-asset ${{ inputs.release_tag }} {} --yes --repo ${{ github.repository }}
-
       - name: Publish
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload ${{ inputs.release_tag }} "${{ env.RELEASE_NAME }}.zip" --repo ${{ github.repository }}
+        run: gh release upload ${{ inputs.release_tag }} "${{ env.RELEASE_NAME }}.zip" --clobber --repo ${{ github.repository }}

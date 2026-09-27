@@ -4,6 +4,14 @@ on:
   push:
     branches:
       - main
+    paths-ignore:
+      - CHANGELOG.md
+# one run at a time, in push order, so :develop and the newest prerelease always match the newest push
+concurrency:
+  group: develop
+  cancel-in-progress: false
+env:
+  DEVELOP_KEEP: 10
 jobs:
   calculate_version:
     name: Calculate version information
@@ -13,32 +21,54 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Extract Docker Tag
+      - name: Calculate version
+        id: version
         shell: bash
         run: |
-          tag=$(git describe --tags --abbrev=0)
-          tag2="${tag:1}"
-          short=$(git rev-parse --short HEAD)
-          final="${tag2}-${short}"
-          echo "GIT_TAG=${final}" >> $GITHUB_ENV
-      - name: Extract Artifacts Version
-        shell: bash
-        run: |
-          tag=$(git describe --tags --abbrev=0)
-          short=$(git rev-parse --short HEAD)
-          final="${tag}-${short}"
-          echo "ARTIFACTS_VERSION=${final}" >> $GITHUB_ENV
-          echo "INFO_VERSION=${tag:1}" >> $GITHUB_ENV
+          base=$(git describe --tags --abbrev=0 --match 'v[0-9]*' --exclude '*-develop')
+          dev_tag="${base}-${GITHUB_SHA:0:8}-develop"
+          {
+            echo "dev_tag=${dev_tag}"
+            echo "docker_info_version=${dev_tag#v}"
+            echo "info_version=${base#v}"
+          } >> "$GITHUB_OUTPUT"
     outputs:
-      git_tag: ${{ env.GIT_TAG }}
-      artifacts_version: ${{ env.ARTIFACTS_VERSION }}
-      info_version: ${{ env.INFO_VERSION }}
-  build_and_upload:
-    uses: ersatztv/legacy/.github/workflows/artifacts.yml@main
+      dev_tag: ${{ steps.version.outputs.dev_tag }}
+      docker_info_version: ${{ steps.version.outputs.docker_info_version }}
+      info_version: ${{ steps.version.outputs.info_version }}
+
+  create_draft:
+    name: Create draft prerelease
+    runs-on: ubuntu-latest
     needs: calculate_version
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ needs.calculate_version.outputs.dev_tag }}
+    steps:
+      - name: Get the sources
+        uses: actions/checkout@v4
+      - name: Create draft
+        shell: bash
+        run: |
+          if is_draft=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft 2>/dev/null); then
+            if [[ "$is_draft" == "true" ]]; then
+              echo "reusing existing draft $TAG"
+              exit 0
+            fi
+            echo "$TAG is already published" >&2
+            exit 1
+          fi
+          .github/scripts/notes.sh "$TAG" > notes.md
+          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --draft --prerelease --target "$GITHUB_SHA" --title "$TAG" --notes-file notes.md
+
+  build_and_upload:
+    uses: ./.github/workflows/artifacts.yml
+    needs: [calculate_version, create_draft]
     with:
-      release_tag: develop
-      release_version: ${{ needs.calculate_version.outputs.artifacts_version }}
+      release_tag: ${{ needs.calculate_version.outputs.dev_tag }}
+      release_version: ${{ needs.calculate_version.outputs.dev_tag }}
       info_version: ${{ needs.calculate_version.outputs.info_version }}
     secrets:
       apple_developer_certificate_p12_base64: ${{ secrets.APPLE_DEVELOPER_CERTIFICATE_P12_BASE64 }}
@@ -51,12 +81,38 @@ jobs:
       azure_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
   build_images:
-    uses: ersatztv/legacy/.github/workflows/docker.yml@main
+    uses: ./.github/workflows/docker.yml
     needs: calculate_version
+    # dispatches from other branches (dry runs) must not move :develop
+    if: github.ref == 'refs/heads/main'
     with:
       base_version: develop
-      info_version: ${{ needs.calculate_version.outputs.git_tag }}
-      tag_version: ${{ github.sha }}
+      info_version: ${{ needs.calculate_version.outputs.docker_info_version }}
+      tag_version: ${{ needs.calculate_version.outputs.dev_tag }}
     secrets:
       docker_hub_username: ${{ secrets.DOCKER_HUB_USERNAME }}
       docker_hub_access_token: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+
+  publish:
+    name: Publish prerelease
+    runs-on: ubuntu-latest
+    needs: [calculate_version, build_and_upload, build_images]
+    # build_images is skipped for branch dispatches
+    if: ${{ !cancelled() && needs.build_and_upload.result == 'success' && (needs.build_images.result == 'success' || needs.build_images.result == 'skipped') }}
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ needs.calculate_version.outputs.dev_tag }}
+    steps:
+      - name: Get the sources
+        uses: actions/checkout@v4
+      - name: Verify draft
+        shell: bash
+        run: .github/scripts/verify-draft.sh "$TAG"
+      - name: Publish
+        shell: bash
+        run: gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false --prerelease --latest=false
+      - name: Prune old develop prereleases
+        shell: bash
+        run: .github/scripts/prune-develop.sh "$DEVELOP_KEEP"
