@@ -1,4 +1,5 @@
-﻿using ErsatzTV.Core.Domain;
+﻿using System.Globalization;
+using ErsatzTV.Core.Domain;
 using ErsatzTV.Core.Health;
 using ErsatzTV.Core.Health.Checks;
 using ErsatzTV.Core.Interfaces.Repositories;
@@ -12,14 +13,14 @@ public class FFmpegVersionHealthCheck(
     : BaseHealthCheck, IFFmpegVersionHealthCheck
 {
     private const string BundledVersion = "8.1.2";
-    private const string BundledVersionVaapi = "8.1.2";
-    private const string WindowsVersionPrefix = "n8.1.2";
+    private const int BundledRevision = 1;
+    private const string BundledRelease = "8.1.2-1";
 
     public override string Title => "FFmpeg Version";
 
     public async Task<HealthCheckResult> Check(CancellationToken cancellationToken)
     {
-        var link = new HealthCheckLink("https://github.com/ErsatzTV/ErsatzTV-ffmpeg/releases/tag/8.1.2");
+        var link = new HealthCheckLink($"https://github.com/ErsatzTV/ErsatzTV-ffmpeg/releases/tag/{BundledRelease}");
 
         Option<ConfigElement> maybeFFmpegPath =
             await configElementRepository.GetConfigElement(ConfigElementKey.FFmpegPath, cancellationToken);
@@ -86,22 +87,33 @@ public class FFmpegVersionHealthCheck(
             version.StartsWith("7.", StringComparison.OrdinalIgnoreCase))
         {
             return FailResult(
-                $"{app} version {version} is too old; please install 8.1.2!",
+                $"{app} version {version} is too old; please install ErsatzTV-ffmpeg {BundledRelease}!",
                 $"{app} version is too old",
                 link);
         }
 
-        if (!version.StartsWith("8.1.2", StringComparison.OrdinalIgnoreCase) &&
-            !version.StartsWith(WindowsVersionPrefix, StringComparison.OrdinalIgnoreCase) &&
-            version != BundledVersion &&
-            version != BundledVersionVaapi)
+        if (!IsBundledSeries(version) && !OperatingSystem.IsMacOS())
         {
             return WarningResult(
-                $"{app} version {version} is unexpected and may have problems; please install 8.1.2!",
-                $"{app} version is unexpected",
+                $"{app} version {version} is not a current ErsatzTV-ffmpeg build; please install ErsatzTV-ffmpeg {BundledRelease}!",
+                $"{app} version is not current",
                 link);
         }
 
         return None;
+    }
+
+    // newer revisions pass: they can reach /releases/latest (e.g. Proxmox) before a legacy release bumps this
+    private static bool IsBundledSeries(string version)
+    {
+        string v = version.StartsWith('n') ? version[1..] : version;
+        var prefix = $"{BundledVersion}-etv.";
+        return v.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) &&
+               int.TryParse(
+                   v.AsSpan(prefix.Length),
+                   NumberStyles.None,
+                   CultureInfo.InvariantCulture,
+                   out int revision) &&
+               revision >= BundledRevision;
     }
 }

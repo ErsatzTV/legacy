@@ -167,9 +167,6 @@ jobs:
           - os: ubuntu-latest
             kind: linux
             target: linux-musl-x64
-          - os: ubuntu-latest
-            kind: linux
-            target: linux-arm
           - os: ubuntu-24.04-arm
             kind: linux
             target: linux-arm64
@@ -307,12 +304,15 @@ jobs:
           url: "https://github.com/ErsatzTV/ErsatzTV-Windows/releases/download/v1.0.0/ErsatzTV-Windows.exe"
           target: rust-build/
 
+      # the pinned hash is the release's SHA256SUMS entry
       - name: Download ffmpeg
-        uses: suisei-cn/actions-download-file@v1.3.0
-        id: downloadffmpeg
-        with:
-          url: "https://github.com/ErsatzTV/ErsatzTV-ffmpeg/releases/download/8.1.2/ffmpeg-n8.1.2-etv-gb138f203-win64-gpl-8.1.zip"
-          target: ffmpeg/
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download 8.1.2-1 --repo ErsatzTV/ErsatzTV-ffmpeg --dir ffmpeg \
+            --pattern ffmpeg-n8.1.2-etv.1-win64-gpl-8.1.zip
+          echo "caaa5d507e9f4fa977fa91ef8a928fd5ef5ff2a94c355f2faec373cde6b6302d  ffmpeg/ffmpeg-n8.1.2-etv.1-win64-gpl-8.1.zip" | sha256sum -c
 
       - name: Package artifacts
         shell: bash
@@ -339,7 +339,7 @@ jobs:
           mv next-extracted/ersatztv-next-*/libvpl-LICENSE.txt "$release_name/"
           rm -rf next-download next-extracted
 
-          7z e "ffmpeg/${{ steps.downloadffmpeg.outputs.filename }}" -o"$release_name" '*.exe' -r
+          7z e ffmpeg/ffmpeg-n8.1.2-etv.1-win64-gpl-8.1.zip -o"$release_name" '*.exe' -r
           rm -f "$release_name/ffplay.exe"
 
           (cd "${release_name}" && 7z a "../${release_name}.zip" .)

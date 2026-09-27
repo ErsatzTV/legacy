@@ -32,11 +32,6 @@ jobs:
             path: ''
             suffix: '-amd64'
             platform: 'linux/amd64'
-          - name: arm32v7
-            os: ubuntu-latest
-            path: 'arm32v7/'
-            suffix: '-arm'
-            platform: 'linux/arm/v7'
           - name: arm64
             os: ubuntu-24.04-arm
             path: 'arm64/'
@@ -55,7 +50,6 @@ jobs:
         run: |
           case "${{ matrix.name }}" in
             amd64) TARGET="linux-x64" ;;
-            arm32v7) TARGET="linux-arm" ;;
             arm64) TARGET="linux-arm64" ;;
           esac
           gh release download develop --repo ErsatzTV/next --pattern "ersatztv-next-*-${TARGET}.tar.gz" --dir next-download
@@ -63,10 +57,6 @@ jobs:
           tar xzvf next-download/*.tar.gz -C next-extracted --strip-components 1
           mv next-extracted/ersatztv-channel .
           rm -rf next-download next-extracted
-
-      - name: Set up QEMU
-        if: ${{ matrix.name == 'arm32v7' }}
-        uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -135,11 +125,10 @@ jobs:
         id: digests
         run: |
           AMD64_HASH=$(cat digests/digest-amd64/digest.txt)
-          ARM32V7_HASH=$(cat digests/digest-arm32v7/digest.txt)
           ARM64_HASH=$(cat digests/digest-arm64/digest.txt)
 
-          DOCKER_HUB_DIGESTS="ersatztv/legacy@${AMD64_HASH} ersatztv/legacy@${ARM64_HASH} ersatztv/legacy@${ARM32V7_HASH}"
-          GHCR_DIGESTS="ghcr.io/ersatztv/legacy@${AMD64_HASH} ghcr.io/ersatztv/legacy@${ARM64_HASH} ghcr.io/ersatztv/legacy@${ARM32V7_HASH}"
+          DOCKER_HUB_DIGESTS="ersatztv/legacy@${AMD64_HASH} ersatztv/legacy@${ARM64_HASH}
+          GHCR_DIGESTS="ghcr.io/ersatztv/legacy@${AMD64_HASH} ghcr.io/ersatztv/legacy@${ARM64_HASH}
 
           echo "docker_hub_digests=${DOCKER_HUB_DIGESTS}" >> $GITHUB_OUTPUT
           echo "ghcr_digests=${GHCR_DIGESTS}" >> $GITHUB_OUTPUT
