@@ -3504,7 +3504,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 
 [Unreleased]: https://github.com/ErsatzTV/legacy/compare/v26.10.0...HEAD
-[26.10.0]: https://github.com/ErsatzTV/legacy/compare/v26.0.0...v26.10.0
+[26.10.0]: https://github.com/ErsatzTV/legacy/compare/v26.9.0...v26.10.0
 [26.9.0]: https://github.com/ErsatzTV/legacy/compare/v26.8.1...v26.9.0
 [26.8.1]: https://github.com/ErsatzTV/legacy/compare/v26.8.0...v26.8.1
 [26.8.0]: https://github.com/ErsatzTV/legacy/compare/v26.7.1...v26.8.0

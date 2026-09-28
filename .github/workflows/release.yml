@@ -14,13 +14,13 @@ jobs:
       - name: Extract Docker Tag
         shell: bash
         run: |
-          tag=$(git describe --tags --abbrev=0)
+          tag=$(git describe --tags --abbrev=0 --match 'v[0-9]*' --exclude '*-develop')
           echo "GIT_TAG=${tag:1}" >> $GITHUB_ENV
           echo "DOCKER_TAG=${tag}" >> $GITHUB_ENV
       - name: Extract Artifacts Version
         shell: bash
         run: |
-          tag=$(git describe --tags --abbrev=0)
+          tag=$(git describe --tags --abbrev=0 --match 'v[0-9]*' --exclude '*-develop')
           echo "ARTIFACTS_VERSION=${tag}" >> $GITHUB_ENV
           echo "INFO_VERSION=${tag:1}" >> $GITHUB_ENV
     outputs:
