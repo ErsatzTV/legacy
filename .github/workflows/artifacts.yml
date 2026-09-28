@@ -252,6 +252,7 @@ jobs:
     name: Package & Upload Windows
     runs-on: windows-latest
     needs: build_dotnet_windows
+    environment: signing
     steps:
       - name: Download dotnet artifacts
         uses: actions/download-artifact@v4
