@@ -2,18 +2,20 @@
 on:
   workflow_call:
     inputs:
-      release_tag:
-        description: 'Release to upload assets to (may be a draft)'
+      tag:
+        description: 'Release tag to upload assets to (may be a draft), e.g. v26.10.0 or v26.11.0-f8410286-develop'
         required: true
         type: string
-      release_version:
-        description: 'Release version used in asset names (e.g. v26.10.0 or v26.10.0-f8410286-develop)'
-        required: true
+      release_repo:
+        description: 'Repository that holds the release (e.g. ErsatzTV/legacy-develop-builds); defaults to this repository'
+        required: false
         type: string
-      info_version:
-        description: 'Numeric version for the macOS bundle (e.g. 26.10.0)'
-        required: true
+        default: ''
+      release_app_id:
+        description: 'GitHub App that can write releases to release_repo; required with release_repo'
+        required: false
         type: string
+        default: ''
     secrets:
       apple_developer_certificate_p12_base64:
         required: true
@@ -31,9 +33,14 @@ on:
         required: true
       azure_subscription_id:
         required: true
+      release_app_private_key:
+        required: false
 permissions:
   id-token: write
   contents: write
+# asset names carry the full tag; binaries report the tag without -develop, plus the target
+env:
+  TAG: ${{ inputs.tag }}
 jobs:
   build_and_upload_mac:
     name: Mac Build & Upload
@@ -74,22 +81,25 @@ jobs:
       - name: Calculate Release Name
         shell: bash
         run: |
-          release_name="ErsatzTV-Legacy-${{ inputs.release_version }}-${{ matrix.target }}"
-          echo "RELEASE_NAME=${release_name}" >> $GITHUB_ENV
+          release_name="ErsatzTV-Legacy-${TAG}-${{ matrix.target }}"
+          echo "RELEASE_NAME=${release_name}" >> "$GITHUB_ENV"
 
       - name: Build
         shell: bash
         run: |
           sed -i '' '/Scanner/d' ErsatzTV/ErsatzTV.csproj
-          dotnet publish ErsatzTV.Scanner/ErsatzTV.Scanner.csproj --framework net10.0 --runtime "${{ matrix.target }}" -c Release -o publish -p:RestoreEnablePackagePruning=true -p:InformationalVersion="${{ inputs.release_version }}-${{ matrix.target }}" -p:EnableCompressionInSingleFile=false -p:DebugType=Embedded -p:PublishSingleFile=true --self-contained true
-          dotnet publish ErsatzTV/ErsatzTV.csproj --framework net10.0 --runtime "${{ matrix.target }}" -c Release -o publish -p:RestoreEnablePackagePruning=true -p:InformationalVersion="${{ inputs.release_version }}-${{ matrix.target }}" -p:EnableCompressionInSingleFile=false -p:DebugType=Embedded -p:PublishSingleFile=true --self-contained true
+          dotnet publish ErsatzTV.Scanner/ErsatzTV.Scanner.csproj --framework net10.0 --runtime "${{ matrix.target }}" -c Release -o publish -p:RestoreEnablePackagePruning=true -p:InformationalVersion="${TAG%-develop}-${{ matrix.target }}" -p:EnableCompressionInSingleFile=false -p:DebugType=Embedded -p:PublishSingleFile=true --self-contained true
+          dotnet publish ErsatzTV/ErsatzTV.csproj --framework net10.0 --runtime "${{ matrix.target }}" -c Release -o publish -p:RestoreEnablePackagePruning=true -p:InformationalVersion="${TAG%-develop}-${{ matrix.target }}" -p:EnableCompressionInSingleFile=false -p:DebugType=Embedded -p:PublishSingleFile=true --self-contained true
 
       - name: Bundle
         shell: bash
         run: |
           brew install coreutils
-          plutil -replace CFBundleShortVersionString -string "${{ inputs.info_version }}" ErsatzTV-macOS/ErsatzTV-macOS/Info.plist
-          plutil -replace CFBundleVersion -string "${{ inputs.info_version }}" ErsatzTV-macOS/ErsatzTV-macOS/Info.plist
+          # bundle versions must be numeric: v26.11.0-f8410286-develop -> 26.11.0
+          bundle_version="${TAG#v}"
+          bundle_version="${bundle_version%%-*}"
+          plutil -replace CFBundleShortVersionString -string "$bundle_version" ErsatzTV-macOS/ErsatzTV-macOS/Info.plist
+          plutil -replace CFBundleVersion -string "$bundle_version" ErsatzTV-macOS/ErsatzTV-macOS/Info.plist
           scripts/macOS/bundle.sh
 
       - name: Bundle ersatztv-channel from next
@@ -141,10 +151,22 @@ jobs:
           rm -r publish
           rm -r ErsatzTV-Legacy.app
 
+      # github.token can't write to another repository; with only owner set, the token covers the
+      # repositories the app is installed on
+      - name: Get release repository token
+        id: release-token
+        if: inputs.release_repo != ''
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ inputs.release_app_id }}
+          private-key: ${{ secrets.release_app_private_key }}
+          owner: ${{ github.repository_owner }}
+
       - name: Publish
         env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh release upload ${{ inputs.release_tag }} "${{ env.RELEASE_NAME }}.dmg" --clobber --repo ${{ github.repository }}
+          GH_TOKEN: ${{ steps.release-token.outputs.token || github.token }}
+          RELEASE_REPO: ${{ inputs.release_repo || github.repository }}
+        run: gh release upload "$TAG" "${{ env.RELEASE_NAME }}.dmg" --clobber --repo "$RELEASE_REPO"
 
   build_and_upload_linux:
     name: Build & Upload Linux
@@ -184,13 +206,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           # Define some variables for things we need
-          release_name="ErsatzTV-Legacy-${{ inputs.release_version }}-${{ matrix.target }}"
-          echo "RELEASE_NAME=${release_name}" >> $GITHUB_ENV
+          release_name="ErsatzTV-Legacy-${TAG}-${{ matrix.target }}"
+          echo "RELEASE_NAME=${release_name}" >> "$GITHUB_ENV"
 
           # Build everything
           sed -i '/Scanner/d' ErsatzTV/ErsatzTV.csproj
-          dotnet publish ErsatzTV.Scanner/ErsatzTV.Scanner.csproj --framework net10.0 --runtime "${{ matrix.target }}" -c Release -o "scanner" -p:RestoreEnablePackagePruning=true -p:InformationalVersion="${{ inputs.release_version }}-${{ matrix.target }}" -p:EnableCompressionInSingleFile=true -p:DebugType=Embedded -p:PublishSingleFile=true --self-contained true
-          dotnet publish ErsatzTV/ErsatzTV.csproj --framework net10.0 --runtime "${{ matrix.target }}" -c Release -o "main" -p:RestoreEnablePackagePruning=true -p:InformationalVersion="${{ inputs.release_version }}-${{ matrix.target }}" -p:EnableCompressionInSingleFile=true -p:DebugType=Embedded -p:PublishSingleFile=true --self-contained true
+          dotnet publish ErsatzTV.Scanner/ErsatzTV.Scanner.csproj --framework net10.0 --runtime "${{ matrix.target }}" -c Release -o "scanner" -p:RestoreEnablePackagePruning=true -p:InformationalVersion="${TAG%-develop}-${{ matrix.target }}" -p:EnableCompressionInSingleFile=true -p:DebugType=Embedded -p:PublishSingleFile=true --self-contained true
+          dotnet publish ErsatzTV/ErsatzTV.csproj --framework net10.0 --runtime "${{ matrix.target }}" -c Release -o "main" -p:RestoreEnablePackagePruning=true -p:InformationalVersion="${TAG%-develop}-${{ matrix.target }}" -p:EnableCompressionInSingleFile=true -p:DebugType=Embedded -p:PublishSingleFile=true --self-contained true
           mkdir "$release_name"
           mv scanner/* "$release_name/"
           mv main/* "$release_name/"
@@ -207,10 +229,20 @@ jobs:
           # Delete output directory
           rm -r "$release_name"
 
+      - name: Get release repository token
+        id: release-token
+        if: inputs.release_repo != ''
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ inputs.release_app_id }}
+          private-key: ${{ secrets.release_app_private_key }}
+          owner: ${{ github.repository_owner }}
+
       - name: Publish
         env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh release upload ${{ inputs.release_tag }} "${{ env.RELEASE_NAME }}.tar.gz" --clobber --repo ${{ github.repository }}
+          GH_TOKEN: ${{ steps.release-token.outputs.token || github.token }}
+          RELEASE_REPO: ${{ inputs.release_repo || github.repository }}
+        run: gh release upload "$TAG" "${{ env.RELEASE_NAME }}.tar.gz" --clobber --repo "$RELEASE_REPO"
 
   build_dotnet_windows:
     name: Build dotnet for Windows
@@ -236,8 +268,8 @@ jobs:
         shell: bash
         run: |
           sed -i '/Scanner/d' ErsatzTV/ErsatzTV.csproj
-          dotnet publish ErsatzTV.Scanner/ErsatzTV.Scanner.csproj --framework net10.0 --runtime "win-x64" -c Release -o "scanner" -p:RestoreEnablePackagePruning=true -p:InformationalVersion="${{ inputs.release_version }}-win-x64" -p:EnableCompressionInSingleFile=true -p:DebugType=Embedded -p:PublishSingleFile=true --self-contained true
-          dotnet publish ErsatzTV/ErsatzTV.csproj --framework net10.0 --runtime "win-x64" -c Release -o "main" -p:RestoreEnablePackagePruning=true -p:InformationalVersion="${{ inputs.release_version }}-win-x64" -p:EnableCompressionInSingleFile=true -p:DebugType=Embedded -p:PublishSingleFile=true --self-contained true
+          dotnet publish ErsatzTV.Scanner/ErsatzTV.Scanner.csproj --framework net10.0 --runtime "win-x64" -c Release -o "scanner" -p:RestoreEnablePackagePruning=true -p:InformationalVersion="${TAG%-develop}-win-x64" -p:EnableCompressionInSingleFile=true -p:DebugType=Embedded -p:PublishSingleFile=true --self-contained true
+          dotnet publish ErsatzTV/ErsatzTV.csproj --framework net10.0 --runtime "win-x64" -c Release -o "main" -p:RestoreEnablePackagePruning=true -p:InformationalVersion="${TAG%-develop}-win-x64" -p:EnableCompressionInSingleFile=true -p:DebugType=Embedded -p:PublishSingleFile=true --self-contained true
 
       - name: Upload .NET Artifact
         uses: actions/upload-artifact@v4
@@ -302,8 +334,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          release_name="ErsatzTV-Legacy-${{ inputs.release_version }}-win-x64"
-          echo "RELEASE_NAME=${release_name}" >> $GITHUB_ENV
+          release_name="ErsatzTV-Legacy-${TAG}-win-x64"
+          echo "RELEASE_NAME=${release_name}" >> "$GITHUB_ENV"
           mkdir "$release_name"
 
           mv dotnet-build/scanner/* "$release_name/"
@@ -327,8 +359,18 @@ jobs:
 
           (cd "${release_name}" && 7z a "../${release_name}.zip" .)
 
+      - name: Get release repository token
+        id: release-token
+        if: inputs.release_repo != ''
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ inputs.release_app_id }}
+          private-key: ${{ secrets.release_app_private_key }}
+          owner: ${{ github.repository_owner }}
+
       - name: Publish
         shell: bash
         env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh release upload ${{ inputs.release_tag }} "${{ env.RELEASE_NAME }}.zip" --clobber --repo ${{ github.repository }}
+          GH_TOKEN: ${{ steps.release-token.outputs.token || github.token }}
+          RELEASE_REPO: ${{ inputs.release_repo || github.repository }}
+        run: gh release upload "$TAG" "${{ env.RELEASE_NAME }}.zip" --clobber --repo "$RELEASE_REPO"

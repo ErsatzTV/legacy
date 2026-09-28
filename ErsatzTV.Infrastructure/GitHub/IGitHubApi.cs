@@ -11,4 +11,7 @@ public interface IGitHubApi
 
     [Get("/repos/ErsatzTV/legacy/releases/tags/{tag}")]
     Task<GitHubTag> GetTag(string tag, CancellationToken cancellationToken);
+
+    [Get("/repos/ErsatzTV/legacy-develop-builds/releases/tags/{tag}")]
+    Task<GitHubTag> GetDevelopTag(string tag, CancellationToken cancellationToken);
 }

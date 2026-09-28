@@ -6,12 +6,14 @@ on:
       - main
     paths-ignore:
       - CHANGELOG.md
-# one run at a time, in push order, so :develop and the newest prerelease always match the newest push
+# one run at a time, in push order, so :develop and the newest develop release always match the newest push
 concurrency:
   group: develop
   cancel-in-progress: false
+# develop builds live in their own repository so legacy's watchers and release feed only see full releases
 env:
-  DEVELOP_KEEP: 10
+  DEVELOP_REPO: ErsatzTV/legacy-develop-builds
+  DEVELOP_KEEP: 100
 jobs:
   calculate_version:
     name: Calculate version information
@@ -24,35 +26,50 @@ jobs:
       - name: Calculate version
         id: version
         shell: bash
+        # develop builds are versioned as prereleases of the next minor release (vYY.N.0, N restarting
+        # at 1 each year) so they sort after the release they were built on
         run: |
-          base=$(git describe --tags --abbrev=0 --match 'v[0-9]*' --exclude '*-develop')
-          dev_tag="${base}-${GITHUB_SHA:0:8}-develop"
+          last_release=$(git describe --tags --abbrev=0 --match 'v[0-9]*' --exclude '*-develop')
+          IFS=. read -r yy n _ <<< "${last_release#v}"
+          year=$(date -u +%y)
+          if (( 10#$year > 10#$yy )); then
+            base="v${year}.1.0"
+          else
+            base="v${yy}.$((n + 1)).0"
+          fi
           {
-            echo "dev_tag=${dev_tag}"
-            echo "docker_info_version=${dev_tag#v}"
-            echo "info_version=${base#v}"
+            echo "last_release=${last_release}"
+            echo "tag=${base}-${GITHUB_SHA:0:8}-develop"
           } >> "$GITHUB_OUTPUT"
     outputs:
-      dev_tag: ${{ steps.version.outputs.dev_tag }}
-      docker_info_version: ${{ steps.version.outputs.docker_info_version }}
-      info_version: ${{ steps.version.outputs.info_version }}
+      last_release: ${{ steps.version.outputs.last_release }}
+      tag: ${{ steps.version.outputs.tag }}
 
   create_draft:
-    name: Create draft prerelease
+    name: Create draft release
     runs-on: ubuntu-latest
     needs: calculate_version
-    permissions:
-      contents: write
     env:
-      GH_TOKEN: ${{ github.token }}
-      TAG: ${{ needs.calculate_version.outputs.dev_tag }}
+      TAG: ${{ needs.calculate_version.outputs.tag }}
+      LAST_RELEASE: ${{ needs.calculate_version.outputs.last_release }}
     steps:
       - name: Get the sources
         uses: actions/checkout@v4
+      - name: Get develop repository token
+        id: develop-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.DEVELOP_APP_ID }}
+          private-key: ${{ secrets.DEVELOP_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+      # no --target: the tag is created on the develop repository's default branch, since legacy's
+      # commits don't exist there; the tag name carries the legacy sha
       - name: Create draft
         shell: bash
+        env:
+          GH_TOKEN: ${{ steps.develop-token.outputs.token }}
         run: |
-          if is_draft=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft 2>/dev/null); then
+          if is_draft=$(gh release view "$TAG" --repo "$DEVELOP_REPO" --json isDraft --jq .isDraft 2>/dev/null); then
             if [[ "$is_draft" == "true" ]]; then
               echo "reusing existing draft $TAG"
               exit 0
@@ -60,16 +77,16 @@ jobs:
             echo "$TAG is already published" >&2
             exit 1
           fi
-          .github/scripts/notes.sh "$TAG" > notes.md
-          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --draft --prerelease --target "$GITHUB_SHA" --title "$TAG" --notes-file notes.md
+          .github/scripts/notes.sh "$TAG" "$LAST_RELEASE" > notes.md
+          gh release create "$TAG" --repo "$DEVELOP_REPO" --draft --title "$TAG" --notes-file notes.md
 
   build_and_upload:
     uses: ./.github/workflows/artifacts.yml
     needs: [calculate_version, create_draft]
     with:
-      release_tag: ${{ needs.calculate_version.outputs.dev_tag }}
-      release_version: ${{ needs.calculate_version.outputs.dev_tag }}
-      info_version: ${{ needs.calculate_version.outputs.info_version }}
+      tag: ${{ needs.calculate_version.outputs.tag }}
+      release_repo: ErsatzTV/legacy-develop-builds
+      release_app_id: ${{ vars.DEVELOP_APP_ID }}
     secrets:
       apple_developer_certificate_p12_base64: ${{ secrets.APPLE_DEVELOPER_CERTIFICATE_P12_BASE64 }}
       apple_developer_certificate_password: ${{ secrets.APPLE_DEVELOPER_CERTIFICATE_PASSWORD }}
@@ -79,6 +96,7 @@ jobs:
       azure_client_id: ${{ secrets.AZURE_CLIENT_ID }}
       azure_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
       azure_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      release_app_private_key: ${{ secrets.DEVELOP_APP_PRIVATE_KEY }}
 
   build_images:
     uses: ./.github/workflows/docker.yml
@@ -87,32 +105,43 @@ jobs:
     if: github.ref == 'refs/heads/main'
     with:
       base_version: develop
-      info_version: ${{ needs.calculate_version.outputs.docker_info_version }}
-      tag_version: ${{ needs.calculate_version.outputs.dev_tag }}
+      tag: ${{ needs.calculate_version.outputs.tag }}
     secrets:
       docker_hub_username: ${{ secrets.DOCKER_HUB_USERNAME }}
       docker_hub_access_token: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
 
   publish:
-    name: Publish prerelease
+    name: Publish develop release
     runs-on: ubuntu-latest
     needs: [calculate_version, build_and_upload, build_images]
     # build_images is skipped for branch dispatches
     if: ${{ !cancelled() && needs.build_and_upload.result == 'success' && (needs.build_images.result == 'success' || needs.build_images.result == 'skipped') }}
-    permissions:
-      contents: write
     env:
-      GH_TOKEN: ${{ github.token }}
-      TAG: ${{ needs.calculate_version.outputs.dev_tag }}
+      TAG: ${{ needs.calculate_version.outputs.tag }}
     steps:
       - name: Get the sources
         uses: actions/checkout@v4
+      - name: Get develop repository token
+        id: develop-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.DEVELOP_APP_ID }}
+          private-key: ${{ secrets.DEVELOP_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
       - name: Verify draft
         shell: bash
+        env:
+          GH_TOKEN: ${{ steps.develop-token.outputs.token }}
+          RELEASE_REPO: ${{ env.DEVELOP_REPO }}
         run: .github/scripts/verify-draft.sh "$TAG"
       - name: Publish
         shell: bash
-        run: gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false --prerelease --latest=false
-      - name: Prune old develop prereleases
+        env:
+          GH_TOKEN: ${{ steps.develop-token.outputs.token }}
+        run: gh release edit "$TAG" --repo "$DEVELOP_REPO" --draft=false --latest
+      - name: Prune old develop releases
         shell: bash
+        env:
+          GH_TOKEN: ${{ steps.develop-token.outputs.token }}
+          RELEASE_REPO: ${{ env.DEVELOP_REPO }}
         run: .github/scripts/prune-develop.sh "$DEVELOP_KEEP"

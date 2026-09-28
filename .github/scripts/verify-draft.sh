@@ -4,7 +4,7 @@
 set -euo pipefail
 
 tag="${1:?usage: verify-draft.sh <tag>}"
-repo="${GITHUB_REPOSITORY:-ErsatzTV/legacy}"
+repo="${RELEASE_REPO:-${GITHUB_REPOSITORY:-ErsatzTV/legacy}}"
 
 expected="$(printf "ErsatzTV-Legacy-$tag-%s\n" \
   linux-arm64.tar.gz \

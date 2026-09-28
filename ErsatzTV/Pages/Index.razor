@@ -3,6 +3,7 @@
 @using ErsatzTV.Application.Health
 @using ErsatzTV.Core.Health
 @using System.Reflection
+@using System.Text.RegularExpressions
 @using ErsatzTV.Core.Interfaces.GitHub
 @using Microsoft.Extensions.Caching.Memory
 @implements IDisposable
@@ -209,7 +210,19 @@
                     {
                         Either<BaseError, string> maybeNotes;
 
-                        if (version != "develop")
+                        // develop builds report v<next release>-<sha8>-<target>; their release is
+                        // v<next release>-<sha8>-develop in the develop builds repository
+                        Match developBuild = Regex.Match(version, @"^v?(\d+\.\d+\.\d+)-([0-9a-f]{8})-");
+                        if (developBuild.Success)
+                        {
+                            string developTag = $"v{developBuild.Groups[1].Value}-{developBuild.Groups[2].Value}-develop";
+                            maybeNotes = await GitHubApiClient.GetDevelopReleaseNotes(developTag, token);
+                            foreach (string notes in maybeNotes.RightToSeq())
+                            {
+                                _releaseNotes = notes;
+                            }
+                        }
+                        else if (version != "develop")
                         {
                             string gitHubVersion = version.Split("-").Head();
                             if (!gitHubVersion.StartsWith("v"))

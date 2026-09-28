@@ -13,6 +13,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - This is the first immutable ErsatzTV-ffmpeg release; docker images pin it by digest
   - Docker images no longer include `libfdk_aac`; the built-in `aac` encoder is unchanged
 - Drop support for ARM32v7 docker and native versions
+- Add `v` prefix to docker version numbers; matching all other versions
+- Develop builds:
+  - Use expected upcoming version number in develop builds
+    - e.g. if latest release is `v26.10.0`, develop builds will use `v26.11.0`
+  - Show unreleased changelog notes on home page of develop builds
+  - Publish immutable develop builds to a separate new repository
+    - https://github.com/ErsatzTV/legacy-develop-builds/releases/latest
 - Next engine:
   - Improve watermark quality with VAAPI and QSV by avoiding an unnecessary lossy color conversion
   - Optimize intermittent watermarks by converting the watermark image once instead of on every frame
@@ -32,6 +39,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
     - Scan the affected Jellyfin show libraries
     - Empty the trash to remove the bogus collection shows
     - Deep scan Jellyfin collections to restore collection search results
+- Fix `Unified Docker` health check incorrectly warning about a deprecated docker tag on arm64 hardware using the default docker image
 
 ## [26.10.0] - 2026-09-21
 ### Added
