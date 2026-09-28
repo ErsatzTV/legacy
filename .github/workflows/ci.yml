@@ -26,16 +26,27 @@ jobs:
       - name: Calculate version
         id: version
         shell: bash
+        # develop builds are versioned as prereleases of the next minor release (vYY.N.0, N restarting
+        # at 1 each year) so they sort after the release they were built on
         run: |
-          base=$(git describe --tags --abbrev=0 --match 'v[0-9]*' --exclude '*-develop')
+          last_release=$(git describe --tags --abbrev=0 --match 'v[0-9]*' --exclude '*-develop')
+          IFS=. read -r yy n _ <<< "${last_release#v}"
+          year=$(date -u +%y)
+          if (( 10#$year > 10#$yy )); then
+            base="v${year}.1.0"
+          else
+            base="v${yy}.$((n + 1)).0"
+          fi
           build_version="${base}-${GITHUB_SHA:0:8}"
           {
+            echo "last_release=${last_release}"
             echo "dev_tag=${build_version}-develop"
             echo "build_version=${build_version}"
             echo "docker_info_version=${build_version#v}"
             echo "info_version=${base#v}"
           } >> "$GITHUB_OUTPUT"
     outputs:
+      last_release: ${{ steps.version.outputs.last_release }}
       dev_tag: ${{ steps.version.outputs.dev_tag }}
       build_version: ${{ steps.version.outputs.build_version }}
       docker_info_version: ${{ steps.version.outputs.docker_info_version }}
@@ -47,6 +58,7 @@ jobs:
     needs: calculate_version
     env:
       TAG: ${{ needs.calculate_version.outputs.dev_tag }}
+      LAST_RELEASE: ${{ needs.calculate_version.outputs.last_release }}
     steps:
       - name: Get the sources
         uses: actions/checkout@v4
@@ -72,7 +84,7 @@ jobs:
             echo "$TAG is already published" >&2
             exit 1
           fi
-          .github/scripts/notes.sh "$TAG" > notes.md
+          .github/scripts/notes.sh "$TAG" "$LAST_RELEASE" > notes.md
           gh release create "$TAG" --repo "$DEVELOP_REPO" --draft --title "$TAG" --notes-file notes.md
 
   build_and_upload:
