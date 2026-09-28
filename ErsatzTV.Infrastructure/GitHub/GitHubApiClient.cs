@@ -31,4 +31,17 @@ public class GitHubApiClient : IGitHubApiClient
             return BaseError.New(ex.ToString());
         }
     }
+
+    public async Task<Either<BaseError, string>> GetDevelopReleaseNotes(string tag, CancellationToken cancellationToken)
+    {
+        try
+        {
+            IGitHubApi service = RestService.ForGenerated<IGitHubApi>("https://api.github.com");
+            return await service.GetDevelopTag(tag, cancellationToken).Map(t => t.Body);
+        }
+        catch (Exception ex)
+        {
+            return BaseError.New(ex.ToString());
+        }
+    }
 }

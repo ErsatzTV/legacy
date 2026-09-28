@@ -13,7 +13,7 @@ concurrency:
 # develop builds live in their own repository so legacy's watchers and release feed only see full releases
 env:
   DEVELOP_REPO: ErsatzTV/legacy-develop-builds
-  DEVELOP_KEEP: 10
+  DEVELOP_KEEP: 100
 jobs:
   calculate_version:
     name: Calculate version information
@@ -37,27 +37,20 @@ jobs:
           else
             base="v${yy}.$((n + 1)).0"
           fi
-          build_version="${base}-${GITHUB_SHA:0:8}"
           {
             echo "last_release=${last_release}"
-            echo "dev_tag=${build_version}-develop"
-            echo "build_version=${build_version}"
-            echo "docker_info_version=${build_version#v}"
-            echo "info_version=${base#v}"
+            echo "tag=${base}-${GITHUB_SHA:0:8}-develop"
           } >> "$GITHUB_OUTPUT"
     outputs:
       last_release: ${{ steps.version.outputs.last_release }}
-      dev_tag: ${{ steps.version.outputs.dev_tag }}
-      build_version: ${{ steps.version.outputs.build_version }}
-      docker_info_version: ${{ steps.version.outputs.docker_info_version }}
-      info_version: ${{ steps.version.outputs.info_version }}
+      tag: ${{ steps.version.outputs.tag }}
 
   create_draft:
     name: Create draft release
     runs-on: ubuntu-latest
     needs: calculate_version
     env:
-      TAG: ${{ needs.calculate_version.outputs.dev_tag }}
+      TAG: ${{ needs.calculate_version.outputs.tag }}
       LAST_RELEASE: ${{ needs.calculate_version.outputs.last_release }}
     steps:
       - name: Get the sources
@@ -91,10 +84,7 @@ jobs:
     uses: ./.github/workflows/artifacts.yml
     needs: [calculate_version, create_draft]
     with:
-      release_tag: ${{ needs.calculate_version.outputs.dev_tag }}
-      release_version: ${{ needs.calculate_version.outputs.dev_tag }}
-      assembly_version: ${{ needs.calculate_version.outputs.build_version }}
-      info_version: ${{ needs.calculate_version.outputs.info_version }}
+      tag: ${{ needs.calculate_version.outputs.tag }}
       release_repo: ErsatzTV/legacy-develop-builds
       release_app_id: ${{ vars.DEVELOP_APP_ID }}
     secrets:
@@ -115,8 +105,7 @@ jobs:
     if: github.ref == 'refs/heads/main'
     with:
       base_version: develop
-      info_version: ${{ needs.calculate_version.outputs.docker_info_version }}
-      tag_version: ${{ needs.calculate_version.outputs.dev_tag }}
+      tag: ${{ needs.calculate_version.outputs.tag }}
     secrets:
       docker_hub_username: ${{ secrets.DOCKER_HUB_USERNAME }}
       docker_hub_access_token: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
@@ -128,7 +117,7 @@ jobs:
     # build_images is skipped for branch dispatches
     if: ${{ !cancelled() && needs.build_and_upload.result == 'success' && (needs.build_images.result == 'success' || needs.build_images.result == 'skipped') }}
     env:
-      TAG: ${{ needs.calculate_version.outputs.dev_tag }}
+      TAG: ${{ needs.calculate_version.outputs.tag }}
     steps:
       - name: Get the sources
         uses: actions/checkout@v4
