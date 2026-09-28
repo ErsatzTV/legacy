@@ -26,14 +26,16 @@ jobs:
         shell: bash
         run: |
           base=$(git describe --tags --abbrev=0 --match 'v[0-9]*' --exclude '*-develop')
-          dev_tag="${base}-${GITHUB_SHA:0:8}-develop"
+          build_version="${base}-${GITHUB_SHA:0:8}"
           {
-            echo "dev_tag=${dev_tag}"
-            echo "docker_info_version=${dev_tag#v}"
+            echo "dev_tag=${build_version}-develop"
+            echo "build_version=${build_version}"
+            echo "docker_info_version=${build_version#v}"
             echo "info_version=${base#v}"
           } >> "$GITHUB_OUTPUT"
     outputs:
       dev_tag: ${{ steps.version.outputs.dev_tag }}
+      build_version: ${{ steps.version.outputs.build_version }}
       docker_info_version: ${{ steps.version.outputs.docker_info_version }}
       info_version: ${{ steps.version.outputs.info_version }}
 
@@ -69,6 +71,7 @@ jobs:
     with:
       release_tag: ${{ needs.calculate_version.outputs.dev_tag }}
       release_version: ${{ needs.calculate_version.outputs.dev_tag }}
+      assembly_version: ${{ needs.calculate_version.outputs.build_version }}
       info_version: ${{ needs.calculate_version.outputs.info_version }}
     secrets:
       apple_developer_certificate_p12_base64: ${{ secrets.APPLE_DEVELOPER_CERTIFICATE_P12_BASE64 }}
