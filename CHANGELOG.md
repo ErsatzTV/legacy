@@ -14,6 +14,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Docker images no longer include `libfdk_aac`; the built-in `aac` encoder is unchanged
 - Drop support for ARM32v7 docker and native versions
 - Add `v` prefix to docker version numbers; matching all other versions
+- Publish immutable develop builds to a separate new repository
+  - https://github.com/ErsatzTV/legacy-develop-builds/releases/latest
 - Published develop builds will now show unreleased changelog notes on home page
 - Next engine:
   - Improve watermark quality with VAAPI and QSV by avoiding an unnecessary lossy color conversion
