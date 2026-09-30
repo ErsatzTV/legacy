@@ -325,9 +325,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release download 8.1.2-1 --repo ErsatzTV/ErsatzTV-ffmpeg --dir ffmpeg \
-            --pattern ffmpeg-n8.1.2-etv.1-win64-gpl-8.1.zip
-          echo "caaa5d507e9f4fa977fa91ef8a928fd5ef5ff2a94c355f2faec373cde6b6302d  ffmpeg/ffmpeg-n8.1.2-etv.1-win64-gpl-8.1.zip" | sha256sum -c
+          gh release download 8.1.2-2 --repo ErsatzTV/ErsatzTV-ffmpeg --dir ffmpeg \
+            --pattern ffmpeg-n8.1.2-etv.2-win64-gpl-8.1.zip
+          echo "128bd57c8ad75b8a623ce02807ba95de994c780509b49b88723f26615aa86f3e  ffmpeg/ffmpeg-n8.1.2-etv.2-win64-gpl-8.1.zip" | sha256sum -c
 
       - name: Package artifacts
         shell: bash
@@ -354,7 +354,7 @@ jobs:
           mv next-extracted/ersatztv-next-*/libvpl-LICENSE.txt "$release_name/"
           rm -rf next-download next-extracted
 
-          7z e ffmpeg/ffmpeg-n8.1.2-etv.1-win64-gpl-8.1.zip -o"$release_name" '*.exe' -r
+          7z e ffmpeg/ffmpeg-n8.1.2-etv.2-win64-gpl-8.1.zip -o"$release_name" '*.exe' -r
           rm -f "$release_name/ffplay.exe"
 
           (cd "${release_name}" && 7z a "../${release_name}.zip" .)

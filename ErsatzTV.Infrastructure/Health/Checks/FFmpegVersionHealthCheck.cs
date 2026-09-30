@@ -13,8 +13,8 @@ public class FFmpegVersionHealthCheck(
     : BaseHealthCheck, IFFmpegVersionHealthCheck
 {
     private const string BundledVersion = "8.1.2";
-    private const int BundledRevision = 1;
-    private const string BundledRelease = "8.1.2-1";
+    private const int BundledRevision = 2;
+    private const string BundledRelease = "8.1.2-2";
 
     public override string Title => "FFmpeg Version";
 
