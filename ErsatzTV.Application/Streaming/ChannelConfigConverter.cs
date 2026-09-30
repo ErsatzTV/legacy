@@ -83,11 +83,13 @@ public class ChannelConfigConverter(IConfigElementRepository configElementReposi
             Format = ffmpegProfile.VideoFormat switch
             {
                 FFmpegProfileVideoFormat.Hevc => VideoFormat.Hevc,
+                FFmpegProfileVideoFormat.Mpeg2Video => VideoFormat.Mpeg2Video,
                 _ => VideoFormat.H264
             },
-            BitDepth = ffmpegProfile.BitDepth switch
+            BitDepth = (ffmpegProfile.VideoFormat, ffmpegProfile.BitDepth) switch
             {
-                FFmpegProfileBitDepth.TenBit => 10,
+                (FFmpegProfileVideoFormat.Mpeg2Video, _) => 8,
+                (_, FFmpegProfileBitDepth.TenBit) => 10,
                 _ => 8
             },
             Accel = ffmpegProfile.HardwareAcceleration switch

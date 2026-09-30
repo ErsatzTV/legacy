@@ -181,13 +181,9 @@ public class StartFFmpegNextSessionHandler(
             };
 
             List<string> codecStrings = [];
-            if (!string.IsNullOrWhiteSpace(videoCodec))
+            if (!string.IsNullOrWhiteSpace(videoCodec) && !string.IsNullOrWhiteSpace(audioCodec))
             {
                 codecStrings.Add(videoCodec);
-            }
-
-            if (!string.IsNullOrWhiteSpace(audioCodec))
-            {
                 codecStrings.Add(audioCodec);
             }
 

@@ -299,7 +299,7 @@ namespace ErsatzTV.Core.Next.Config
 
     public enum AccelEnum { Amf, Cuda, Qsv, Rkmpp, Vaapi, Videotoolbox, Vulkan };
 
-    public enum VideoFormat { H264, Hevc };
+    public enum VideoFormat { H264, Hevc, Mpeg2Video };
 
     public enum ScalingMode { Crop, ScaleAndPad, Stretch };
 
@@ -475,6 +475,8 @@ namespace ErsatzTV.Core.Next.Config
                     return VideoFormat.H264;
                 case "hevc":
                     return VideoFormat.Hevc;
+                case "mpeg2video":
+                    return VideoFormat.Mpeg2Video;
             }
             throw new Exception("Cannot unmarshal type VideoFormat");
         }
@@ -488,6 +490,9 @@ namespace ErsatzTV.Core.Next.Config
                     return;
                 case VideoFormat.Hevc:
                     JsonSerializer.Serialize(writer, "hevc", options);
+                    return;
+                case VideoFormat.Mpeg2Video:
+                    JsonSerializer.Serialize(writer, "mpeg2video", options);
                     return;
             }
             throw new Exception("Cannot marshal type VideoFormat");

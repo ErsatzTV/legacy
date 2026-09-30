@@ -7,13 +7,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Added
 - Next engine:
   - Properly rotate content that contains orientation metadata (e.g. from phones)
+  - Add `mpeg2video` encoder support (software, some Intel QSV and Intel VAAPI devices)
 
 ### Changed
 - Use ErsatzTV-ffmpeg `8.1.2-2` in docker images and Windows packages
   - ErsatzTV-ffmpeg releases are now immutable; docker images pin them by digest
   - Docker images no longer include `libfdk_aac`; the built-in `aac` encoder is unchanged
 - Drop support for ARM32v7 docker and native versions
-- Windows packages include `libvpl.dll`, which next engine uses to detect QSV capabilities
 - Add `v` prefix to docker version numbers; matching all other versions
 - Develop builds:
   - Use expected upcoming version number in develop builds
@@ -26,12 +26,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Optimize intermittent watermarks by converting the watermark image once instead of on every frame
 
 ### Fixed
-- QSV: fix encode after a mid-stream change in stream parameters (same resolution) on legacy Intel Media SDK runtimes
-- Windows QSV with legacy Intel Media SDK runtimes (e.g. Haswell):
-  - Find the runtime when the Intel GPU is not the primary display adapter, or when the runtime does not report a device ID
-  - Fix `Error synchronizing the operation: -17` at the start of a stream
-  - Fix `device failed (-17)` from `vpp_qsv` and `overlay_qsv`
 - Next engine:
+  - QSV: enable hardware acceleration on legacy Intel Media SDK devices on Windows (e.g. Haswell)
+    - Windows packages now include `libvpl.dll`, which next engine uses to detect QSV capabilities
+    - Find the runtime when the Intel GPU is not the primary display adapter, or when the runtime does not report a device ID
+    - Fix `Error synchronizing the operation: -17` at the start of a stream
+    - Fix `device failed (-17)` from `vpp_qsv` and `overlay_qsv`
   - QSV: pad in software when the runtime cannot pad the current pixel format in hardware (e.g. 10-bit on legacy Media SDK runtimes)
   - QSV: do not upload 10-bit frames to hardware on runtimes that cannot copy them (e.g. Haswell)
   - VideoToolbox: fix HEVC output bit depth not matching the FFmpeg Profile
