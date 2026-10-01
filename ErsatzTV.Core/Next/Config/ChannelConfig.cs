@@ -36,7 +36,8 @@ namespace ErsatzTV.Core.Next.Config
         public Playout Playout { get; set; }
 
         /// <summary>
-        /// Schema version URI, e.g. "https://ersatztv.org/channel/version/0.0.1"; missing is 0.0.0.
+        /// Schema version URI, e.g. "https://ersatztv.org/channel/version/0.1.0". Missing means
+        /// 0.0.0.
         /// </summary>
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("version")]
@@ -102,11 +103,29 @@ namespace ErsatzTV.Core.Next.Config
         [JsonPropertyName("channels")]
         public long? Channels { get; set; }
 
+        /// <summary>
+        /// Source codecs to copy when `mode` is `copy`. Default: aac, ac3, eac3, mp3.
+        /// </summary>
+        [JsonPropertyName("copy_formats")]
+        public List<AudioCopyFormat>? CopyFormats { get; set; }
+
+        /// <summary>
+        /// Codec for transcoded items. When `mode` is `copy`, used only for items that are not
+        /// copied.
+        /// </summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("format")]
         public AudioFormat? Format { get; set; }
 
         [JsonPropertyName("loudness")]
         public LoudnessClass? Loudness { get; set; }
+
+        /// <summary>
+        /// `copy`: copy items with a source codec in `copy_formats`. Transcode all other items.
+        /// </summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("mode")]
+        public StreamMode? Mode { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("normalize_loudness")]
@@ -138,7 +157,7 @@ namespace ErsatzTV.Core.Next.Config
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("mode")]
-        public Mode? Mode { get; set; }
+        public SubtitleMode? Mode { get; set; }
     }
 
     public partial class Video
@@ -152,6 +171,7 @@ namespace ErsatzTV.Core.Next.Config
         [JsonPropertyName("amf_device")]
         public long? AmfDevice { get; set; }
 
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("bit_depth")]
         public long? BitDepth { get; set; }
 
@@ -161,6 +181,12 @@ namespace ErsatzTV.Core.Next.Config
         [JsonPropertyName("buffer_kbps")]
         public long? BufferKbps { get; set; }
 
+        /// <summary>
+        /// Source codecs to copy when `mode` is `copy`. Default: h264, hevc.
+        /// </summary>
+        [JsonPropertyName("copy_formats")]
+        public List<VideoFormat>? CopyFormats { get; set; }
+
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("deinterlace")]
         public bool? Deinterlace { get; set; }
@@ -169,11 +195,26 @@ namespace ErsatzTV.Core.Next.Config
         [JsonPropertyName("filters")]
         public Filters? Filters { get; set; }
 
+        /// <summary>
+        /// Codec for transcoded items. When `mode` is `copy`, this and all other video settings
+        /// apply
+        /// only to items that are not copied.
+        /// </summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("format")]
         public VideoFormat? Format { get; set; }
 
         [JsonPropertyName("height")]
         public long? Height { get; set; }
+
+        /// <summary>
+        /// `copy`: copy items with a source codec in `copy_formats`. Transcode all other items, and
+        /// items with graphics, burned-in subtitles, still images, Dolby Vision profile 5 or AVI
+        /// sources.
+        /// </summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("mode")]
+        public StreamMode? Mode { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("scaling_mode")]
@@ -300,12 +341,35 @@ namespace ErsatzTV.Core.Next.Config
         public string? VirtualStart { get; set; }
     }
 
+    /// <summary>
+    /// Limited to codecs that mux correctly into HLS MPEG-TS.
+    /// </summary>
+    public enum AudioCopyFormat { Aac, Ac3, Eac3, Mp2, Mp3 };
+
+    /// <summary>
+    /// Codec for transcoded items. When `mode` is `copy`, used only for items that are not
+    /// copied.
+    /// </summary>
     public enum AudioFormat { Aac, Ac3 };
 
-    public enum Mode { Burn, Convert };
+    /// <summary>
+    /// `copy`: copy items with a source codec in `copy_formats`. Transcode all other items.
+    ///
+    /// `copy`: copy items with a source codec in `copy_formats`. Transcode all other items, and
+    /// items with graphics, burned-in subtitles, still images, Dolby Vision profile 5 or AVI
+    /// sources.
+    /// </summary>
+    public enum StreamMode { Copy, Transcode };
+
+    public enum SubtitleMode { Burn, Convert };
 
     public enum AccelEnum { Amf, Cuda, Qsv, Rkmpp, Vaapi, Videotoolbox, Vulkan };
 
+    /// <summary>
+    /// Codec for transcoded items. When `mode` is `copy`, this and all other video settings
+    /// apply
+    /// only to items that are not copied.
+    /// </summary>
     public enum VideoFormat { H264, Hevc, Mpeg2Video };
 
     public enum ScalingMode { Crop, ScaleAndPad, Stretch };
@@ -329,8 +393,10 @@ namespace ErsatzTV.Core.Next.Config
             DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
             Converters =
             {
+                AudioCopyFormatConverter.Singleton,
                 AudioFormatConverter.Singleton,
-                ModeConverter.Singleton,
+                StreamModeConverter.Singleton,
+                SubtitleModeConverter.Singleton,
                 AccelEnumConverter.Singleton,
                 VideoFormatConverter.Singleton,
                 ScalingModeConverter.Singleton,
@@ -340,6 +406,55 @@ namespace ErsatzTV.Core.Next.Config
                 IsoDateTimeOffsetConverter.Singleton
             },
         };
+    }
+
+    internal class AudioCopyFormatConverter : JsonConverter<AudioCopyFormat>
+    {
+        public override bool CanConvert(Type t) => t == typeof(AudioCopyFormat);
+
+        public override AudioCopyFormat Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "aac":
+                    return AudioCopyFormat.Aac;
+                case "ac3":
+                    return AudioCopyFormat.Ac3;
+                case "eac3":
+                    return AudioCopyFormat.Eac3;
+                case "mp2":
+                    return AudioCopyFormat.Mp2;
+                case "mp3":
+                    return AudioCopyFormat.Mp3;
+            }
+            throw new Exception("Cannot unmarshal type AudioCopyFormat");
+        }
+
+        public override void Write(Utf8JsonWriter writer, AudioCopyFormat value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case AudioCopyFormat.Aac:
+                    JsonSerializer.Serialize(writer, "aac", options);
+                    return;
+                case AudioCopyFormat.Ac3:
+                    JsonSerializer.Serialize(writer, "ac3", options);
+                    return;
+                case AudioCopyFormat.Eac3:
+                    JsonSerializer.Serialize(writer, "eac3", options);
+                    return;
+                case AudioCopyFormat.Mp2:
+                    JsonSerializer.Serialize(writer, "mp2", options);
+                    return;
+                case AudioCopyFormat.Mp3:
+                    JsonSerializer.Serialize(writer, "mp3", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type AudioCopyFormat");
+        }
+
+        public static readonly AudioCopyFormatConverter Singleton = new AudioCopyFormatConverter();
     }
 
     internal class AudioFormatConverter : JsonConverter<AudioFormat>
@@ -376,38 +491,72 @@ namespace ErsatzTV.Core.Next.Config
         public static readonly AudioFormatConverter Singleton = new AudioFormatConverter();
     }
 
-    internal class ModeConverter : JsonConverter<Mode>
+    internal class StreamModeConverter : JsonConverter<StreamMode>
     {
-        public override bool CanConvert(Type t) => t == typeof(Mode);
+        public override bool CanConvert(Type t) => t == typeof(StreamMode);
 
-        public override Mode Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        public override StreamMode Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "copy":
+                    return StreamMode.Copy;
+                case "transcode":
+                    return StreamMode.Transcode;
+            }
+            throw new Exception("Cannot unmarshal type StreamMode");
+        }
+
+        public override void Write(Utf8JsonWriter writer, StreamMode value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case StreamMode.Copy:
+                    JsonSerializer.Serialize(writer, "copy", options);
+                    return;
+                case StreamMode.Transcode:
+                    JsonSerializer.Serialize(writer, "transcode", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type StreamMode");
+        }
+
+        public static readonly StreamModeConverter Singleton = new StreamModeConverter();
+    }
+
+    internal class SubtitleModeConverter : JsonConverter<SubtitleMode>
+    {
+        public override bool CanConvert(Type t) => t == typeof(SubtitleMode);
+
+        public override SubtitleMode Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
         {
             var value = reader.GetString();
             switch (value)
             {
                 case "burn":
-                    return Mode.Burn;
+                    return SubtitleMode.Burn;
                 case "convert":
-                    return Mode.Convert;
+                    return SubtitleMode.Convert;
             }
-            throw new Exception("Cannot unmarshal type Mode");
+            throw new Exception("Cannot unmarshal type SubtitleMode");
         }
 
-        public override void Write(Utf8JsonWriter writer, Mode value, JsonSerializerOptions options)
+        public override void Write(Utf8JsonWriter writer, SubtitleMode value, JsonSerializerOptions options)
         {
             switch (value)
             {
-                case Mode.Burn:
+                case SubtitleMode.Burn:
                     JsonSerializer.Serialize(writer, "burn", options);
                     return;
-                case Mode.Convert:
+                case SubtitleMode.Convert:
                     JsonSerializer.Serialize(writer, "convert", options);
                     return;
             }
-            throw new Exception("Cannot marshal type Mode");
+            throw new Exception("Cannot marshal type SubtitleMode");
         }
 
-        public static readonly ModeConverter Singleton = new ModeConverter();
+        public static readonly SubtitleModeConverter Singleton = new SubtitleModeConverter();
     }
 
     internal class AccelEnumConverter : JsonConverter<AccelEnum>

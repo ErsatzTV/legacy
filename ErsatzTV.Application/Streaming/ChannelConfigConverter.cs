@@ -13,7 +13,7 @@ namespace ErsatzTV.Application.Streaming;
 public class ChannelConfigConverter(IConfigElementRepository configElementRepository, IFileSystem fileSystem)
     : IChannelConfigConverter
 {
-    public static readonly string ChannelConfigVersion = "https://ersatztv.org/channel/version/0.0.1";
+    public static readonly string ChannelConfigVersion = "https://ersatztv.org/channel/version/0.1.0";
 
     public async Task<ChannelConfig> ToNext(
         ChannelViewModel channel,
@@ -48,8 +48,13 @@ public class ChannelConfigConverter(IConfigElementRepository configElementReposi
         //     ConfigElementKey.FFmpegSaveReports,
         //     cancellationToken);
 
+        bool audioCopy = ffmpegProfile.AudioFormat is FFmpegProfileAudioFormat.Copy;
+        bool videoCopy = ffmpegProfile.VideoFormat is FFmpegProfileVideoFormat.Copy;
+
+        // next transcodes items that it cannot copy, so copy profiles also need transcode settings
         var audioNormalization = new Audio
         {
+            Mode = audioCopy ? StreamMode.Copy : StreamMode.Transcode,
             Format = ffmpegProfile.AudioFormat switch
             {
                 FFmpegProfileAudioFormat.Ac3 => AudioFormat.Ac3,
@@ -61,7 +66,8 @@ public class ChannelConfigConverter(IConfigElementRepository configElementReposi
             SampleRateHz = ffmpegProfile.AudioSampleRate * 1000
         };
 
-        if (ffmpegProfile.NormalizeLoudnessMode is NormalizeLoudnessMode.LoudNorm)
+        // next rejects loudness normalization with audio copy
+        if (!audioCopy && ffmpegProfile.NormalizeLoudnessMode is NormalizeLoudnessMode.LoudNorm)
         {
             audioNormalization.NormalizeLoudness = true;
             audioNormalization.Loudness = new LoudnessClass
@@ -82,6 +88,7 @@ public class ChannelConfigConverter(IConfigElementRepository configElementReposi
 
         var videoNormalization = new Video
         {
+            Mode = videoCopy ? StreamMode.Copy : StreamMode.Transcode,
             Format = ffmpegProfile.VideoFormat switch
             {
                 FFmpegProfileVideoFormat.Hevc => VideoFormat.Hevc,
@@ -144,8 +151,8 @@ public class ChannelConfigConverter(IConfigElementRepository configElementReposi
         {
             Mode = channel.NextEngineTextSubtitleMode switch
             {
-                NextEngineTextSubtitleMode.Convert => Mode.Convert,
-                _ => Mode.Burn
+                NextEngineTextSubtitleMode.Convert => SubtitleMode.Convert,
+                _ => SubtitleMode.Burn
             },
             FontsFolder = FileSystemLayout.FontsCacheFolder
         };
