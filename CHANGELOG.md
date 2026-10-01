@@ -14,6 +14,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - ErsatzTV-ffmpeg releases are now immutable; docker images pin them by digest
   - Docker images no longer include `libfdk_aac`; the built-in `aac` encoder is unchanged
 - Drop support for ARM32v7 docker and native versions
+- Remove `av1` video format from FFmpeg Profiles; it has not worked since `v25.7.1`
+  - Existing `av1` FFmpeg Profiles have been migrated to `hevc`
 - Add `v` prefix to docker version numbers; matching all other versions
 - Develop builds:
   - Use expected upcoming version number in develop builds

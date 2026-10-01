@@ -73,7 +73,12 @@ public class CreateFFmpegProfileHandler :
                     _ => FilterMode.HardwareIfPossible
                 },
 
-                VideoFormat = request.NormalizeVideo ? request.VideoFormat : FFmpegProfileVideoFormat.Copy,
+                // av1 encoding requires fmp4 segments, which are no longer produced
+                VideoFormat = request.NormalizeVideo
+                    ? request.VideoFormat is FFmpegProfileVideoFormat.Av1
+                        ? FFmpegProfileVideoFormat.Hevc
+                        : request.VideoFormat
+                    : FFmpegProfileVideoFormat.Copy,
                 VideoProfile = request.VideoProfile,
                 VideoPreset = request.VideoPreset,
                 AllowBFrames = request.AllowBFrames,

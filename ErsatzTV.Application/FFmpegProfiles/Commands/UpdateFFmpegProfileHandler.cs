@@ -53,9 +53,8 @@ public class UpdateFFmpegProfileHandler(IDbContextFactory<TvContext> dbContextFa
             ? FFmpegProfileBitDepth.EightBit
             : update.BitDepth;
 
-        if (p.HardwareAcceleration is not (HardwareAccelerationKind.Nvenc or HardwareAccelerationKind.Vaapi
-                or HardwareAccelerationKind.Qsv) &&
-            p.VideoFormat is FFmpegProfileVideoFormat.Av1)
+        // av1 encoding requires fmp4 segments, which are no longer produced
+        if (p.VideoFormat is FFmpegProfileVideoFormat.Av1)
         {
             p.VideoFormat = FFmpegProfileVideoFormat.Hevc;
         }
