@@ -28,8 +28,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Optimize intermittent watermarks by converting the watermark image once instead of on every frame
   - FFmpeg Profiles with `Normalize Video` or `Normalize Audio` disabled now copy that stream; they were previously transcoded to `h264` / `aac`
     - Items that cannot be copied are transcoded using the profile's settings
-      - e.g. items with graphics or burned-in subtitles, still images, and source codecs that are not copied by default
+      - e.g. items with burned-in subtitles, still images, and source codecs that are not copied by default
       - `h264` / `hevc` video can be copied by default, `aac` / `ac3` / `eac3` / `mp3` audio can be copied by default
+      - These items are transcoded without hardware acceleration; to use hardware acceleration, set `accel` in a channel config overlay
+        - e.g. `{"version":"https://ersatztv.org/channel/version/0.1.0","normalization":{"video":{"accel":"qsv"}}}`
+    - Watermarks and graphics are not applied to copied video, matching the legacy engine
     - Loudness normalization is never applied to copied audio
   - **BREAKING**: channel config overlays (`next/channel-config-overlays/default.json` and `{number}.json` in ETV's config folder) must include `"version": "https://ersatztv.org/channel/version/0.1.0"`
     - Overlays without this version are rejected, and the channel will not start
