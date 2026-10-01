@@ -34,6 +34,13 @@ namespace ErsatzTV.Core.Next.Config
 
         [JsonPropertyName("playout")]
         public Playout Playout { get; set; }
+
+        /// <summary>
+        /// Schema version URI, e.g. "https://ersatztv.org/channel/version/0.0.1"; missing is 0.0.0.
+        /// </summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("version")]
+        public string? Version { get; set; }
     }
 
     /// <summary>

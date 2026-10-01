@@ -13,6 +13,8 @@ namespace ErsatzTV.Application.Streaming;
 public class ChannelConfigConverter(IConfigElementRepository configElementRepository, IFileSystem fileSystem)
     : IChannelConfigConverter
 {
+    public static readonly string ChannelConfigVersion = "https://ersatztv.org/channel/version/0.0.1";
+
     public async Task<ChannelConfig> ToNext(
         ChannelViewModel channel,
         FFmpegProfileViewModel ffmpegProfile,
@@ -152,6 +154,7 @@ public class ChannelConfigConverter(IConfigElementRepository configElementReposi
 
         return new ChannelConfig
         {
+            Version = ChannelConfigVersion,
             Playout = new Core.Next.Config.Playout
             {
                 Folder = playoutFolder
