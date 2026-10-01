@@ -26,6 +26,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Next engine:
   - Improve watermark quality with VAAPI and QSV by avoiding an unnecessary lossy color conversion
   - Optimize intermittent watermarks by converting the watermark image once instead of on every frame
+  - FFmpeg Profiles with `Normalize Video` or `Normalize Audio` disabled now copy that stream; they were previously transcoded to `h264` / `aac`
+    - Items that cannot be copied are transcoded using the profile's settings
+      - e.g. items with graphics or burned-in subtitles, still images, and source codecs that are not copied by default
+      - `h264` / `hevc` video can be copied by default, `aac` / `ac3` / `eac3` / `mp3` audio can be copied by default
+    - Loudness normalization is never applied to copied audio
+  - **BREAKING**: channel config overlays (`next/channel-config-overlays/default.json` and `{number}.json` in ETV's config folder) must include `"version": "https://ersatztv.org/channel/version/0.1.0"`
+    - Overlays without this version are rejected, and the channel will not start
+    - e.g. `{"version":"https://ersatztv.org/channel/version/0.1.0","fallback":{"show_error":false}}`
+    - Overlays that used `"format": null` to copy should use `"mode": "copy"` instead
 
 ### Fixed
 - Next engine:
