@@ -188,7 +188,11 @@ public class StartFFmpegNextSessionHandler(
             }
 
             string codecs = codecStrings.Count > 0 ? $",CODECS=\"{string.Join(",", codecStrings)}\"" : string.Empty;
-            resolution = $",RESOLUTION={streamingSpecs.Width}x{streamingSpecs.Height}{codecs}";
+
+            // copied video keeps the source resolution, which can change between items
+            resolution = streamingSpecs.VideoFormat is FFmpegProfileVideoFormat.Copy
+                ? codecs
+                : $",RESOLUTION={streamingSpecs.Width}x{streamingSpecs.Height}{codecs}";
             bitrate = streamingSpecs.Bitrate.ToString(CultureInfo.InvariantCulture);
         }
 

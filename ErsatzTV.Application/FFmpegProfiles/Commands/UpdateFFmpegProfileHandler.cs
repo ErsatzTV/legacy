@@ -1,4 +1,6 @@
-﻿using ErsatzTV.Core;
+﻿using System.Threading.Channels;
+using ErsatzTV.Application.Playouts;
+using ErsatzTV.Core;
 using ErsatzTV.Core.Domain;
 using ErsatzTV.Core.FFmpeg;
 using ErsatzTV.Core.Interfaces.Search;
@@ -9,7 +11,10 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ErsatzTV.Application.FFmpegProfiles;
 
-public class UpdateFFmpegProfileHandler(IDbContextFactory<TvContext> dbContextFactory, ISearchTargets searchTargets)
+public class UpdateFFmpegProfileHandler(
+    ChannelWriter<IBackgroundServiceRequest> workerChannel,
+    IDbContextFactory<TvContext> dbContextFactory,
+    ISearchTargets searchTargets)
     : IRequestHandler<UpdateFFmpegProfile, Either<BaseError, UpdateFFmpegProfileResult>>
 {
     public async Task<Either<BaseError, UpdateFFmpegProfileResult>> Handle(
@@ -27,6 +32,9 @@ public class UpdateFFmpegProfileHandler(IDbContextFactory<TvContext> dbContextFa
         UpdateFFmpegProfile update,
         CancellationToken cancellationToken)
     {
+        // next playouts carry graphics, which depend on video copy and the canvas resolution
+        var nextPlayoutSettings = (p.VideoFormat is FFmpegProfileVideoFormat.Copy, p.ResolutionId);
+
         var hwAccel = update.NormalizeVideo
             ? update.HardwareAcceleration
             : HardwareAccelerationKind.None;
@@ -101,6 +109,20 @@ public class UpdateFFmpegProfileHandler(IDbContextFactory<TvContext> dbContextFa
         await dbContext.SaveChangesAsync(cancellationToken);
 
         searchTargets.SearchTargetsChanged();
+
+        if (nextPlayoutSettings != (p.VideoFormat is FFmpegProfileVideoFormat.Copy, p.ResolutionId))
+        {
+            List<string> channelNumbers = await dbContext.Channels
+                .AsNoTracking()
+                .Where(c => c.FFmpegProfileId == p.Id)
+                .Select(c => c.Number)
+                .ToListAsync(cancellationToken);
+
+            foreach (string channelNumber in channelNumbers)
+            {
+                await workerChannel.WriteAsync(new SyncNextPlayout(channelNumber), cancellationToken);
+            }
+        }
 
         return new UpdateFFmpegProfileResult(p.Id);
     }

@@ -67,6 +67,8 @@ public class PlayoutItemConverter(
             .AsNoTracking()
             .Include(c => c.Watermark)
             .Include(c => c.Artwork)
+            .Include(c => c.FFmpegProfile)
+            .ThenInclude(ff => ff.Resolution)
             .SingleOrDefaultAsync(c => c.Number == channelNumber, cancellationToken)
             .Map(Optional);
 
@@ -573,6 +575,12 @@ public class PlayoutItemConverter(
         bool shouldLogMessages)
     {
         nextPlayoutItem.Graphics ??= [];
+
+        // match the legacy engine, which never overlays copied video; next would transcode every item
+        if (channel.FFmpegProfile.VideoFormat is FFmpegProfileVideoFormat.Copy)
+        {
+            return;
+        }
 
         List<WatermarkOptions> watermarks = watermarkSelector.SelectWatermarks(
             maybeGlobalWatermark,

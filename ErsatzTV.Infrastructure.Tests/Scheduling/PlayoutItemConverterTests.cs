@@ -334,6 +334,20 @@ public class PlayoutItemConverterTests
         result.Graphics.ShouldHaveSingleItem().Kind.ShouldBe(Next.GraphicsLayerKind.Canvas);
     }
 
+    [Test]
+    public async Task Video_copy_profile_has_no_graphics()
+    {
+        _channel.FFmpegProfile.VideoFormat = FFmpegProfileVideoFormat.Copy;
+        _watermarks.SelectWatermarks(default, default!, default!, default, default).ReturnsForAnyArgs(
+            [new WatermarkOptions(new ChannelWatermark { Mode = ChannelWatermarkMode.Permanent }, "/a.png", None)]);
+        _graphics.SelectGraphicsElements(default!, default!, default, default).ReturnsForAnyArgs(
+            [new PlayoutItemGraphicsElement { GraphicsElement = new GraphicsElement() }]);
+
+        Next.PlayoutItem result = await Convert(new Movie(), []);
+
+        result.Graphics.ShouldBeEmpty();
+    }
+
     private async Task<Next.PlayoutItem> Convert(
         MediaItem mediaItem,
         List<Subtitle> subtitles,
