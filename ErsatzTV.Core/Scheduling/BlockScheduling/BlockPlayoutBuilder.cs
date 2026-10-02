@@ -74,6 +74,8 @@ public class BlockPlayoutBuilder(
             return result;
         }
 
+        DateTimeOffset requestedStart = start;
+
         // always start at the beginning of the block
         DateTimeOffset firstBlockStart = blocksToSchedule.Min(b => b.Start);
         if (firstBlockStart < start)
@@ -118,6 +120,8 @@ public class BlockPlayoutBuilder(
         {
             BlockPlayoutChangeDetection.RemoveItemAndHistory(referenceData, playoutItem, result);
         }
+
+        BlockPlayoutChangeDetection.RemoveOrphanedHistory(referenceData, requestedStart, result);
 
         var playoutItemsToRemoveIds = playoutItemsToRemove.Select(i => i.Id).ToHashSet();
         var baseItems = referenceData.ExistingItems.Where(i => !playoutItemsToRemoveIds.Contains(i.Id)).ToList();
@@ -367,20 +371,25 @@ public class BlockPlayoutBuilder(
         var collectionKey = CollectionKey.ForBlockItem(blockItem);
         List<MediaItem> collectionItems = collectionMediaItems[collectionKey];
 
+        var filteredHistory = referenceData.PlayoutHistory
+            .Where(h => !result.HistoryToRemove.Contains(h.Id))
+            .Append(result.AddedHistory)
+            .ToList();
+
         // get enumerator
         IMediaCollectionEnumerator enumerator = blockItem.PlaybackOrder switch
         {
             PlaybackOrder.Chronological => BlockPlayoutEnumerator.Chronological(
                 collectionItems,
                 currentTime,
-                referenceData.PlayoutHistory.Append(result.AddedHistory).ToList(),
+                filteredHistory,
                 blockItem,
                 historyKey,
                 logger),
             PlaybackOrder.SeasonEpisode => BlockPlayoutEnumerator.SeasonEpisode(
                 collectionItems,
                 currentTime,
-                referenceData.PlayoutHistory.Append(result.AddedHistory).ToList(),
+                filteredHistory,
                 blockItem,
                 historyKey,
                 logger),
@@ -388,14 +397,14 @@ public class BlockPlayoutBuilder(
                 collectionItems,
                 currentTime,
                 playout.Seed,
-                referenceData.PlayoutHistory.Append(result.AddedHistory).ToList(),
+                filteredHistory,
                 blockItem,
                 historyKey),
             PlaybackOrder.RandomRotation => BlockPlayoutEnumerator.RandomRotation(
                 collectionItems,
                 currentTime,
                 playout.Seed,
-                referenceData.PlayoutHistory.Append(result.AddedHistory).ToList(),
+                filteredHistory,
                 blockItem,
                 historyKey),
             _ => new RandomizedMediaCollectionEnumerator(

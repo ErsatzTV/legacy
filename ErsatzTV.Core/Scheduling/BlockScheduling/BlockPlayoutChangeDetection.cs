@@ -156,12 +156,30 @@ internal static class BlockPlayoutChangeDetection
     {
         result.ItemsToRemove.Add(playoutItem.Id);
 
-        Option<PlayoutHistory> historyToRemove = referenceData.PlayoutHistory
-            .Find(h => h.When == playoutItem.Start);
-
-        foreach (PlayoutHistory history in historyToRemove)
+        // earlier builds may have left more than one row at this time
+        foreach (PlayoutHistory history in referenceData.PlayoutHistory.Where(h => h.When == playoutItem.Start))
         {
             result.HistoryToRemove.Add(history.Id);
+        }
+    }
+
+    public static void RemoveOrphanedHistory(
+        PlayoutReferenceData referenceData,
+        DateTimeOffset start,
+        PlayoutBuildResult result)
+    {
+        var itemStarts = referenceData.ExistingItems
+            .Where(i => !result.ItemsToRemove.Contains(i.Id))
+            .Select(i => i.Start)
+            .ToHashSet();
+
+        // orphaned history has no corresponding item
+        foreach (PlayoutHistory history in referenceData.PlayoutHistory)
+        {
+            if (history.When >= start.UtcDateTime && !itemStarts.Contains(history.When))
+            {
+                result.HistoryToRemove.Add(history.Id);
+            }
         }
     }
 }
