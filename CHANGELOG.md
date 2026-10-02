@@ -48,6 +48,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
     - Fix `device failed (-17)` from `vpp_qsv` and `overlay_qsv`
   - QSV: pad in software when the runtime cannot pad the current pixel format in hardware (e.g. 10-bit on legacy Media SDK runtimes)
   - QSV: do not upload 10-bit frames to hardware on runtimes that cannot copy them (e.g. Haswell)
+  - QSV: fix `Cannot allocate memory` error when using loudness normalization and the graphics engine
   - VideoToolbox: fix HEVC output bit depth not matching the FFmpeg Profile
   - VideoToolbox: fix missing sample aspect ratio in H264 output
   - NVIDIA: fix ffmpeg warning when CUDA and Vulkan are used together
