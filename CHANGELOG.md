@@ -67,6 +67,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
     - Empty the trash to remove the bogus collection shows
     - Deep scan Jellyfin collections to restore collection search results
 - Fix `Unified Docker` health check incorrectly warning about a deprecated docker tag on arm64 hardware using the default docker image
+- Fix bug where block schedules could skip and/or repeat items
 
 ## [26.10.0] - 2026-09-21
 ### Added
