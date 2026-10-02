@@ -348,17 +348,41 @@ public class PlayoutItemConverterTests
         result.Graphics.ShouldBeEmpty();
     }
 
+    [TestCase("png", "png_pipe")]
+    [TestCase("mjpeg", "jpeg_pipe")]
+    [TestCase("webp", "webp_pipe")]
+    [TestCase("gif", "gif")]
+    public async Task Image_hint_has_image_format_name(string codec, string formatName)
+    {
+        Next.PlayoutItem result = await Convert(new Image(), [], hasAudio: false, videoCodec: codec);
+        Next.ProbeHint hint = result.Tracks!.Video!.Source!.ProbeHint!;
+        hint.FormatName.ShouldBe(formatName);
+        hint.Video.ShouldHaveSingleItem().Codec.ShouldBe(codec);
+    }
+
+    [TestCase("/media/movie.avi", "avi")]
+    [TestCase("/media/movie.AVI", "avi")]
+    [TestCase(VideoPath, null)]
+    public async Task Video_hint_identifies_avi(string path, string? formatName)
+    {
+        _fileSystem.File.WriteAllText(path, string.Empty);
+        Next.PlayoutItem result = await Convert(new Movie(), [], path: path);
+        result.Source!.ProbeHint!.FormatName.ShouldBe(formatName);
+    }
+
     private async Task<Next.PlayoutItem> Convert(
         MediaItem mediaItem,
         List<Subtitle> subtitles,
         bool hasAudio = true,
-        Option<List<Subtitle>> suppliedSubtitles = default)
+        Option<List<Subtitle>> suppliedSubtitles = default,
+        string path = VideoPath,
+        string? videoCodec = null)
     {
         var version = new MediaVersion
         {
             Duration = TimeSpan.FromMinutes(2),
-            MediaFiles = [new MediaFile { Path = VideoPath }],
-            Streams = [new MediaStream { MediaStreamKind = MediaStreamKind.Video, Index = 0 }]
+            MediaFiles = [new MediaFile { Path = path }],
+            Streams = [new MediaStream { MediaStreamKind = MediaStreamKind.Video, Index = 0, Codec = videoCodec! }]
         };
         if (hasAudio)
         {
@@ -378,6 +402,10 @@ public class PlayoutItemConverterTests
             case MusicVideo musicVideo:
                 musicVideo.MediaVersions = [version];
                 musicVideo.MusicVideoMetadata = [new MusicVideoMetadata { Subtitles = subtitles }];
+                break;
+            case Image image:
+                image.MediaVersions = [version];
+                image.ImageMetadata = [new ImageMetadata()];
                 break;
         }
 

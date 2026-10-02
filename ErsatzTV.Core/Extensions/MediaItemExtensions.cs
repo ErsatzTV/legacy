@@ -19,6 +19,8 @@ public static class MediaItemExtensions
                 OtherVideo ov => ov.MediaVersions.HeadOrNone().Map(v => v.Duration),
                 Song s => s.MediaVersions.HeadOrNone().Map(v => v.Duration),
                 ChapterMediaItem c => c.MediaVersion.Duration,
+                Image i => TimeSpan.FromSeconds(i.ImageMetadata.Head().DurationSeconds ?? Image.DefaultSeconds),
+                RemoteStream rs => RemoteStreamDuration(rs),
                 _ => None
             };
 
@@ -105,5 +107,14 @@ public static class MediaItemExtensions
                 _ => path
             };
         }
+    }
+
+    private static Option<TimeSpan> RemoteStreamDuration(RemoteStream rs)
+    {
+        var versionDuration = rs.MediaVersions.HeadOrNone().Map(v => v.Duration).IfNone(TimeSpan.Zero);
+
+        return versionDuration == TimeSpan.Zero && rs.Duration.HasValue
+            ? rs.Duration.Value
+            : versionDuration;
     }
 }

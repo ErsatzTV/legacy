@@ -184,10 +184,11 @@ public class DynamicPlayoutItemService(
                 .ToListAsync(cancellationToken);
 
             // always play min(duration to next item, version.Duration)
-            TimeSpan duration = await maybeDuration.IfNoneAsync(version.Duration);
-            if (version.Duration < duration)
+            var durationForPlayout = item.GetDurationForPlayout();
+            TimeSpan duration = await maybeDuration.IfNoneAsync(durationForPlayout);
+            if (durationForPlayout < duration)
             {
-                duration = version.Duration;
+                duration = durationForPlayout;
             }
 
             DateTimeOffset finish = now.Add(duration);

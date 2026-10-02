@@ -249,9 +249,8 @@ public class PrepareTroubleshootingPlaybackHandler(
                 channel.MusicVideoCreditsTemplate = request.MusicVideoCreditsTemplate;
             }
 
-            MediaVersion version = mediaItem.GetHeadVersion();
-
-            var duration = TimeSpan.FromSeconds(Math.Min(version.Duration.TotalSeconds, 30));
+            var durationForPlayout = mediaItem.GetDurationForPlayout();
+            var duration = TimeSpan.FromSeconds(Math.Min(durationForPlayout.TotalSeconds, 30));
             if (duration <= TimeSpan.Zero)
             {
                 duration = TimeSpan.FromSeconds(30);
@@ -266,14 +265,14 @@ public class PrepareTroubleshootingPlaybackHandler(
                 foreach (int seekSeconds in request.SeekSeconds)
                 {
                     seek = TimeSpan.FromSeconds(seekSeconds);
-                    if (seek > version.Duration)
+                    if (seek > durationForPlayout)
                     {
-                        seek = version.Duration - duration;
+                        seek = durationForPlayout - duration;
                     }
 
-                    if (seek + duration > version.Duration)
+                    if (seek + duration > durationForPlayout)
                     {
-                        duration = version.Duration - seek;
+                        duration = durationForPlayout - seek;
                     }
                 }
             }
