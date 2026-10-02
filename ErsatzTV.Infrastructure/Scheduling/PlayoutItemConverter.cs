@@ -166,12 +166,14 @@ public class PlayoutItemConverter(
                     Codec = s.Codec
                 }).ToList();
 
+            var durationForPlayout = playoutItem.MediaItem.GetDurationForPlayout();
             nextPlayoutItem.Source!.ProbeHint = new Core.Next.ProbeHint
             {
                 Audio = sourceAudioHints,
                 Video = sourceVideoHints,
                 Subtitle = sourceSubtitleHints,
-                DurationMs = (long)headVersion.Duration.TotalMilliseconds
+                DurationMs = (long)durationForPlayout.TotalMilliseconds,
+                FormatName = FormatNameHint(playoutItem.MediaItem, headVersion)
             };
 
             // if no audio streams, use lavfi to insert silence
@@ -236,6 +238,30 @@ public class PlayoutItemConverter(
         }
 
         return nextPlayoutItem;
+    }
+
+    // next defaults a missing format_name to mpegts, which hides still images and avi from it
+    private static string FormatNameHint(MediaItem mediaItem, MediaVersion headVersion)
+    {
+        if (mediaItem is Image)
+        {
+            string codec = headVersion.Streams
+                .Find(s => s.MediaStreamKind is MediaStreamKind.Video)?.Codec;
+            return codec switch
+            {
+                "png" => "png_pipe",
+                "mjpeg" => "jpeg_pipe",
+                "bmp" => "bmp_pipe",
+                "tiff" => "tiff_pipe",
+                "webp" => "webp_pipe",
+                "gif" => "gif",
+                _ => null
+            };
+        }
+
+        bool isAvi = Optional(headVersion.MediaFiles).Flatten().HeadOrNone().Exists(f =>
+            string.Equals(Path.GetExtension(f.Path), ".avi", StringComparison.OrdinalIgnoreCase));
+        return isAvi ? "avi" : null;
     }
 
     private static string PixelFormatForBitDepth(int bitDepth)

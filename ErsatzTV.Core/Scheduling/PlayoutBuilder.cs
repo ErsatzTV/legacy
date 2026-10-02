@@ -1052,7 +1052,7 @@ public class PlayoutBuilder : IPlayoutBuilder
                 {
                     // still use a fake item here so we don't have id conflicts
                     var chapterVersion = new ChapterMediaVersion(
-                        new MediaChapter { StartTime = TimeSpan.Zero, EndTime = version.Duration });
+                        new MediaChapter { StartTime = TimeSpan.Zero, EndTime = mediaItem.GetDurationForPlayout() });
                     var chapterItem = new ChapterMediaItem(uniqueId++, mediaItem, chapterVersion);
                     fakeResults.Add(chapterItem);
                 }
