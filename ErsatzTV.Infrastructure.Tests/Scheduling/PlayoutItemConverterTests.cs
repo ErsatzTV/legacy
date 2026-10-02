@@ -370,20 +370,82 @@ public class PlayoutItemConverterTests
         result.Source!.ProbeHint!.FormatName.ShouldBe(formatName);
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Song_uses_signed_song_background_as_video(bool hasCoverArt)
+    {
+        _channel.Id = 7;
+        Next.PlayoutItem result = await Convert(new Song(), [], hasVideo: hasCoverArt, attachedPic: hasCoverArt);
+
+        result.Source.ShouldBeNull();
+        Next.Source audio = result.Tracks!.Audio!.Source!;
+        audio.Path.ShouldBe(VideoPath);
+        AssertTiming(audio);
+
+        Next.Source video = result.Tracks.Video!.Source!;
+        video.SourceType.ShouldBe(Next.SourceType.Http);
+        var uri = new Uri(video.Uri!);
+        uri.AbsolutePath.ShouldBe("/internal/ffmpeg/song-background/7/42");
+        var query = uri.Query.TrimStart('?').Split('&')
+            .Select(part => part.Split('=', 2)).ToDictionary(part => part[0], part => part[1]);
+        InternalUrlSigner.Verify(query["exp"], query["sig"], "song-background", "7", "42").ShouldBeTrue();
+        video.ProbeHint!.FormatName.ShouldBe("png_pipe");
+        Next.VideoHint hint = video.ProbeHint.Video.ShouldHaveSingleItem();
+        hint.Codec.ShouldBe("png");
+        hint.Width.ShouldBe(1920);
+        hint.Height.ShouldBe(1080);
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Audio_only_item_uses_black_video(bool hasCoverArt)
+    {
+        Next.PlayoutItem result = await Convert(new Movie(), [], hasVideo: hasCoverArt, attachedPic: hasCoverArt);
+
+        result.Source.ShouldBeNull();
+        result.Tracks!.Audio!.Source!.Path.ShouldBe(VideoPath);
+        Next.Source video = result.Tracks.Video!.Source!;
+        video.SourceType.ShouldBe(Next.SourceType.Lavfi);
+        video.Params.ShouldBe("color=c=black:s=1920x1080");
+        video.ProbeHint!.FormatName.ShouldBeNull();
+        video.ProbeHint.Video.ShouldHaveSingleItem().Codec.ShouldBe("rawvideo");
+    }
+
+    [Test]
+    public async Task Item_without_known_streams_keeps_source_as_video()
+    {
+        Next.PlayoutItem result = await Convert(new Movie(), [], hasAudio: false, hasVideo: false);
+
+        result.Source.ShouldBeNull();
+        result.Tracks!.Audio!.Source!.SourceType.ShouldBe(Next.SourceType.Lavfi);
+        result.Tracks.Audio.Source.Params.ShouldStartWith("anullsrc");
+        result.Tracks.Video!.Source!.Path.ShouldBe(VideoPath);
+    }
+
     private async Task<Next.PlayoutItem> Convert(
         MediaItem mediaItem,
         List<Subtitle> subtitles,
         bool hasAudio = true,
         Option<List<Subtitle>> suppliedSubtitles = default,
         string path = VideoPath,
-        string? videoCodec = null)
+        string? videoCodec = null,
+        bool hasVideo = true,
+        bool attachedPic = false)
     {
         var version = new MediaVersion
         {
             Duration = TimeSpan.FromMinutes(2),
             MediaFiles = [new MediaFile { Path = path }],
-            Streams = [new MediaStream { MediaStreamKind = MediaStreamKind.Video, Index = 0, Codec = videoCodec! }]
+            Streams = []
         };
+        if (hasVideo)
+        {
+            version.Streams.Add(new MediaStream
+            {
+                MediaStreamKind = MediaStreamKind.Video, Index = 0, Codec = videoCodec!, AttachedPic = attachedPic
+            });
+        }
+
         if (hasAudio)
         {
             version.Streams.Add(new MediaStream { MediaStreamKind = MediaStreamKind.Audio, Index = 1 });
@@ -406,6 +468,10 @@ public class PlayoutItemConverterTests
             case Image image:
                 image.MediaVersions = [version];
                 image.ImageMetadata = [new ImageMetadata()];
+                break;
+            case Song song:
+                song.MediaVersions = [version];
+                song.SongMetadata = [new SongMetadata { Subtitles = subtitles }];
                 break;
         }
 

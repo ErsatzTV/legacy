@@ -344,6 +344,7 @@ public class TranscodingTests
             channel,
             ExecutableName("ffmpeg"),
             ExecutableName("ffprobe"),
+            seed: null,
             CancellationToken.None);
 
         IMetadataRepository metadataRepository = Substitute.For<IMetadataRepository>();

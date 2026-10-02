@@ -10,8 +10,6 @@ namespace ErsatzTV.Core.FFmpeg;
 
 public class SongVideoGenerator : ISongVideoGenerator
 {
-    private static readonly Random Random = new();
-    private static readonly Lock RandomLock = new();
     private readonly IFFmpegProcessService _ffmpegProcessService;
     private readonly ILocalFileSystem _localFileSystem;
     private readonly IImageCache _imageCache;
@@ -35,6 +33,7 @@ public class SongVideoGenerator : ISongVideoGenerator
         Channel channel,
         string ffmpegPath,
         string ffprobePath,
+        int? seed,
         CancellationToken cancellationToken)
     {
         Option<string> subtitleFile = None;
@@ -56,10 +55,12 @@ public class SongVideoGenerator : ISongVideoGenerator
             "song_background_3.png"
         ];
 
+        var random = seed.HasValue ? new Random(seed.Value) : new Random();
+
         // use random ETV color by default
         string backgroundPath = _localFileSystem.GetCustomOrDefaultFile(
             FileSystemLayout.ResourcesCacheFolder,
-            backgrounds[NextRandom(backgrounds.Length)]);
+            backgrounds[random.Next(backgrounds.Length)]);
 
         Option<string> watermarkPath = None;
 
@@ -68,7 +69,7 @@ public class SongVideoGenerator : ISongVideoGenerator
         const int HORIZONTAL_MARGIN_PERCENT = 3;
         var verticalMarginPercent = 5;
         const int WATERMARK_WIDTH_PERCENT = 25;
-        WatermarkLocation watermarkLocation = NextRandom(2) == 0
+        WatermarkLocation watermarkLocation = random.Next(2) == 0
             ? WatermarkLocation.BottomLeft
             : WatermarkLocation.BottomRight;
 
@@ -81,7 +82,7 @@ public class SongVideoGenerator : ISongVideoGenerator
         {
             var fontSize = (int)Math.Round(channel.FFmpegProfile.Resolution.Height / 20.0);
             var largeFontSize = (int)Math.Round(channel.FFmpegProfile.Resolution.Height / 10.0);
-            bool detailsStyle = NextRandom(2) == 0;
+            bool detailsStyle = random.Next(2) == 0;
 
             var sb = new StringBuilder();
 
@@ -204,7 +205,7 @@ public class SongVideoGenerator : ISongVideoGenerator
 
                 if (hashes.Count != 0)
                 {
-                    string hash = hashes[NextRandom(hashes.Count)];
+                    string hash = hashes[random.Next(hashes.Count)];
 
                     backgroundPath = await _imageCache.WriteBlurHash(hash, channel.FFmpegProfile.Resolution);
 
@@ -248,13 +249,5 @@ public class SongVideoGenerator : ISongVideoGenerator
         }
 
         return Tuple(videoPath, videoVersion);
-    }
-
-    private static int NextRandom(int max)
-    {
-        lock (RandomLock)
-        {
-            return Random.Next() % max;
-        }
     }
 }

@@ -9,5 +9,6 @@ public interface ISongVideoGenerator
         Channel channel,
         string ffmpegPath,
         string ffprobePath,
+        int? seed,
         CancellationToken cancellationToken);
 }
