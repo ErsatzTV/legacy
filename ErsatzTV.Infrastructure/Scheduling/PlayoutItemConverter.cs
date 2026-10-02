@@ -12,6 +12,7 @@ using ErsatzTV.Core.Interfaces.Jellyfin;
 using ErsatzTV.Core.Interfaces.Plex;
 using ErsatzTV.Core.Interfaces.Scheduling;
 using ErsatzTV.Core.Security;
+using ErsatzTV.FFmpeg.Format;
 using ErsatzTV.FFmpeg.State;
 using ErsatzTV.Infrastructure.Data;
 using ErsatzTV.Infrastructure.Extensions;
@@ -94,7 +95,8 @@ public class PlayoutItemConverter(
         if (playoutItem is not DynamicPlayoutItem &&
             playoutItem.MediaItem is not Episode && playoutItem.MediaItem is not Movie &&
             playoutItem.MediaItem is not OtherVideo && playoutItem.MediaItem is not MusicVideo &&
-            playoutItem.MediaItem is not RemoteStream && playoutItem.MediaItem is not Image)
+            playoutItem.MediaItem is not RemoteStream && playoutItem.MediaItem is not Image &&
+            playoutItem.MediaItem is not Song)
         {
             return Option<Core.Next.PlayoutItem>.None;
         }
@@ -176,8 +178,11 @@ public class PlayoutItemConverter(
                 FormatName = FormatNameHint(playoutItem.MediaItem, headVersion)
             };
 
+            bool hasAudio = headVersion.Streams.Any(s => s.MediaStreamKind is MediaStreamKind.Audio);
+            bool hasVideo = headVersion.Streams.Any(s => s.MediaStreamKind is MediaStreamKind.Video && !s.AttachedPic);
+
             // if no audio streams, use lavfi to insert silence
-            if (headVersion.Streams.All(s => s.MediaStreamKind is not MediaStreamKind.Audio))
+            if (!hasAudio)
             {
                 var videoSource = nextPlayoutItem.Source;
 
@@ -211,6 +216,29 @@ public class PlayoutItemConverter(
                     }
                 };
             }
+            else if (!hasVideo)
+            {
+                // checked after audio so items with no known streams keep their source as video
+                foreach (Channel channel in maybeChannel)
+                {
+                    var audioSource = nextPlayoutItem.Source;
+
+                    nextPlayoutItem.Source = null;
+                    nextPlayoutItem.Tracks = new Core.Next.PlayoutItemTracks
+                    {
+                        Audio = new Core.Next.TrackSelection
+                        {
+                            Source = audioSource
+                        },
+                        Video = new Core.Next.TrackSelection
+                        {
+                            Source = playoutItem.MediaItem is Song
+                                ? SongBackgroundSource(channel, playoutItem, durationForPlayout)
+                                : BlackVideoSource(channel, durationForPlayout)
+                        }
+                    };
+                }
+            }
 
             foreach (Channel channel in maybeChannel)
             {
@@ -239,6 +267,62 @@ public class PlayoutItemConverter(
 
         return nextPlayoutItem;
     }
+
+    private static Core.Next.Source SongBackgroundSource(
+        Channel channel,
+        PlayoutItem playoutItem,
+        TimeSpan duration)
+    {
+        DateTimeOffset exp = playoutItem.FinishOffset + TimeSpan.FromHours(2);
+        string sig = InternalUrlSigner.Sign(exp, "song-background", $"{channel.Id}", $"{playoutItem.Id}");
+        return new Core.Next.Source
+        {
+            SourceType = Core.Next.SourceType.Http,
+            Uri =
+                $"http://localhost:{Settings.StreamingPort}/internal/ffmpeg/song-background/{channel.Id}/{playoutItem.Id}?exp={exp.ToUnixTimeSeconds()}&sig={sig}",
+            KeepAlive = false,
+            Reconnect = true,
+            ProbeHint = new Core.Next.ProbeHint
+            {
+                FormatName = "png_pipe",
+                DurationMs = (long)duration.TotalMilliseconds,
+                Video =
+                [
+                    new Core.Next.VideoHint
+                    {
+                        StreamIndex = 0,
+                        Codec = "png",
+                        Width = channel.FFmpegProfile.Resolution.Width,
+                        Height = channel.FFmpegProfile.Resolution.Height,
+                        PixFmt = new PixelFormatYuv420P().FFmpegName
+                    }
+                ]
+            }
+        };
+    }
+
+    private static Core.Next.Source BlackVideoSource(Channel channel, TimeSpan duration) =>
+        new()
+        {
+            SourceType = Core.Next.SourceType.Lavfi,
+            Params =
+                $"color=c=black:s={channel.FFmpegProfile.Resolution.Width}x{channel.FFmpegProfile.Resolution.Height}",
+            ProbeHint = new Core.Next.ProbeHint
+            {
+                DurationMs = (long)duration.TotalMilliseconds,
+                Video =
+                [
+                    new Core.Next.VideoHint
+                    {
+                        StreamIndex = 0,
+                        Codec = "rawvideo",
+                        Width = channel.FFmpegProfile.Resolution.Width,
+                        Height = channel.FFmpegProfile.Resolution.Height,
+                        PixFmt = new PixelFormatYuv420P().FFmpegName
+                    }
+                ]
+            }
+        };
 
     // next defaults a missing format_name to mpegts, which hides still images and avi from it
     private static string FormatNameHint(MediaItem mediaItem, MediaVersion headVersion)

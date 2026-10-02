@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Next engine:
   - Properly rotate content that contains orientation metadata (e.g. from phones)
   - Add `mpeg2video` encoder support (software, some Intel QSV and Intel VAAPI devices)
+  - Add song playback support, using legacy-generated background image and text
+    - Song Video Mode `With Progress` is not supported yet; these songs play without a progress bar
 
 ### Changed
 - Use ErsatzTV-ffmpeg `8.1.2-2` in docker images and Windows packages
@@ -58,6 +60,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Fix subtitle selection preferring embedded text subtitles that have not been extracted
     - These subtitles were selected over usable sidecar subtitles, and then dropped, leaving no subtitles
     - The FFmpeg `Use Embedded Subtitles` setting is now respected by next engine channels
+  - Fix playback of audio-only content (e.g. audio files with embedded cover art), which now plays over a black background
   - Fix image playback
   - Fix image and remote stream duration
 - Improve performance of graphics engine subtitle elements
@@ -69,6 +72,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
     - Deep scan Jellyfin collections to restore collection search results
 - Fix `Unified Docker` health check incorrectly warning about a deprecated docker tag on arm64 hardware using the default docker image
 - Fix bug where block schedules could skip and/or repeat items
+- Fix songs changing their background ~40 seconds after joining a channel
 
 ## [26.10.0] - 2026-09-21
 ### Added

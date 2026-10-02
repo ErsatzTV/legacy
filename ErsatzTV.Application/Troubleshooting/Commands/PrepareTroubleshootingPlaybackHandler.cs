@@ -487,6 +487,7 @@ public class PrepareTroubleshootingPlaybackHandler(
                 channel,
                 ffmpegPath,
                 ffprobePath,
+                seed: null,
                 CancellationToken.None);
 
             // override watermark as song_progress_overlay.png

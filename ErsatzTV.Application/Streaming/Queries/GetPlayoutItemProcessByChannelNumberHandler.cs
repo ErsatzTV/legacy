@@ -322,6 +322,7 @@ public class GetPlayoutItemProcessByChannelNumberHandler : FFmpegProcessHandler<
                     channel,
                     ffmpegPath,
                     ffprobePath,
+                    playoutItemWithPath.PlayoutItem.Id,
                     cancellationToken);
 
                 // override watermark as song_progress_overlay.png

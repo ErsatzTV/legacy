@@ -1,6 +1,7 @@
 ﻿using System.CommandLine.Parsing;
 using System.Diagnostics;
 using System.Globalization;
+using System.IO.Abstractions;
 using System.Text;
 using CliWrap;
 using ErsatzTV.Application.Emby;
@@ -38,6 +39,7 @@ public class InternalController : StreamingControllerBase
     private readonly IDbContextFactory<TvContext> _dbContextFactory;
     private readonly IDynamicPlayoutItemService _dynamicPlayoutItemService;
     private readonly IPlayoutItemConverter _playoutItemConverter;
+    private readonly IFileSystem _fileSystem;
 
     public InternalController(
         IGraphicsEngine graphicsEngine,
@@ -45,6 +47,7 @@ public class InternalController : StreamingControllerBase
         IDbContextFactory<TvContext> dbContextFactory,
         IDynamicPlayoutItemService dynamicPlayoutItemService,
         IPlayoutItemConverter playoutItemConverter,
+        IFileSystem fileSystem,
         ILogger<InternalController> logger)
         : base(graphicsEngine, logger)
     {
@@ -52,6 +55,7 @@ public class InternalController : StreamingControllerBase
         _dbContextFactory = dbContextFactory;
         _dynamicPlayoutItemService = dynamicPlayoutItemService;
         _playoutItemConverter = playoutItemConverter;
+        _fileSystem = fileSystem;
         _logger = logger;
     }
 
@@ -80,6 +84,34 @@ public class InternalController : StreamingControllerBase
         }
 
         return File(Encoding.UTF8.GetBytes(EmptySubtitleDocument("text/x-ssa")), "text/x-ssa");
+    }
+
+    [HttpGet("ffmpeg/song-background/{channelId:int}/{playoutItemId:int}")]
+    public async Task<IActionResult> GetSongBackground(
+        int channelId,
+        int playoutItemId,
+        [FromQuery]
+        string exp,
+        [FromQuery]
+        string sig,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(exp) || string.IsNullOrWhiteSpace(sig) ||
+            !InternalUrlSigner.Verify(exp, sig, "song-background", $"{channelId}", $"{playoutItemId}"))
+        {
+            return NotFound();
+        }
+
+        Option<string> maybeSongBackground = await _mediator.Send(
+            new GetSongVideoBackgroundByPlayoutItemId(channelId, playoutItemId),
+            cancellationToken);
+        foreach (string songBackground in maybeSongBackground)
+        {
+            return new PhysicalFileResult(songBackground, "image/png");
+        }
+
+        string path = _fileSystem.Path.Combine(FileSystemLayout.ResourcesCacheFolder, "_song_background_1.png");
+        return new PhysicalFileResult(path, "image/png");
     }
 
     [HttpGet("ffmpeg/remote-stream/{remoteStreamId:int}")]

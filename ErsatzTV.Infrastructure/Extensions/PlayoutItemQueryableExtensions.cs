@@ -102,5 +102,14 @@ public static class PlayoutItemQueryableExtensions
             .ThenInclude(mv => mv.Streams)
             .Include(i => i.MediaItem)
             .ThenInclude(i => (i as RemoteStream).RemoteStreamMetadata)
+            .ThenInclude(em => em.Subtitles)
+            .Include(i => i.MediaItem)
+            .ThenInclude(i => (i as Song).MediaVersions)
+            .ThenInclude(mv => mv.MediaFiles)
+            .Include(i => i.MediaItem)
+            .ThenInclude(i => (i as Song).MediaVersions)
+            .ThenInclude(mv => mv.Streams)
+            .Include(i => i.MediaItem)
+            .ThenInclude(i => (i as Song).SongMetadata)
             .ThenInclude(em => em.Subtitles);
 }

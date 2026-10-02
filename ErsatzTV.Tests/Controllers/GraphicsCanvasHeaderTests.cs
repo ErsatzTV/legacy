@@ -29,7 +29,7 @@ public class GraphicsCanvasHeaderTests
     public async Task Should_reject_invalid_headers_before_dispatch(string header, string value)
     {
         // These requests must fail before any service is called.
-        var controller = new InternalController(null!, null!, null!, null!, null!,
+        var controller = new InternalController(null!, null!, null!, null!, null!, null!,
             NullLogger<InternalController>.Instance)
         {
             ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() }
