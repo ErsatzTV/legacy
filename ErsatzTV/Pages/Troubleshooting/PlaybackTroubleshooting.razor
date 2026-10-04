@@ -395,7 +395,8 @@
         queryString.Add(new KeyValuePair<string, string>("streamingEngine", _streamingEngine.ToString()));
 
         string uriWithQuery = QueryHelpers.AddQueryString(apiUri, queryString);
-        await JsRuntime.InvokeVoidAsync("previewChannel", uriWithQuery);
+        // the playlist has no endlist until ffmpeg finishes, so hls.js would otherwise start at the live edge
+        await JsRuntime.InvokeVoidAsync("previewChannel", uriWithQuery, 0);
 
         await Task.Delay(TimeSpan.FromSeconds(1));
 
