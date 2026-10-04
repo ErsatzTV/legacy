@@ -51,9 +51,13 @@ jobs:
           - os: macos-14
             kind: macOS
             target: osx-x64
+            ffmpeg_target: macos64
+            ffmpeg_sha256: 6934c4313613c33b61c63bfcd6d2b7548e7678470aba707bbc441b01b118a62f
           - os: macos-14
             kind: macOS
             target: osx-arm64
+            ffmpeg_target: macosarm64
+            ffmpeg_sha256: 45c0d193410fba877dbca772ec83037f5f77111f859c03bde07aaa9743350c6c
     steps:
       - name: Get the sources
         uses: actions/checkout@v4
@@ -116,9 +120,20 @@ jobs:
           chmod +x ErsatzTV-Legacy.app/Contents/MacOS/ersatztv-channel
           rm -rf next-download next-extracted
 
+      # the pinned hashes are the release's SHA256SUMS entries
+      - name: Download ffmpeg
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          archive="ffmpeg-n8.1.2-etv.4-${{ matrix.ffmpeg_target }}-gpl-8.1.tar.xz"
+          gh release download 8.1.2-4 --repo ErsatzTV/ErsatzTV-ffmpeg --dir ffmpeg --pattern "$archive"
+          echo "${{ matrix.ffmpeg_sha256 }}  ffmpeg/${archive}" | shasum -a 256 -c
+          tar xJf "ffmpeg/${archive}" -C ffmpeg --strip-components 1
+
       - name: Sign
         shell: bash
-        run: scripts/macOS/sign.sh
+        run: scripts/macOS/sign.sh ffmpeg/bin
 
       - name: Create DMG
         shell: bash
@@ -150,6 +165,7 @@ jobs:
           mv ErsatzTV-Legacy.dmg "${{ env.RELEASE_NAME }}.dmg"
           rm -r publish
           rm -r ErsatzTV-Legacy.app
+          rm -r ffmpeg
 
       # github.token can't write to another repository; with only owner set, the token covers the
       # repositories the app is installed on
@@ -325,9 +341,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release download 8.1.2-2 --repo ErsatzTV/ErsatzTV-ffmpeg --dir ffmpeg \
-            --pattern ffmpeg-n8.1.2-etv.2-win64-gpl-8.1.zip
-          echo "128bd57c8ad75b8a623ce02807ba95de994c780509b49b88723f26615aa86f3e  ffmpeg/ffmpeg-n8.1.2-etv.2-win64-gpl-8.1.zip" | sha256sum -c
+          gh release download 8.1.2-4 --repo ErsatzTV/ErsatzTV-ffmpeg --dir ffmpeg \
+            --pattern ffmpeg-n8.1.2-etv.4-win64-gpl-8.1.zip
+          echo "3423b3afe19ea626adb9b4c54d34ff0a05602f2839210e980a402b225fe37761  ffmpeg/ffmpeg-n8.1.2-etv.4-win64-gpl-8.1.zip" | sha256sum -c
 
       - name: Package artifacts
         shell: bash
@@ -354,8 +370,7 @@ jobs:
           mv next-extracted/ersatztv-next-*/libvpl-LICENSE.txt "$release_name/"
           rm -rf next-download next-extracted
 
-          7z e ffmpeg/ffmpeg-n8.1.2-etv.2-win64-gpl-8.1.zip -o"$release_name" '*.exe' -r
-          rm -f "$release_name/ffplay.exe"
+          7z e ffmpeg/ffmpeg-n8.1.2-etv.4-win64-gpl-8.1.zip -o"$release_name" '*.exe' -r
 
           (cd "${release_name}" && 7z a "../${release_name}.zip" .)
 

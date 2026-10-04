@@ -12,9 +12,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
     - Song Video Mode `With Progress` is not supported yet; these songs play without a progress bar
 
 ### Changed
-- Use ErsatzTV-ffmpeg `8.1.2-2` in docker images and Windows packages
+- Use ErsatzTV-ffmpeg `8.1.2-4` in docker images, Windows packages and macOS packages
   - ErsatzTV-ffmpeg releases are now immutable; docker images pin them by digest
   - Docker images no longer include `libfdk_aac`; the built-in `aac` encoder is unchanged
+  - macOS packages now include ffmpeg and ffprobe, so Homebrew ffmpeg is no longer needed
+    - On first start, existing macOS installs switch from their configured ffmpeg and ffprobe paths to the bundled builds
+    - The FFmpeg Version health check now applies to macOS
 - Drop support for ARM32v7 docker and native versions
 - Remove `av1` video format from FFmpeg Profiles; it has not worked since `v25.7.1`
   - Existing `av1` FFmpeg Profiles have been migrated to `hevc`
@@ -63,6 +66,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Fix playback of audio-only content (e.g. audio files with embedded cover art), which now plays over a black background
   - Fix image playback
   - Fix image and remote stream duration
+  - Fix process signal handling to prevent orphaned processes
+    - When ErsatzTV exits unexpectedly (crash, killed), next engine channels now stop within a few seconds instead of running for up to 90 seconds
+    - When a next engine channel process is killed, its ffmpeg process now stops too (Linux and Windows)
+    - Stopping a next engine channel with `SIGTERM` or `SIGINT` now also stops its ffmpeg process
+  - Fix channels going permanently empty when content ends before its scheduled duration
+    - e.g. files with an embedded subtitle track that runs longer than the audio and video
+    - The rest of the scheduled time now plays the black/silence fallback
+    - Fix audio/video sync loss at the end of such content
+  - Fix timestamps restarting at zero between items when `ffprobe` is not on the system `PATH`
 - Improve performance of graphics engine subtitle elements
 - Fix Jellyfin 12 shows that belong to a Jellyfin collection being replaced by the collection itself
   - The collection would appear as a show, and the real show would be flagged as missing

@@ -1,6 +1,6 @@
 FROM mcr.microsoft.com/dotnet/aspnet:10.0-noble-amd64 AS dotnet-runtime
 
-FROM --platform=linux/amd64 ghcr.io/ersatztv/ersatztv-ffmpeg:8.1.2-2@sha256:fd205179ec62c81eadb0f866a1d885f58971dbbf6b768c7c351a7d5b25abd1a0 AS runtime-base
+FROM --platform=linux/amd64 ghcr.io/ersatztv/ersatztv-ffmpeg:8.1.2-4@sha256:ab7e476274568401238939835a2e4d98b07a8ab21c0759997743fbba85b50de7 AS runtime-base
 COPY --from=dotnet-runtime /usr/share/dotnet /usr/share/dotnet
 RUN apt-get update && \
     apt-get install -y --no-install-recommends python3 python3-pip && \

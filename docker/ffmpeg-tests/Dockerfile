@@ -1,4 +1,4 @@
-FROM ghcr.io/ersatztv/ersatztv-ffmpeg:8.1.2-2@sha256:fd205179ec62c81eadb0f866a1d885f58971dbbf6b768c7c351a7d5b25abd1a0
+FROM ghcr.io/ersatztv/ersatztv-ffmpeg:8.1.2-4@sha256:ab7e476274568401238939835a2e4d98b07a8ab21c0759997743fbba85b50de7
 RUN apt-get update && apt-get install -y ca-certificates gnupg mkvtoolnix && \
     curl -L https://dot.net/v1/dotnet-install.sh -o dotnet-install.sh && \
     chmod +x ./dotnet-install.sh && \
