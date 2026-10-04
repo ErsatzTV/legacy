@@ -13,8 +13,8 @@ public class FFmpegVersionHealthCheck(
     : BaseHealthCheck, IFFmpegVersionHealthCheck
 {
     private const string BundledVersion = "8.1.2";
-    private const int BundledRevision = 2;
-    private const string BundledRelease = "8.1.2-2";
+    private const int BundledRevision = 4;
+    private const string BundledRelease = "8.1.2-4";
 
     public override string Title => "FFmpeg Version";
 
@@ -92,7 +92,7 @@ public class FFmpegVersionHealthCheck(
                 link);
         }
 
-        if (!IsBundledSeries(version) && !OperatingSystem.IsMacOS())
+        if (!IsBundledSeries(version))
         {
             return WarningResult(
                 $"{app} version {version} is not a current ErsatzTV-ffmpeg build; please install ErsatzTV-ffmpeg {BundledRelease}!",
