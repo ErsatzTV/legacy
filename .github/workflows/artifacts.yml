@@ -6,6 +6,10 @@ on:
         description: 'Release tag to upload assets to (may be a draft), e.g. v26.10.0 or v26.11.0-f8410286-develop'
         required: true
         type: string
+      publish:
+        description: 'Sign the builds and upload them to the release; false only builds and packages them, unsigned'
+        required: true
+        type: boolean
       release_repo:
         description: 'Repository that holds the release (e.g. ErsatzTV/legacy-develop-builds); defaults to this repository'
         required: false
@@ -18,21 +22,21 @@ on:
         default: ''
     secrets:
       apple_developer_certificate_p12_base64:
-        required: true
+        required: false
       apple_developer_certificate_password:
-        required: true
+        required: false
       ac_username:
-        required: true
+        required: false
       ac_password:
-        required: true
+        required: false
       gh_token:
         required: true
       azure_client_id:
-        required: true
+        required: false
       azure_tenant_id:
-        required: true
+        required: false
       azure_subscription_id:
-        required: true
+        required: false
       release_app_private_key:
         required: false
 permissions:
@@ -77,6 +81,7 @@ jobs:
         run: dotnet restore -r "${{ matrix.target}}"
 
       - name: Import Code-Signing Certificates
+        if: inputs.publish
         uses: Apple-Actions/import-codesign-certs@v2
         with:
           p12-file-base64: ${{ secrets.apple_developer_certificate_p12_base64 }}
@@ -132,8 +137,15 @@ jobs:
           tar xJf "ffmpeg/${archive}" -C ffmpeg --strip-components 1
 
       - name: Sign
+        if: inputs.publish
         shell: bash
         run: scripts/macOS/sign.sh ffmpeg/bin
+
+      # sign.sh adds ffmpeg after signing the bundle; unsigned builds still need it
+      - name: Add ffmpeg
+        if: ${{ !inputs.publish }}
+        shell: bash
+        run: cp -p ffmpeg/bin/ffmpeg ffmpeg/bin/ffprobe ErsatzTV-Legacy.app/Contents/MacOS/
 
       - name: Create DMG
         shell: bash
@@ -154,6 +166,7 @@ jobs:
             "ErsatzTV-Legacy.app/"
 
       - name: Notarize
+        if: inputs.publish
         shell: bash
         run: |
           xcrun notarytool submit ErsatzTV-Legacy.dmg --apple-id "${{ secrets.ac_username }}" --password "${{ secrets.ac_password }}" --team-id 32MB98Q32R --wait
@@ -171,7 +184,7 @@ jobs:
       # repositories the app is installed on
       - name: Get release repository token
         id: release-token
-        if: inputs.release_repo != ''
+        if: inputs.publish && inputs.release_repo != ''
         uses: actions/create-github-app-token@v2
         with:
           app-id: ${{ inputs.release_app_id }}
@@ -179,6 +192,7 @@ jobs:
           owner: ${{ github.repository_owner }}
 
       - name: Publish
+        if: inputs.publish
         env:
           GH_TOKEN: ${{ steps.release-token.outputs.token || github.token }}
           RELEASE_REPO: ${{ inputs.release_repo || github.repository }}
@@ -247,7 +261,7 @@ jobs:
 
       - name: Get release repository token
         id: release-token
-        if: inputs.release_repo != ''
+        if: inputs.publish && inputs.release_repo != ''
         uses: actions/create-github-app-token@v2
         with:
           app-id: ${{ inputs.release_app_id }}
@@ -255,6 +269,7 @@ jobs:
           owner: ${{ github.repository_owner }}
 
       - name: Publish
+        if: inputs.publish
         env:
           GH_TOKEN: ${{ steps.release-token.outputs.token || github.token }}
           RELEASE_REPO: ${{ inputs.release_repo || github.repository }}
@@ -296,10 +311,13 @@ jobs:
             main/
           retention-days: 1
 
-  package_and_upload_windows:
-    name: Package & Upload Windows
+  # a separate job so unsigned builds never enter the signing environment, which only admits
+  # main and v* tags
+  sign_dotnet_windows:
+    name: Sign dotnet for Windows
     runs-on: windows-latest
     needs: build_dotnet_windows
+    if: inputs.publish
     environment: signing
     steps:
       - name: Download dotnet artifacts
@@ -328,6 +346,27 @@ jobs:
           file-digest: SHA256
           timestamp-rfc3161: http://timestamp.acs.microsoft.com
           timestamp-digest: SHA256
+
+      - name: Replace dotnet artifact with signed build
+        uses: actions/upload-artifact@v4
+        with:
+          name: dotnet-windows-build
+          path: dotnet-build/
+          retention-days: 1
+          overwrite: true
+
+  package_and_upload_windows:
+    name: Package & Upload Windows
+    runs-on: windows-latest
+    needs: [build_dotnet_windows, sign_dotnet_windows]
+    # sign_dotnet_windows is skipped for unsigned builds; failure() covers both needs
+    if: ${{ !failure() && !cancelled() }}
+    steps:
+      - name: Download dotnet artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dotnet-windows-build
+          path: dotnet-build
 
       - name: Download rust launcher
         uses: suisei-cn/actions-download-file@v1.3.0
@@ -376,7 +415,7 @@ jobs:
 
       - name: Get release repository token
         id: release-token
-        if: inputs.release_repo != ''
+        if: inputs.publish && inputs.release_repo != ''
         uses: actions/create-github-app-token@v2
         with:
           app-id: ${{ inputs.release_app_id }}
@@ -384,6 +423,7 @@ jobs:
           owner: ${{ github.repository_owner }}
 
       - name: Publish
+        if: inputs.publish
         shell: bash
         env:
           GH_TOKEN: ${{ steps.release-token.outputs.token || github.token }}

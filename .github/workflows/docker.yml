@@ -10,6 +10,10 @@ on:
         description: 'Release tag, also the per-build docker tag (e.g. v26.10.0 or v26.11.0-f8410286-develop)'
         required: true
         type: string
+      publish:
+        description: 'Push the images and tag them; false only builds them'
+        required: true
+        type: boolean
     secrets:
       docker_hub_username:
         required: true
@@ -19,7 +23,6 @@ jobs:
   build_images:
     name: Build ${{ matrix.name }} image
     runs-on: ${{ matrix.os }}
-    if: contains(github.event.head_commit.message, '[no build]') == false
     strategy:
       matrix:
         include:
@@ -65,12 +68,14 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Login to DockerHub
+        if: inputs.publish
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.docker_hub_username }}
           password: ${{ secrets.docker_hub_access_token }}
 
       - name: Log in to the Container registry
+        if: inputs.publish
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -83,7 +88,7 @@ jobs:
         with:
           context: .
           file: ./docker/${{ matrix.path }}Dockerfile
-          push: true
+          push: ${{ inputs.publish }}
           provenance: false
           platforms: ${{ matrix.platform }}
           build-args: |
@@ -93,9 +98,11 @@ jobs:
             type=image,name=ghcr.io/ersatztv/legacy,name-canonical=true,push-by-digest=true
 
       - name: Save digest to artifact
+        if: inputs.publish
         run: echo ${{ steps.build.outputs.digest }} > digest.txt
 
       - name: Upload digest artifact
+        if: inputs.publish
         uses: actions/upload-artifact@v4
         with:
           name: digest-${{ matrix.name }}
@@ -105,6 +112,7 @@ jobs:
     name: Merge Manifests
     runs-on: ubuntu-latest
     needs: build_images
+    if: inputs.publish
     steps:
       - name: Login to DockerHub
         uses: docker/login-action@v3

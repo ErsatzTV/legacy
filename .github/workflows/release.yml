@@ -7,6 +7,7 @@ jobs:
     uses: ersatztv/legacy/.github/workflows/artifacts.yml@main
     with:
       tag: ${{ github.event.release.tag_name }}
+      publish: true
     secrets:
       apple_developer_certificate_p12_base64: ${{ secrets.APPLE_DEVELOPER_CERTIFICATE_P12_BASE64 }}
       apple_developer_certificate_password: ${{ secrets.APPLE_DEVELOPER_CERTIFICATE_PASSWORD }}
@@ -21,6 +22,7 @@ jobs:
     with:
       base_version: latest
       tag: ${{ github.event.release.tag_name }}
+      publish: true
     secrets:
       docker_hub_username: ${{ secrets.DOCKER_HUB_USERNAME }}
       docker_hub_access_token: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}

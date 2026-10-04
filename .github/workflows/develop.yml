@@ -1,0 +1,132 @@
+name: Develop
+# publishes a develop build of main's head on demand, so several merges can ship as one build;
+# ci.yml already builds every push to main without publishing
+on:
+  workflow_dispatch:
+# one run at a time, in dispatch order, so :develop and the newest develop release always match
+concurrency:
+  group: develop
+  cancel-in-progress: false
+# develop builds live in their own repository so legacy's watchers and release feed only see full releases
+env:
+  DEVELOP_REPO: ErsatzTV/legacy-develop-builds
+  DEVELOP_KEEP: 100
+jobs:
+  calculate_version:
+    name: Calculate version information
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require main
+        if: github.ref != 'refs/heads/main'
+        run: |
+          echo "::error::develop builds are published from main only"
+          exit 1
+      - name: Get the sources
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Calculate version
+        id: version
+        run: .github/scripts/develop-tag.sh "$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+    outputs:
+      last_release: ${{ steps.version.outputs.last_release }}
+      tag: ${{ steps.version.outputs.tag }}
+
+  create_draft:
+    name: Create draft release
+    runs-on: ubuntu-latest
+    needs: calculate_version
+    env:
+      TAG: ${{ needs.calculate_version.outputs.tag }}
+      LAST_RELEASE: ${{ needs.calculate_version.outputs.last_release }}
+    steps:
+      - name: Get the sources
+        uses: actions/checkout@v4
+      - name: Get develop repository token
+        id: develop-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.DEVELOP_APP_ID }}
+          private-key: ${{ secrets.DEVELOP_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+      # no --target: the tag is created on the develop repository's default branch, since legacy's
+      # commits don't exist there; the tag name carries the legacy sha
+      - name: Create draft
+        shell: bash
+        env:
+          GH_TOKEN: ${{ steps.develop-token.outputs.token }}
+        run: |
+          if is_draft=$(gh release view "$TAG" --repo "$DEVELOP_REPO" --json isDraft --jq .isDraft 2>/dev/null); then
+            if [[ "$is_draft" == "true" ]]; then
+              echo "reusing existing draft $TAG"
+              exit 0
+            fi
+            echo "$TAG is already published" >&2
+            exit 1
+          fi
+          .github/scripts/notes.sh "$TAG" "$LAST_RELEASE" > notes.md
+          gh release create "$TAG" --repo "$DEVELOP_REPO" --draft --title "$TAG" --notes-file notes.md
+
+  build_and_upload:
+    uses: ./.github/workflows/artifacts.yml
+    needs: [calculate_version, create_draft]
+    with:
+      tag: ${{ needs.calculate_version.outputs.tag }}
+      publish: true
+      release_repo: ErsatzTV/legacy-develop-builds
+      release_app_id: ${{ vars.DEVELOP_APP_ID }}
+    secrets:
+      apple_developer_certificate_p12_base64: ${{ secrets.APPLE_DEVELOPER_CERTIFICATE_P12_BASE64 }}
+      apple_developer_certificate_password: ${{ secrets.APPLE_DEVELOPER_CERTIFICATE_PASSWORD }}
+      ac_username: ${{ secrets.AC_USERNAME }}
+      ac_password: ${{ secrets.AC_PASSWORD }}
+      gh_token: ${{ secrets.GITHUB_TOKEN }}
+      azure_client_id: ${{ secrets.AZURE_CLIENT_ID }}
+      azure_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
+      azure_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      release_app_private_key: ${{ secrets.DEVELOP_APP_PRIVATE_KEY }}
+
+  build_images:
+    uses: ./.github/workflows/docker.yml
+    needs: calculate_version
+    with:
+      base_version: develop
+      tag: ${{ needs.calculate_version.outputs.tag }}
+      publish: true
+    secrets:
+      docker_hub_username: ${{ secrets.DOCKER_HUB_USERNAME }}
+      docker_hub_access_token: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+
+  publish:
+    name: Publish develop release
+    runs-on: ubuntu-latest
+    needs: [calculate_version, build_and_upload, build_images]
+    env:
+      TAG: ${{ needs.calculate_version.outputs.tag }}
+    steps:
+      - name: Get the sources
+        uses: actions/checkout@v4
+      - name: Get develop repository token
+        id: develop-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.DEVELOP_APP_ID }}
+          private-key: ${{ secrets.DEVELOP_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+      - name: Verify draft
+        shell: bash
+        env:
+          GH_TOKEN: ${{ steps.develop-token.outputs.token }}
+          RELEASE_REPO: ${{ env.DEVELOP_REPO }}
+        run: .github/scripts/verify-draft.sh "$TAG"
+      - name: Publish
+        shell: bash
+        env:
+          GH_TOKEN: ${{ steps.develop-token.outputs.token }}
+        run: gh release edit "$TAG" --repo "$DEVELOP_REPO" --draft=false --latest
+      - name: Prune old develop releases
+        shell: bash
+        env:
+          GH_TOKEN: ${{ steps.develop-token.outputs.token }}
+          RELEASE_REPO: ${{ env.DEVELOP_REPO }}
+        run: .github/scripts/prune-develop.sh "$DEVELOP_KEEP"
