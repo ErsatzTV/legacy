@@ -85,6 +85,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Fix `Unified Docker` health check incorrectly warning about a deprecated docker tag on arm64 hardware using the default docker image
 - Fix bug where block schedules could skip and/or repeat items
 - Fix songs changing their background ~40 seconds after joining a channel
+- Fix troubleshooting playback to start exactly at the specified seek point (hls.js player often started a segment or two late)
 
 ## [26.10.0] - 2026-09-21
 ### Added

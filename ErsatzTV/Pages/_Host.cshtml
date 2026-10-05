@@ -36,11 +36,13 @@
             return false;
         }
 
-        function previewChannel(uri) {
+        // -1 starts a live playlist at the live edge
+        function previewChannel(uri, startPosition = -1) {
           var video = document.getElementById('video');
           if (Hls.isSupported()) {
             var hls = new Hls({
               debug: true,
+              startPosition: startPosition,
               manifestLoadPolicy: {
                 default: {
                   maxTimeToFirstByteMs: Infinity,

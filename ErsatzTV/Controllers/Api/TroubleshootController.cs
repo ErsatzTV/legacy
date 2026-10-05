@@ -125,11 +125,11 @@ public class TroubleshootController(
 
                 started = true;
 
-                string playlistName = streamingEngine is StreamingEngine.Next
-                    ? "ffmpeg.m3u8"
-                    : "live.m3u8";
+                string playlistName = "live.m3u8";
 
-                string playlistFile = Path.Combine(FileSystemLayout.TranscodeTroubleshootingFolder, playlistName);
+                string playlistFile = fileSystem.Path.Combine(
+                    FileSystemLayout.TranscodeTroubleshootingFolder,
+                    playlistName);
                 while (!fileSystem.File.Exists(playlistFile))
                 {
                     await Task.Delay(TimeSpan.FromMilliseconds(100), cancellationToken);
@@ -145,6 +145,10 @@ public class TroubleshootController(
 
                 initialSegmentCount = Math.Max(initialSegmentCount, 2);
 
+                string readyFileName = fileSystem.Path.Combine(
+                    FileSystemLayout.TranscodeTroubleshootingFolder,
+                    ".ready");
+
                 bool hasSegments = false;
                 while (!hasSegments)
                 {
@@ -154,17 +158,27 @@ public class TroubleshootController(
                         break;
                     }
 
-                    string[] segmentFiles = streamingMode switch
+                    if (streamingEngine is StreamingEngine.Next)
                     {
-                        // StreamingMode.HttpLiveStreamingSegmenter => Directory.GetFiles(
-                        //     FileSystemLayout.TranscodeTroubleshootingFolder,
-                        //     "*.m4s"),
-                        _ => Directory.GetFiles(FileSystemLayout.TranscodeTroubleshootingFolder, "*.ts")
-                    };
+                        if (fileSystem.File.Exists(readyFileName))
+                        {
+                            hasSegments = true;
+                        }
+                    }
+                    else
+                    {
+                        string[] segmentFiles = streamingMode switch
+                        {
+                            // StreamingMode.HttpLiveStreamingSegmenter => Directory.GetFiles(
+                            //     FileSystemLayout.TranscodeTroubleshootingFolder,
+                            //     "*.m4s"),
+                            _ => Directory.GetFiles(FileSystemLayout.TranscodeTroubleshootingFolder, "*.ts")
+                        };
 
-                    if (segmentFiles.Length >= initialSegmentCount)
-                    {
-                        hasSegments = true;
+                        if (segmentFiles.Length >= initialSegmentCount)
+                        {
+                            hasSegments = true;
+                        }
                     }
                 }
 
