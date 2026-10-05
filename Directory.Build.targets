@@ -12,4 +12,11 @@
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
     </ItemGroup>
+
+    <!-- SkiaSharp.NativeAssets.Win32 ships a ~100MB native pdb as a runtime asset -->
+    <Target Name="RemoveNativePdbsFromPublish" AfterTargets="ComputeResolvedFilesToPublishList">
+        <ItemGroup>
+            <ResolvedFileToPublish Remove="@(ResolvedFileToPublish)" Condition="'%(Extension)' == '.pdb'" />
+        </ItemGroup>
+    </Target>
 </Project>
