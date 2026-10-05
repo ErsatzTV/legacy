@@ -11,5 +11,6 @@ public interface IMovieFolderScanner
         string ffprobePath,
         decimal progressMin,
         decimal progressMax,
+        bool deepScan,
         CancellationToken cancellationToken);
 }

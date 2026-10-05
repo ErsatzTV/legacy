@@ -71,6 +71,7 @@ public class RemoteStreamFolderScanner : LocalFolderScanner, IRemoteStreamFolder
         string ffprobePath,
         decimal progressMin,
         decimal progressMax,
+        bool deepScan,
         CancellationToken cancellationToken)
     {
         try
@@ -159,7 +160,7 @@ public class RemoteStreamFolderScanner : LocalFolderScanner, IRemoteStreamFolder
                             "Previously trashed items are now present in folder {Folder}",
                             remoteStreamFolder);
                     }
-                    else
+                    else if (!deepScan)
                     {
                         // etag matches and no trashed items are now present, continue to next folder
                         continue;
@@ -179,10 +180,10 @@ public class RemoteStreamFolderScanner : LocalFolderScanner, IRemoteStreamFolder
                     Either<BaseError, MediaItemScanResult<RemoteStream>> maybeVideo = await _remoteStreamRepository
                         .GetOrAdd(libraryPath, knownFolder, file, cancellationToken)
                         .BindT(video => ParseRemoteStreamDefinition(video, deserializer, cancellationToken))
-                        .BindT(video => UpdateMetadata(video, cancellationToken))
-                        .BindT(video => UpdateStatistics(video, ffmpegPath, ffprobePath))
+                        .BindT(video => UpdateMetadata(video, deepScan, cancellationToken))
+                        .BindT(video => UpdateStatistics(video, ffmpegPath, ffprobePath, deepScan))
                         .BindT(video => UpdateLibraryFolderId(video, knownFolder))
-                        .BindT(video => UpdateThumbnail(video, cancellationToken))
+                        .BindT(video => UpdateThumbnail(video, deepScan, cancellationToken))
                         //.BindT(UpdateSubtitles)
                         .BindT(FlagNormal);
 
@@ -338,6 +339,7 @@ public class RemoteStreamFolderScanner : LocalFolderScanner, IRemoteStreamFolder
 
     private async Task<Either<BaseError, MediaItemScanResult<RemoteStream>>> UpdateMetadata(
         RemoteStreamWithDefinition result,
+        bool deepScan,
         CancellationToken cancellationToken)
     {
         try
@@ -350,7 +352,8 @@ public class RemoteStreamFolderScanner : LocalFolderScanner, IRemoteStreamFolder
                          .Flatten()
                          .HeadOrNone())
             {
-                shouldUpdate = remoteStreamMetadata.MetadataKind == MetadataKind.Fallback ||
+                shouldUpdate = deepScan ||
+                               remoteStreamMetadata.MetadataKind == MetadataKind.Fallback ||
                                remoteStreamMetadata.DateUpdated != _localFileSystem.GetLastWriteTime(path);
             }
 
@@ -375,6 +378,7 @@ public class RemoteStreamFolderScanner : LocalFolderScanner, IRemoteStreamFolder
 
     private async Task<Either<BaseError, MediaItemScanResult<RemoteStream>>> UpdateThumbnail(
         MediaItemScanResult<RemoteStream> result,
+        bool deepScan,
         CancellationToken cancellationToken)
     {
         try
@@ -386,7 +390,14 @@ public class RemoteStreamFolderScanner : LocalFolderScanner, IRemoteStreamFolder
                 Option<string> maybeThumbnail = LocateThumbnail(remoteStream);
                 foreach (string thumbnailFile in maybeThumbnail)
                 {
-                    await RefreshArtwork(thumbnailFile, metadata, ArtworkKind.Thumbnail, None, None, cancellationToken);
+                    await RefreshArtwork(
+                        thumbnailFile,
+                        metadata,
+                        ArtworkKind.Thumbnail,
+                        None,
+                        None,
+                        deepScan,
+                        cancellationToken);
                 }
 
                 if (maybeThumbnail.IsNone && metadata.Artwork.Any(a => a.ArtworkKind is ArtworkKind.Thumbnail))

@@ -47,7 +47,8 @@ public partial class FallbackMetadataProvider : IFallbackMetadataProvider
             Tags = [],
             Studios = [],
             Actors = [],
-            Artwork = []
+            Artwork = [],
+            Guids = []
         };
         return GetTelevisionShowMetadata(fileName, metadata);
     }
@@ -59,7 +60,10 @@ public partial class FallbackMetadataProvider : IFallbackMetadataProvider
         {
             MetadataKind = MetadataKind.Fallback,
             Title = fileName ?? artistFolder,
-            Artwork = []
+            Artwork = [],
+            Genres = [],
+            Styles = [],
+            Moods = []
         };
     }
 

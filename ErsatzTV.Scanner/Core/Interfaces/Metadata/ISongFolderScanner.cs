@@ -11,5 +11,6 @@ public interface ISongFolderScanner
         string ffmpegPath,
         decimal progressMin,
         decimal progressMax,
+        bool deepScan,
         CancellationToken cancellationToken);
 }

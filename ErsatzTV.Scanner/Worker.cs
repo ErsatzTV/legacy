@@ -81,6 +81,7 @@ public class Worker : BackgroundService
         scanLocalCommand.Arguments.Add(libraryIdArgument);
         scanLocalCommand.Arguments.Add(baseUrlArgument);
         scanLocalCommand.Options.Add(forceOption);
+        scanLocalCommand.Options.Add(deepOption);
 
         var scanPlexCommand = new Command("scan-plex", "Scan a Plex library");
         scanPlexCommand.Arguments.Add(libraryIdArgument);
@@ -156,6 +157,7 @@ public class Worker : BackgroundService
                 bool force = parseResult.GetValue(forceOption);
                 SetProcessPriority(force);
 
+                bool deep = parseResult.GetValue(deepOption);
                 int libraryId = parseResult.GetValue(libraryIdArgument);
                 string? baseUrl = parseResult.GetValue(baseUrlArgument);
                 if (baseUrl is null)
@@ -166,7 +168,7 @@ public class Worker : BackgroundService
                 using IServiceScope scope = _serviceScopeFactory.CreateScope();
                 IMediator mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
 
-                var scan = new ScanLocalLibrary(baseUrl, libraryId, force);
+                var scan = new ScanLocalLibrary(baseUrl, libraryId, force, deep);
                 await mediator.Send(scan, token);
             }
         });

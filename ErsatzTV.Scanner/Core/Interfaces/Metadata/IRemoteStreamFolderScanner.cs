@@ -11,5 +11,6 @@ public interface IRemoteStreamFolderScanner
         string ffprobePath,
         decimal progressMin,
         decimal progressMax,
+        bool deepScan,
         CancellationToken cancellationToken);
 }

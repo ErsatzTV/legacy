@@ -11,5 +11,6 @@ public interface IOtherVideoFolderScanner
         string ffprobePath,
         decimal progressMin,
         decimal progressMax,
+        bool deepScan,
         CancellationToken cancellationToken);
 }
