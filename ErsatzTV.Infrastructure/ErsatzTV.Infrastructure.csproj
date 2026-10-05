@@ -15,7 +15,7 @@
         <PackageReference Include="Blurhash.SkiaSharp" Version="2.0.0" />
         <PackageReference Include="CliWrap" Version="3.10.5" />
         <PackageReference Include="Dapper" Version="2.1.86" />
-        <PackageReference Include="EFCore.BulkExtensions" Version="[9.0.2,10)" />
+        <PackageReference Include="EFCore.BulkExtensions.Core" Version="[9.0.2,10)" />
         <PackageReference Include="Elastic.Clients.Elasticsearch" Version="9.5.2" />
         <PackageReference Include="Humanizer.Core" Version="3.0.10" />
         <PackageReference Include="Jint" Version="4.16.2" />
