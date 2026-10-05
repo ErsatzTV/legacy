@@ -42,7 +42,6 @@ on:
 permissions:
   id-token: write
   contents: write
-# asset names carry the full tag; binaries report the tag without -develop, plus the target
 env:
   TAG: ${{ inputs.tag }}
 jobs:
@@ -104,12 +103,13 @@ jobs:
         shell: bash
         run: |
           brew install coreutils
-          # bundle versions must be numeric: v26.11.0-f8410286-develop -> 26.11.0
+          # bundle versions must be numeric
           bundle_version="${TAG#v}"
           bundle_version="${bundle_version%%-*}"
           plutil -replace CFBundleShortVersionString -string "$bundle_version" ErsatzTV-macOS/ErsatzTV-macOS/Info.plist
           plutil -replace CFBundleVersion -string "$bundle_version" ErsatzTV-macOS/ErsatzTV-macOS/Info.plist
-          scripts/macOS/bundle.sh
+          # the Xcode project signs with the Developer ID cert, which unsigned builds lack
+          scripts/macOS/bundle.sh ${{ !inputs.publish && 'CODE_SIGNING_ALLOWED=NO' || '' }}
 
       - name: Bundle ersatztv-channel from next
         shell: bash
@@ -125,7 +125,7 @@ jobs:
           chmod +x ErsatzTV-Legacy.app/Contents/MacOS/ersatztv-channel
           rm -rf next-download next-extracted
 
-      # the pinned hashes are the release's SHA256SUMS entries
+      # hashes from the release's SHA256SUMS
       - name: Download ffmpeg
         shell: bash
         env:
@@ -141,7 +141,7 @@ jobs:
         shell: bash
         run: scripts/macOS/sign.sh ffmpeg/bin
 
-      # sign.sh adds ffmpeg after signing the bundle; unsigned builds still need it
+      # sign.sh normally copies ffmpeg in
       - name: Add ffmpeg
         if: ${{ !inputs.publish }}
         shell: bash
@@ -180,8 +180,7 @@ jobs:
           rm -r ErsatzTV-Legacy.app
           rm -r ffmpeg
 
-      # github.token can't write to another repository; with only owner set, the token covers the
-      # repositories the app is installed on
+      # github.token can't write to other repos; owner alone covers every repo the app is installed on
       - name: Get release repository token
         id: release-token
         if: inputs.publish && inputs.release_repo != ''
@@ -235,11 +234,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          # Define some variables for things we need
           release_name="ErsatzTV-Legacy-${TAG}-${{ matrix.target }}"
           echo "RELEASE_NAME=${release_name}" >> "$GITHUB_ENV"
 
-          # Build everything
           sed -i '/Scanner/d' ErsatzTV/ErsatzTV.csproj
           dotnet publish ErsatzTV.Scanner/ErsatzTV.Scanner.csproj --framework net10.0 --runtime "${{ matrix.target }}" -c Release -o "scanner" -p:RestoreEnablePackagePruning=true -p:InformationalVersion="${TAG%-develop}-${{ matrix.target }}" -p:EnableCompressionInSingleFile=true -p:DebugType=Embedded -p:PublishSingleFile=true --self-contained true
           dotnet publish ErsatzTV/ErsatzTV.csproj --framework net10.0 --runtime "${{ matrix.target }}" -c Release -o "main" -p:RestoreEnablePackagePruning=true -p:InformationalVersion="${TAG%-develop}-${{ matrix.target }}" -p:EnableCompressionInSingleFile=true -p:DebugType=Embedded -p:PublishSingleFile=true --self-contained true
@@ -247,7 +244,6 @@ jobs:
           mv scanner/* "$release_name/"
           mv main/* "$release_name/"
 
-          # download next artifacts
           gh release download develop --repo ErsatzTV/next --pattern "ersatztv-next-*-${{ matrix.target }}.tar.gz" --dir next-download
           mkdir next-extracted
           tar xzvf next-download/*.tar.gz -C next-extracted --strip-components 1
@@ -256,7 +252,6 @@ jobs:
 
           tar czvf "${release_name}.tar.gz" "$release_name"
 
-          # Delete output directory
           rm -r "$release_name"
 
       - name: Get release repository token
@@ -311,8 +306,7 @@ jobs:
             main/
           retention-days: 1
 
-  # a separate job so unsigned builds never enter the signing environment, which only admits
-  # main and v* tags
+  # own job: the signing environment only admits main and v* tags
   sign_dotnet_windows:
     name: Sign dotnet for Windows
     runs-on: windows-latest
@@ -359,7 +353,7 @@ jobs:
     name: Package & Upload Windows
     runs-on: windows-latest
     needs: [build_dotnet_windows, sign_dotnet_windows]
-    # sign_dotnet_windows is skipped for unsigned builds; failure() covers both needs
+    # sign_dotnet_windows is skipped when unsigned
     if: ${{ !failure() && !cancelled() }}
     steps:
       - name: Download dotnet artifacts
@@ -374,7 +368,7 @@ jobs:
           url: "https://github.com/ErsatzTV/ErsatzTV-Windows/releases/download/v1.0.0/ErsatzTV-Windows.exe"
           target: rust-build/
 
-      # the pinned hash is the release's SHA256SUMS entry
+      # hash from the release's SHA256SUMS
       - name: Download ffmpeg
         shell: bash
         env:
@@ -396,12 +390,11 @@ jobs:
           mv dotnet-build/scanner/* "$release_name/"
           mv dotnet-build/main/* "$release_name/"
 
-          # dotnet shouldn't copy the resources here, but it does
+          # dotnet copies Resources here anyway
           rm -rf "$release_name/Resources"
 
           mv rust-build/ErsatzTV-Windows.exe "$release_name/ErsatzTV-Windows.exe"
 
-          # download next artifacts
           gh release download develop --repo ErsatzTV/next --pattern "ersatztv-next-*-windows-x64.zip" --dir next-download
           7z x next-download/*.zip -onext-extracted
           mv next-extracted/ersatztv-next-*/ersatztv-channel.exe "$release_name/"

@@ -1,9 +1,5 @@
 #!/usr/bin/env bash
-# usage: prune-develop.sh <keep>
-# Deletes every develop draft, and every published develop release (with its tag) beyond the
-# <keep> most recently published, in $RELEASE_REPO (default: this repository). Callers must hold
-# the "develop" concurrency group, otherwise an in-flight run's draft could be deleted.
-# DRY_RUN=1 lists what would be deleted.
+# callers must hold the develop concurrency group, or an in-flight run's draft gets deleted
 set -euo pipefail
 
 keep="${1:?usage: prune-develop.sh <keep>}"
@@ -20,7 +16,7 @@ run() {
   if [[ -n "${DRY_RUN:-}" ]]; then echo "would run: $*"; else "$@"; fi
 }
 
-# drafts have no tag yet; it is only created on publish
+# drafts have no tag until published
 for tag in $drafts; do
   echo "deleting draft $tag"
   run gh release delete "$tag" --repo "$repo" --yes

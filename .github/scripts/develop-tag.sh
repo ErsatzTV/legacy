@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
-# usage: develop-tag.sh <sha>   (prints last_release= and tag= lines for $GITHUB_OUTPUT)
-# develop builds are versioned as prereleases of the next minor release (vYY.N.0, N restarting at 1
-# each year) so they sort after the release they were built on
+# next minor (vYY.N.0, N resets yearly) so develop builds sort after their base release
 set -euo pipefail
 
 sha="${1:?usage: develop-tag.sh <sha>}"

@@ -10,7 +10,7 @@ FFMPEG_BIN="$1"
 
 codesign --force --verbose --timestamp --options=runtime --entitlements "$ENTITLEMENTS" --sign "$SIGNING_IDENTITY" --deep "$APP_NAME" || exit 1
 
-# --deep would replace ffmpeg's own signature and entitlements, so add it afterwards and reseal only the bundle
+# --deep would replace ffmpeg's own signature and entitlements
 if [ -n "$FFMPEG_BIN" ]; then
     cp -p "$FFMPEG_BIN/ffmpeg" "$FFMPEG_BIN/ffprobe" "$APP_NAME/Contents/MacOS/" || exit 1
     codesign --force --verbose --timestamp --options=runtime --entitlements "$ENTITLEMENTS" --sign "$SIGNING_IDENTITY" "$APP_NAME" || exit 1

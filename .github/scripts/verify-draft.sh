@@ -1,6 +1,4 @@
 #!/usr/bin/env bash
-# usage: verify-draft.sh <tag>
-# Fails unless <tag> is a draft release whose assets are exactly the expected set, all fully uploaded.
 set -euo pipefail
 
 tag="${1:?usage: verify-draft.sh <tag>}"
