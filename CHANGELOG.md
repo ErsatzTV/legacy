@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
+
+## [26.11.0] - 2026-10-05
 ### Added
 - Next engine:
   - Properly rotate content that contains orientation metadata (e.g. from phones)
@@ -3583,7 +3585,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Initial release to facilitate testing outside of Docker.
 
 
-[Unreleased]: https://github.com/ErsatzTV/legacy/compare/v26.10.0...HEAD
+[Unreleased]: https://github.com/ErsatzTV/legacy/compare/v26.11.0...HEAD
+[26.11.0]: https://github.com/ErsatzTV/legacy/compare/v26.10.0...v26.11.0
 [26.10.0]: https://github.com/ErsatzTV/legacy/compare/v26.9.0...v26.10.0
 [26.9.0]: https://github.com/ErsatzTV/legacy/compare/v26.8.1...v26.9.0
 [26.8.1]: https://github.com/ErsatzTV/legacy/compare/v26.8.0...v26.8.1
