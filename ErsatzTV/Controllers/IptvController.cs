@@ -110,6 +110,16 @@ public class IptvController : StreamingControllerBase
             }
         }
 
+        // cached lineup and playlist urls can still carry the legacy mode
+        if (mode == "ts-legacy" && maybeChannel.Exists(c => c.StreamingEngine is StreamingEngine.Next))
+        {
+            _logger.LogInformation(
+                "Channel {ChannelNumber} uses the next streaming engine; using ts instead of mode {Mode}",
+                channelNumber,
+                mode);
+            mode = "ts";
+        }
+
         FFmpegProcessRequest request = mode switch
         {
             "ts-legacy" => new GetConcatProcessByChannelNumber(Request.Scheme, Request.Host.ToString(), channelNumber),
@@ -214,6 +224,17 @@ public class IptvController : StreamingControllerBase
                         return Redirect($"~/iptv/channel/{channelNumber}.ts{AccessTokenQuery()}");
                 }
             }
+        }
+
+        // cached playlist urls can still carry the legacy mode
+        if (mode is not ("segmenter" or "segmenter-v2" or "segmenter-fmp4") &&
+            maybeChannel.Exists(c => c.StreamingEngine is StreamingEngine.Next))
+        {
+            _logger.LogInformation(
+                "Channel {ChannelNumber} uses the next streaming engine; using segmenter instead of mode {Mode}",
+                channelNumber,
+                mode);
+            mode = "segmenter";
         }
 
         switch (mode)
