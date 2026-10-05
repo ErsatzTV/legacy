@@ -10,6 +10,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Add `mpeg2video` encoder support (software, some Intel QSV and Intel VAAPI devices)
   - Add song playback support, using legacy-generated background image and text
     - Song Video Mode `With Progress` is not supported yet; these songs play without a progress bar
+  - Support FFmpeg Profile `Normalize Frame Rate`
+    - As with the legacy engine, the target is the lowest frame rate above 23 fps among the channel's scheduled items
+    - Frames are dropped or duplicated to reach the target, instead of blended
+    - With video copy, only items already at the target rate are copied; others are transcoded
 - Add `Deep Scan Library` button to local libraries
   - A deep scan re-probes every file and refreshes all metadata and artwork, even when files appear unchanged
   - This forces a refresh of e.g. NFO files or posters that were edited without changing their modified time

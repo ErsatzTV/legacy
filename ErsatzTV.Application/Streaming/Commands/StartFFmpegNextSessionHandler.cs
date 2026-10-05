@@ -12,6 +12,7 @@ using ErsatzTV.Core.Interfaces.FFmpeg;
 using ErsatzTV.Core.Interfaces.Metadata;
 using ErsatzTV.Core.Interfaces.Repositories;
 using ErsatzTV.Core.Next.Config;
+using ErsatzTV.FFmpeg;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -68,9 +69,9 @@ public class StartFFmpegNextSessionHandler(
 
         Option<TimeSpan> idleTimeout = Option<TimeSpan>.None;
 
-        // Option<FrameRate> targetFramerate = await mediator.Send(
-        //     new GetChannelFramerate(request.ChannelNumber),
-        //     cancellationToken);
+        Option<FrameRate> targetFramerate = await mediator.Send(
+            new GetChannelFramerate(request.ChannelNumber),
+            cancellationToken);
 
         Option<ChannelViewModel> maybeChannel =
             await mediator.Send(new GetChannelByNumber(request.ChannelNumber), cancellationToken);
@@ -105,7 +106,11 @@ public class StartFFmpegNextSessionHandler(
 
         PrepareTranscodeFolder(request.ChannelNumber);
 
-        ChannelConfig config = await channelConfigConverter.ToNext(channel, ffmpegProfile, cancellationToken);
+        ChannelConfig config = await channelConfigConverter.ToNext(
+            channel,
+            ffmpegProfile,
+            targetFramerate,
+            cancellationToken);
 
         NextSessionWorker worker = new NextSessionWorker(
             channelBinary,

@@ -366,6 +366,7 @@ public class PrepareTroubleshootingPlaybackHandler(
         ChannelConfig config = await channelConfigConverter.ToNext(
             Channels.Mapper.ProjectToViewModel(channel, playoutCount: 0),
             FFmpegProfiles.Mapper.ProjectToViewModel(ffmpegProfile),
+            Option<FrameRate>.None,
             cancellationToken);
 
         config.Playout.VirtualStart = start.ToString("yyyy-MM-dd'T'HH:mm:ss.fffK", CultureInfo.InvariantCulture);

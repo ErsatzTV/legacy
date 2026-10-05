@@ -204,6 +204,14 @@ namespace ErsatzTV.Core.Next.Config
         [JsonPropertyName("format")]
         public VideoFormat? Format { get; set; }
 
+        /// <summary>
+        /// Output frame rate, `N` or `N/D` (e.g. `25`, `30000/1001`).
+        /// Frames are dropped or repeated to match it.
+        /// In `copy` mode, only items at this rate are copied. Unset keeps the source rate.
+        /// </summary>
+        [JsonPropertyName("frame_rate")]
+        public string? FrameRate { get; set; }
+
         [JsonPropertyName("height")]
         public long? Height { get; set; }
 

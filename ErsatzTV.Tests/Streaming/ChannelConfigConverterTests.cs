@@ -1,4 +1,3 @@
-using System.IO.Abstractions;
 using ErsatzTV.Application.Channels;
 using ErsatzTV.Application.FFmpegProfiles;
 using ErsatzTV.Application.Streaming;
@@ -6,6 +5,7 @@ using ErsatzTV.Core.Domain;
 using ErsatzTV.Core.FFmpeg;
 using ErsatzTV.Core.Interfaces.Repositories;
 using ErsatzTV.Core.Next.Config;
+using ErsatzTV.FFmpeg;
 using LanguageExt;
 using NUnit.Framework;
 using Testably.Abstractions;
@@ -131,9 +131,52 @@ public class ChannelConfigConverterTests
         config.Normalization.Video.Mode.ShouldBe(StreamMode.Transcode);
     }
 
+    [Test]
+    public async Task No_target_framerate_should_pass_source_rate_through()
+    {
+        ChannelConfig config = await Convert(Profile);
+
+        config.Normalization.Video.FrameRate.ShouldBeNull();
+    }
+
+    [Test]
+    public async Task Target_framerate_should_set_frame_rate()
+    {
+        ChannelConfig config = await Convert(Profile, new FrameRate("24000/1001"));
+
+        config.Normalization.Video.FrameRate.ShouldBe("24000/1001");
+    }
+
+    [TestCase("24000/1001", "24000/1001")]
+    [TestCase("25/1", "25/1")]
+    [TestCase("30", "30")]
+    [TestCase("23.976", "24000/1001")]
+    [TestCase("23.98", "24000/1001")]
+    [TestCase("29.97", "30000/1001")]
+    [TestCase("59.94", "60000/1001")]
+    [TestCase("25.00", "25")]
+    [TestCase("12.5", "12500/1000")]
+    public void ToNextFrameRate_should_convert_to_rational(string input, string expected) =>
+        ChannelConfigConverter.ToNextFrameRate(new FrameRate(input)).ShouldBe(Option<string>.Some(expected));
+
+    [TestCase("")]
+    [TestCase("0/0")]
+    [TestCase("30/0")]
+    [TestCase("1/2")]
+    [TestCase("0.5")]
+    [TestCase("241")]
+    [TestCase("1000/1")]
+    [TestCase("abc")]
+    [TestCase("-30")]
+    public void ToNextFrameRate_should_reject_unusable_rates(string input) =>
+        ChannelConfigConverter.ToNextFrameRate(new FrameRate(input)).IsNone.ShouldBeTrue();
+
     private static Task<ChannelConfig> Convert(FFmpegProfileViewModel profile) =>
+        Convert(profile, Option<FrameRate>.None);
+
+    private static Task<ChannelConfig> Convert(FFmpegProfileViewModel profile, Option<FrameRate> targetFramerate) =>
         new ChannelConfigConverter(new EmptyConfigElementRepository(), new RealFileSystem())
-            .ToNext(Channel, profile, CancellationToken.None);
+            .ToNext(Channel, profile, targetFramerate, CancellationToken.None);
 
     private sealed class EmptyConfigElementRepository : IConfigElementRepository
     {
