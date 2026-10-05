@@ -56,7 +56,7 @@ public class ScanLocalLibraryHandler : IRequestHandler<ScanLocalLibrary, Either<
 
     private async Task<Unit> PerformScan(RequestParameters parameters, CancellationToken cancellationToken)
     {
-        (LocalLibrary localLibrary, string ffprobePath, string ffmpegPath, bool forceScan,
+        (LocalLibrary localLibrary, string ffprobePath, string ffmpegPath, bool forceScan, bool deepScan,
             int libraryRefreshInterval, string baseUrl) = parameters;
 
         var sw = new Stopwatch();
@@ -88,6 +88,7 @@ public class ScanLocalLibraryHandler : IRequestHandler<ScanLocalLibrary, Either<
                             ffprobePath,
                             progressMin,
                             progressMax,
+                            deepScan,
                             cancellationToken),
                     LibraryMediaKind.Shows =>
                         await _televisionFolderScanner.ScanFolder(
@@ -96,6 +97,7 @@ public class ScanLocalLibraryHandler : IRequestHandler<ScanLocalLibrary, Either<
                             ffprobePath,
                             progressMin,
                             progressMax,
+                            deepScan,
                             cancellationToken),
                     LibraryMediaKind.MusicVideos =>
                         await _musicVideoFolderScanner.ScanFolder(
@@ -104,6 +106,7 @@ public class ScanLocalLibraryHandler : IRequestHandler<ScanLocalLibrary, Either<
                             ffprobePath,
                             progressMin,
                             progressMax,
+                            deepScan,
                             cancellationToken),
                     LibraryMediaKind.OtherVideos =>
                         await _otherVideoFolderScanner.ScanFolder(
@@ -112,6 +115,7 @@ public class ScanLocalLibraryHandler : IRequestHandler<ScanLocalLibrary, Either<
                             ffprobePath,
                             progressMin,
                             progressMax,
+                            deepScan,
                             cancellationToken),
                     LibraryMediaKind.Songs =>
                         await _songFolderScanner.ScanFolder(
@@ -120,22 +124,25 @@ public class ScanLocalLibraryHandler : IRequestHandler<ScanLocalLibrary, Either<
                             ffmpegPath,
                             progressMin,
                             progressMax,
+                            deepScan,
                             cancellationToken),
                     LibraryMediaKind.Images =>
                         await _imageFolderScanner.ScanFolder(
                             libraryPath,
-                            ffprobePath,
+                            ffmpegPath,
                             ffprobePath,
                             progressMin,
                             progressMax,
+                            deepScan,
                             cancellationToken),
                     LibraryMediaKind.RemoteStreams =>
                         await _remoteStreamFolderScanner.ScanFolder(
                             libraryPath,
-                            ffprobePath,
+                            ffmpegPath,
                             ffprobePath,
                             progressMin,
                             progressMax,
+                            deepScan,
                             cancellationToken),
                     _ => Unit.Default
                 };
@@ -155,9 +162,10 @@ public class ScanLocalLibraryHandler : IRequestHandler<ScanLocalLibrary, Either<
         if (scanned)
         {
             _logger.LogDebug(
-                "Scan of library {Name} completed in {Duration}",
+                "Scan of library {Name} completed in {Duration}, deepScan: {DeepScan}",
                 localLibrary.Name,
-                sw.Elapsed.Humanize());
+                sw.Elapsed.Humanize(),
+                deepScan);
         }
         else
         {
@@ -184,6 +192,7 @@ public class ScanLocalLibraryHandler : IRequestHandler<ScanLocalLibrary, Either<
                 ffprobePath,
                 ffmpegPath,
                 request.ForceScan,
+                request.DeepScan,
                 libraryRefreshInterval,
                 request.BaseUrl));
     }
@@ -215,6 +224,7 @@ public class ScanLocalLibraryHandler : IRequestHandler<ScanLocalLibrary, Either<
         string FFprobePath,
         string FFmpegPath,
         bool ForceScan,
+        bool DeepScan,
         int LibraryRefreshInterval,
         string BaseUrl);
 }

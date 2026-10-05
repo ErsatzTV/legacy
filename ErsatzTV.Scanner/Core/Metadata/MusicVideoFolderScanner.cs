@@ -77,6 +77,7 @@ public class MusicVideoFolderScanner : LocalFolderScanner, IMusicVideoFolderScan
         string ffprobePath,
         decimal progressMin,
         decimal progressMax,
+        bool deepScan,
         CancellationToken cancellationToken)
     {
         try
@@ -116,16 +117,18 @@ public class MusicVideoFolderScanner : LocalFolderScanner, IMusicVideoFolderScan
 
                 Either<BaseError, MediaItemScanResult<Artist>> maybeArtist =
                     await FindOrCreateArtist(libraryPath.Id, artistFolder)
-                        .BindT(artist => UpdateMetadataForArtist(artist, artistFolder))
+                        .BindT(artist => UpdateMetadataForArtist(artist, artistFolder, deepScan))
                         .BindT(artist => UpdateArtworkForArtist(
                             artist,
                             artistFolder,
                             ArtworkKind.Thumbnail,
+                            deepScan,
                             cancellationToken))
                         .BindT(artist => UpdateArtworkForArtist(
                             artist,
                             artistFolder,
                             ArtworkKind.FanArt,
+                            deepScan,
                             cancellationToken));
 
                 foreach (BaseError error in maybeArtist.LeftToSeq())
@@ -153,6 +156,7 @@ public class MusicVideoFolderScanner : LocalFolderScanner, IMusicVideoFolderScan
                         result.Item,
                         artistFolder,
                         allTrashedItems,
+                        deepScan,
                         cancellationToken);
 
                     foreach (ScanCanceled error in scanResult.LeftToSeq().OfType<ScanCanceled>())
@@ -224,7 +228,8 @@ public class MusicVideoFolderScanner : LocalFolderScanner, IMusicVideoFolderScan
 
     private async Task<Either<BaseError, MediaItemScanResult<Artist>>> UpdateMetadataForArtist(
         MediaItemScanResult<Artist> result,
-        string artistFolder)
+        string artistFolder,
+        bool deepScan)
     {
         try
         {
@@ -232,7 +237,7 @@ public class MusicVideoFolderScanner : LocalFolderScanner, IMusicVideoFolderScan
             await LocateNfoFileForArtist(artistFolder).Match(
                 async nfoFile =>
                 {
-                    bool shouldUpdate = Optional(artist.ArtistMetadata).Flatten().HeadOrNone().Match(
+                    bool shouldUpdate = deepScan || Optional(artist.ArtistMetadata).Flatten().HeadOrNone().Match(
                         m => m.MetadataKind == MetadataKind.Fallback ||
                              m.DateUpdated != _localFileSystem.GetLastWriteTime(nfoFile),
                         true);
@@ -248,7 +253,7 @@ public class MusicVideoFolderScanner : LocalFolderScanner, IMusicVideoFolderScan
                 },
                 async () =>
                 {
-                    if (!Optional(artist.ArtistMetadata).Flatten().Any())
+                    if (deepScan || !Optional(artist.ArtistMetadata).Flatten().Any())
                     {
                         _logger.LogDebug("Refreshing {Attribute} for {Path}", "Fallback Metadata", artistFolder);
                         if (await _localMetadataProvider.RefreshFallbackMetadata(artist, artistFolder))
@@ -270,6 +275,7 @@ public class MusicVideoFolderScanner : LocalFolderScanner, IMusicVideoFolderScan
         MediaItemScanResult<Artist> result,
         string artistFolder,
         ArtworkKind artworkKind,
+        bool deepScan,
         CancellationToken cancellationToken)
     {
         try
@@ -280,7 +286,7 @@ public class MusicVideoFolderScanner : LocalFolderScanner, IMusicVideoFolderScan
                 Option<string> maybeArtwork = LocateArtworkForArtist(artistFolder, artworkKind);
                 foreach (string artworkFile in maybeArtwork)
                 {
-                    await RefreshArtwork(artworkFile, metadata, artworkKind, None, None, cancellationToken);
+                    await RefreshArtwork(artworkFile, metadata, artworkKind, None, None, deepScan, cancellationToken);
                 }
 
                 if (maybeArtwork.IsNone && metadata.Artwork.Any(a => a.ArtworkKind == artworkKind))
@@ -304,6 +310,7 @@ public class MusicVideoFolderScanner : LocalFolderScanner, IMusicVideoFolderScan
         Artist artist,
         string artistFolder,
         ImmutableHashSet<string> allTrashedItems,
+        bool deepScan,
         CancellationToken cancellationToken)
     {
         var folderQueue = new Queue<string>();
@@ -346,7 +353,7 @@ public class MusicVideoFolderScanner : LocalFolderScanner, IMusicVideoFolderScan
                 {
                     _logger.LogDebug("Previously trashed items are now present in folder {Folder}", musicVideoFolder);
                 }
-                else
+                else if (!deepScan)
                 {
                     // etag matches and no trashed items are now present, continue to next folder
                     continue;
@@ -366,10 +373,10 @@ public class MusicVideoFolderScanner : LocalFolderScanner, IMusicVideoFolderScan
                 // TODO: figure out how to rebuild playouts
                 Either<BaseError, MediaItemScanResult<MusicVideo>> maybeMusicVideo = await _musicVideoRepository
                     .GetOrAdd(artist, libraryPath, knownFolder, file)
-                    .BindT(musicVideo => UpdateStatistics(musicVideo, ffmpegPath, ffprobePath))
+                    .BindT(musicVideo => UpdateStatistics(musicVideo, ffmpegPath, ffprobePath, deepScan))
                     .BindT(video => UpdateLibraryFolderId(video, knownFolder))
-                    .BindT(UpdateMetadata)
-                    .BindT(result => UpdateThumbnail(result, cancellationToken))
+                    .BindT(musicVideo => UpdateMetadata(musicVideo, deepScan))
+                    .BindT(result => UpdateThumbnail(result, deepScan, cancellationToken))
                     .BindT(result => UpdateSubtitles(result, cancellationToken))
                     .BindT(result => UpdateChapters(result, cancellationToken))
                     .BindT(FlagNormal);
@@ -418,7 +425,8 @@ public class MusicVideoFolderScanner : LocalFolderScanner, IMusicVideoFolderScan
     }
 
     private async Task<Either<BaseError, MediaItemScanResult<MusicVideo>>> UpdateMetadata(
-        MediaItemScanResult<MusicVideo> result)
+        MediaItemScanResult<MusicVideo> result,
+        bool deepScan)
     {
         try
         {
@@ -427,7 +435,7 @@ public class MusicVideoFolderScanner : LocalFolderScanner, IMusicVideoFolderScan
             Option<string> maybeNfoFile = LocateNfoFile(musicVideo);
             if (maybeNfoFile.IsNone)
             {
-                if (!Optional(musicVideo.MusicVideoMetadata).Flatten().Any())
+                if (deepScan || !Optional(musicVideo.MusicVideoMetadata).Flatten().Any())
                 {
                     musicVideo.MusicVideoMetadata ??= [];
 
@@ -442,7 +450,7 @@ public class MusicVideoFolderScanner : LocalFolderScanner, IMusicVideoFolderScan
 
             foreach (string nfoFile in maybeNfoFile)
             {
-                bool shouldUpdate = Optional(musicVideo.MusicVideoMetadata).Flatten().HeadOrNone().Match(
+                bool shouldUpdate = deepScan || Optional(musicVideo.MusicVideoMetadata).Flatten().HeadOrNone().Match(
                     m => m.MetadataKind == MetadataKind.Fallback ||
                          m.DateUpdated != _localFileSystem.GetLastWriteTime(nfoFile),
                     true);
@@ -494,6 +502,7 @@ public class MusicVideoFolderScanner : LocalFolderScanner, IMusicVideoFolderScan
 
     private async Task<Either<BaseError, MediaItemScanResult<MusicVideo>>> UpdateThumbnail(
         MediaItemScanResult<MusicVideo> result,
+        bool deepScan,
         CancellationToken cancellationToken)
     {
         try
@@ -505,7 +514,14 @@ public class MusicVideoFolderScanner : LocalFolderScanner, IMusicVideoFolderScan
                 Option<string> maybeThumbnail = LocateThumbnail(musicVideo);
                 foreach (string thumbnailFile in maybeThumbnail)
                 {
-                    await RefreshArtwork(thumbnailFile, metadata, ArtworkKind.Thumbnail, None, None, cancellationToken);
+                    await RefreshArtwork(
+                        thumbnailFile,
+                        metadata,
+                        ArtworkKind.Thumbnail,
+                        None,
+                        None,
+                        deepScan,
+                        cancellationToken);
                 }
 
                 if (maybeThumbnail.IsNone && metadata.Artwork.Any(a => a.ArtworkKind is ArtworkKind.Thumbnail))

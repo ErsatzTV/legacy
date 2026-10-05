@@ -15,6 +15,7 @@
 @inject ChannelWriter<IScannerBackgroundServiceRequest> ScannerWorkerChannel
 @inject ICourier Courier
 @inject IScannerProxyService ScannerProxyService
+@inject IDialogService Dialog
 
 <MudForm Style="max-height: 100%">
     <div class="d-flex flex-column" style="height: 100vh; overflow-x: auto">
@@ -86,7 +87,7 @@
                             }
                             else
                             {
-                                if (context is PlexLibraryViewModel or EmbyLibraryViewModel or JellyfinLibraryViewModel)
+                                if (context is LocalLibraryViewModel or PlexLibraryViewModel or EmbyLibraryViewModel or JellyfinLibraryViewModel)
                                 {
                                     <MudTooltip Text="Deep Scan Library">
                                         <MudIconButton Icon="@Icons.Material.Filled.FindReplace"
@@ -220,6 +221,11 @@
 
     private async Task ScanLibrary(LibraryViewModel library, bool deepScan = false)
     {
+        if (deepScan && !await ConfirmDeepScan("Deep Scan Library", library.Name))
+        {
+            return;
+        }
+
         if (Locker.LockLibrary(library.Id))
         {
             var token = _cts?.Token ?? CancellationToken.None;
@@ -227,7 +233,7 @@
             switch (library)
             {
                 case LocalLibraryViewModel:
-                    await ScannerWorkerChannel.WriteAsync(new ForceScanLocalLibrary(library.Id), token);
+                    await ScannerWorkerChannel.WriteAsync(new ForceScanLocalLibrary(library.Id, deepScan), token);
                     break;
                 case PlexLibraryViewModel:
                     await ScannerWorkerChannel.WriteAsync(new SynchronizePlexLibraries(library.MediaSourceId), token);
@@ -250,6 +256,11 @@
 
     private async Task ScanExternalCollections(LibraryViewModel library, bool deepScan = false)
     {
+        if (deepScan && !await ConfirmDeepScan("Deep Scan Collections", $"{library.LibraryKind} collections"))
+        {
+            return;
+        }
+
         var token = _cts?.Token ?? CancellationToken.None;
         switch (library.LibraryKind.ToLowerInvariant())
         {
@@ -275,6 +286,15 @@
 
                 break;
         }
+    }
+
+    private async Task<bool> ConfirmDeepScan(string title, string name)
+    {
+        var parameters = new DialogParameters { { "Name", name } };
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small };
+        IDialogReference dialog = await Dialog.ShowAsync<DeepScanDialog>(title, parameters, options);
+        DialogResult result = await dialog.Result;
+        return result is { Canceled: false };
     }
 
     private void LockChanged(object sender, EventArgs e) =>

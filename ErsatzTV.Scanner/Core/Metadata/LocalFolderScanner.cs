@@ -88,7 +88,8 @@ public abstract class LocalFolderScanner
     protected async Task<Either<BaseError, MediaItemScanResult<T>>> UpdateStatistics<T>(
         MediaItemScanResult<T> mediaItem,
         string ffmpegPath,
-        string ffprobePath)
+        string ffprobePath,
+        bool deepScan)
         where T : MediaItem
     {
         try
@@ -97,7 +98,8 @@ public abstract class LocalFolderScanner
 
             string path = version.MediaFiles.Head().Path;
 
-            if (version.DateUpdated != _fileSystem.File.GetLastWriteTime(path) || version.Streams.Count == 0)
+            if (deepScan || version.DateUpdated != _fileSystem.File.GetLastWriteTime(path) ||
+                version.Streams.Count == 0)
             {
                 _logger.LogDebug("Refreshing {Attribute} for {Path}", "Statistics", path);
                 Either<BaseError, bool> refreshResult =
@@ -135,6 +137,7 @@ public abstract class LocalFolderScanner
         ArtworkKind artworkKind,
         Option<string> ffmpegPath,
         Option<int> attachedPicIndex,
+        bool deepScan,
         CancellationToken cancellationToken)
     {
         DateTime lastWriteTime = _fileSystem.File.GetLastWriteTime(artworkFile);
@@ -145,7 +148,7 @@ public abstract class LocalFolderScanner
 
         bool cacheMissing = maybeArtwork.Match(a => !_imageCache.IsCached(a.Path, artworkKind), false);
 
-        bool shouldRefresh = maybeArtwork.Match(
+        bool shouldRefresh = deepScan || maybeArtwork.Match(
             artwork => cacheMissing || lastWriteTime.Subtract(artwork.DateUpdated) > TimeSpan.FromSeconds(1),
             true);
 
@@ -156,7 +159,8 @@ public abstract class LocalFolderScanner
                 _logger.LogDebug("Refreshing {Attribute} from {Path}", artworkKind, artworkFile);
 
                 string sourcePath = artworkFile;
-                if (!cacheMissing && await _metadataRepository.CloneArtwork(
+                // clone keys on path + mtime; deep scan ignores mtime
+                if (!deepScan && !cacheMissing && await _metadataRepository.CloneArtwork(
                         metadata,
                         maybeArtwork,
                         artworkKind,

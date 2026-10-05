@@ -13,6 +13,33 @@ public class FallbackMetadataProviderTests
 
     private FallbackMetadataProvider _fallbackMetadataProvider;
 
+    // deep scan updates existing metadata with these; null collections throw
+    [Test]
+    public void GetFallbackMetadataForShow_Should_Initialize_Collections()
+    {
+        ShowMetadata metadata = _fallbackMetadataProvider.GetFallbackMetadataForShow(
+            Path.Combine("tv", "Awesome Show (2021)"));
+
+        metadata.Genres.ShouldNotBeNull();
+        metadata.Tags.ShouldNotBeNull();
+        metadata.Studios.ShouldNotBeNull();
+        metadata.Actors.ShouldNotBeNull();
+        metadata.Artwork.ShouldNotBeNull();
+        metadata.Guids.ShouldNotBeNull();
+    }
+
+    [Test]
+    public void GetFallbackMetadataForArtist_Should_Initialize_Collections()
+    {
+        ArtistMetadata metadata = _fallbackMetadataProvider.GetFallbackMetadataForArtist(
+            Path.Combine("music videos", "Awesome Artist"));
+
+        metadata.Artwork.ShouldNotBeNull();
+        metadata.Genres.ShouldNotBeNull();
+        metadata.Styles.ShouldNotBeNull();
+        metadata.Moods.ShouldNotBeNull();
+    }
+
     [Test]
     [TestCase("Awesome Show - s01e02.mkv", 1, 2)]
     [TestCase("Awesome Show - S01E02.mkv", 1, 2)]

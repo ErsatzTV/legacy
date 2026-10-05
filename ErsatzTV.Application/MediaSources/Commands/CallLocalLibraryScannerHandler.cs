@@ -76,6 +76,11 @@ public class CallLocalLibraryScannerHandler : CallLibraryScannerHandler<IScanLoc
                     arguments.Add("--force");
                 }
 
+                if (request.DeepScan)
+                {
+                    arguments.Add("--deep");
+                }
+
                 return await base.PerformScan(parameters, arguments, cancellationToken);
             }
             finally

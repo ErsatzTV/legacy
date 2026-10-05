@@ -10,6 +10,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Add `mpeg2video` encoder support (software, some Intel QSV and Intel VAAPI devices)
   - Add song playback support, using legacy-generated background image and text
     - Song Video Mode `With Progress` is not supported yet; these songs play without a progress bar
+- Add `Deep Scan Library` button to local libraries
+  - A deep scan re-probes every file and refreshes all metadata and artwork, even when files appear unchanged
+  - This forces a refresh of e.g. NFO files or posters that were edited without changing their modified time
 
 ### Changed
 - Use ErsatzTV-ffmpeg `8.1.2-4` in docker images, Windows packages and macOS packages
@@ -30,6 +33,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
     - https://github.com/ErsatzTV/legacy-develop-builds/releases/latest
 - Local libraries: use video stream duration instead of container duration for scheduling
   - This fixes playback failures caused by e.g. embedded subtitles longer than the video itself
+- Ask for confirmation before deep scanning a library or external collections
 - Next engine:
   - Improve watermark quality with VAAPI and QSV by avoiding an unnecessary lossy color conversion
   - Optimize intermittent watermarks by converting the watermark image once instead of on every frame

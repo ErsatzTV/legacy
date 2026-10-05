@@ -68,6 +68,7 @@ public class SongFolderScanner : LocalFolderScanner, ISongFolderScanner
         string ffmpegPath,
         decimal progressMin,
         decimal progressMax,
+        bool deepScan,
         CancellationToken cancellationToken)
     {
         try
@@ -145,7 +146,7 @@ public class SongFolderScanner : LocalFolderScanner, ISongFolderScanner
                     {
                         _logger.LogDebug("Previously trashed items are now present in folder {Folder}", songFolder);
                     }
-                    else
+                    else if (!deepScan)
                     {
                         // etag matches and no trashed items are now present, continue to next folder
                         continue;
@@ -168,10 +169,10 @@ public class SongFolderScanner : LocalFolderScanner, ISongFolderScanner
                 {
                     Either<BaseError, MediaItemScanResult<Song>> maybeSong = await _songRepository
                         .GetOrAdd(libraryPath, knownFolder, file)
-                        .BindT(video => UpdateStatistics(video, ffmpegPath, ffprobePath))
+                        .BindT(video => UpdateStatistics(video, ffmpegPath, ffprobePath, deepScan))
                         .BindT(video => UpdateLibraryFolderId(video, knownFolder))
-                        .BindT(UpdateMetadata)
-                        .BindT(video => UpdateThumbnail(video, knownFolder, ffmpegPath, cancellationToken))
+                        .BindT(video => UpdateMetadata(video, deepScan))
+                        .BindT(video => UpdateThumbnail(video, knownFolder, ffmpegPath, deepScan, cancellationToken))
                         .BindT(FlagNormal);
 
                     foreach (BaseError error in maybeSong.LeftToSeq())
@@ -246,14 +247,16 @@ public class SongFolderScanner : LocalFolderScanner, ISongFolderScanner
         return result;
     }
 
-    private async Task<Either<BaseError, MediaItemScanResult<Song>>> UpdateMetadata(MediaItemScanResult<Song> result)
+    private async Task<Either<BaseError, MediaItemScanResult<Song>>> UpdateMetadata(
+        MediaItemScanResult<Song> result,
+        bool deepScan)
     {
         try
         {
             Song song = result.Item;
             string path = song.GetHeadVersion().MediaFiles.Head().Path;
 
-            bool shouldUpdate = Optional(song.SongMetadata).Flatten().HeadOrNone().Match(
+            bool shouldUpdate = deepScan || Optional(song.SongMetadata).Flatten().HeadOrNone().Match(
                 m => m.MetadataKind == MetadataKind.Fallback ||
                      m.DateUpdated != _localFileSystem.GetLastWriteTime(path),
                 true);
@@ -281,6 +284,7 @@ public class SongFolderScanner : LocalFolderScanner, ISongFolderScanner
         MediaItemScanResult<Song> result,
         LibraryFolder knownFolder,
         string ffmpegPath,
+        bool deepScan,
         CancellationToken cancellationToken)
     {
         try
@@ -302,7 +306,8 @@ public class SongFolderScanner : LocalFolderScanner, ISongFolderScanner
             foreach (SongMetadata metadata in song.SongMetadata.HeadOrNone())
             {
                 Option<string> maybeThumbnail = LocateThumbnail(song);
-                if (maybeThumbnail.IsNone && !await ExtractEmbeddedArtwork(song, ffmpegPath, cancellationToken))
+                if (maybeThumbnail.IsNone &&
+                    !await ExtractEmbeddedArtwork(song, ffmpegPath, deepScan, cancellationToken))
                 {
                     if (metadata.Artwork.Any(a => a.ArtworkKind is ArtworkKind.Thumbnail))
                     {
@@ -318,6 +323,7 @@ public class SongFolderScanner : LocalFolderScanner, ISongFolderScanner
                         ArtworkKind.Thumbnail,
                         ffmpegPath,
                         None,
+                        deepScan,
                         cancellationToken);
                 }
             }
@@ -345,7 +351,11 @@ public class SongFolderScanner : LocalFolderScanner, ISongFolderScanner
         }).Flatten();
     }
 
-    private async Task<bool> ExtractEmbeddedArtwork(Song song, string ffmpegPath, CancellationToken cancellationToken)
+    private async Task<bool> ExtractEmbeddedArtwork(
+        Song song,
+        string ffmpegPath,
+        bool deepScan,
+        CancellationToken cancellationToken)
     {
         Option<MediaStream> maybeArtworkStream = Optional(song.GetHeadVersion().Streams.Find(ms => ms.AttachedPic));
         foreach (MediaStream artworkStream in maybeArtworkStream)
@@ -356,6 +366,7 @@ public class SongFolderScanner : LocalFolderScanner, ISongFolderScanner
                 ArtworkKind.Thumbnail,
                 ffmpegPath,
                 artworkStream.Index,
+                deepScan,
                 cancellationToken);
         }
 

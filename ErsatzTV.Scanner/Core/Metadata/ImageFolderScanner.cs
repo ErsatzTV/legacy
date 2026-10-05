@@ -66,6 +66,7 @@ public class ImageFolderScanner : LocalFolderScanner, IImageFolderScanner
         string ffprobePath,
         decimal progressMin,
         decimal progressMax,
+        bool deepScan,
         CancellationToken cancellationToken)
     {
         try
@@ -150,7 +151,7 @@ public class ImageFolderScanner : LocalFolderScanner, IImageFolderScanner
                     {
                         _logger.LogDebug("Previously trashed items are now present in folder {Folder}", imageFolder);
                     }
-                    else
+                    else if (!deepScan)
                     {
                         // etag matches and no trashed items are now present, continue to next folder
                         continue;
@@ -191,9 +192,9 @@ public class ImageFolderScanner : LocalFolderScanner, IImageFolderScanner
                 {
                     Either<BaseError, MediaItemScanResult<Image>> maybeVideo = await _imageRepository
                         .GetOrAdd(libraryPath, knownFolder, file, cancellationToken)
-                        .BindT(video => UpdateStatistics(video, ffmpegPath, ffprobePath))
+                        .BindT(video => UpdateStatistics(video, ffmpegPath, ffprobePath, deepScan))
                         .BindT(video => UpdateLibraryFolderId(video, knownFolder))
-                        .BindT(video => UpdateMetadata(video, durationSeconds))
+                        .BindT(video => UpdateMetadata(video, durationSeconds, deepScan))
                         //.BindT(video => UpdateThumbnail(video, cancellationToken))
                         //.BindT(UpdateSubtitles)
                         .BindT(FlagNormal);
@@ -272,7 +273,8 @@ public class ImageFolderScanner : LocalFolderScanner, IImageFolderScanner
 
     private async Task<Either<BaseError, MediaItemScanResult<Image>>> UpdateMetadata(
         MediaItemScanResult<Image> result,
-        double? durationSeconds)
+        double? durationSeconds,
+        bool deepScan)
     {
         try
         {
@@ -286,7 +288,8 @@ public class ImageFolderScanner : LocalFolderScanner, IImageFolderScanner
                     imageMetadata.DurationSeconds.HasValue != durationSeconds.HasValue ||
                     Math.Abs(imageMetadata.DurationSeconds.IfNone(1) - durationSeconds.IfNone(1)) > 0.01;
 
-                shouldUpdate = imageMetadata.MetadataKind == MetadataKind.Fallback ||
+                shouldUpdate = deepScan ||
+                               imageMetadata.MetadataKind == MetadataKind.Fallback ||
                                imageMetadata.DateUpdated != _localFileSystem.GetLastWriteTime(path) ||
                                durationsAreDifferent;
             }

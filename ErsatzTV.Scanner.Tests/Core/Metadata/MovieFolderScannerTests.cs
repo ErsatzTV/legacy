@@ -1,4 +1,5 @@
-﻿using System.Runtime.InteropServices;
+﻿using System.Collections.Immutable;
+using System.Runtime.InteropServices;
 using ErsatzTV.Core;
 using ErsatzTV.Core.Domain;
 using ErsatzTV.Core.Interfaces.FFmpeg;
@@ -67,6 +68,8 @@ public class MovieFolderScannerTests
             _mediaItemRepository = Substitute.For<IMediaItemRepository>();
             _mediaItemRepository.FlagFileNotFound(Arg.Any<LibraryPath>(), Arg.Any<string>())
                 .Returns(new List<int>().AsTask());
+            _mediaItemRepository.GetAllTrashedItems(Arg.Any<LibraryPath>())
+                .Returns(ImmutableHashSet<string>.Empty.AsTask());
 
             _localStatisticsProvider = Substitute.For<ILocalStatisticsProvider>();
             _localMetadataProvider = Substitute.For<ILocalMetadataProvider>();
@@ -83,6 +86,7 @@ public class MovieFolderScannerTests
                 });
 
             _imageCache = Substitute.For<IImageCache>();
+            _metadataRepository = Substitute.For<IMetadataRepository>();
 
             _libraryRepository = Substitute.For<ILibraryRepository>();
             _libraryRepository.GetOrAddFolder(Arg.Any<LibraryPath>(), Arg.Any<Option<int>>(), Arg.Any<string>())
@@ -99,6 +103,7 @@ public class MovieFolderScannerTests
         private ILocalStatisticsProvider _localStatisticsProvider;
         private ILocalMetadataProvider _localMetadataProvider;
         private IImageCache _imageCache;
+        private IMetadataRepository _metadataRepository;
         private ILibraryRepository _libraryRepository;
         private IScannerProxy _scannerProxy;
 
@@ -123,6 +128,7 @@ public class MovieFolderScannerTests
                 FFprobePath,
                 0,
                 1,
+                false,
                 CancellationToken.None);
 
             result.IsRight.ShouldBeTrue();
@@ -172,6 +178,7 @@ public class MovieFolderScannerTests
                 FFprobePath,
                 0,
                 1,
+                false,
                 CancellationToken.None);
 
             result.IsRight.ShouldBeTrue();
@@ -220,6 +227,7 @@ public class MovieFolderScannerTests
                 FFprobePath,
                 0,
                 1,
+                false,
                 CancellationToken.None);
 
             result.IsRight.ShouldBeTrue();
@@ -269,6 +277,7 @@ public class MovieFolderScannerTests
                 FFprobePath,
                 0,
                 1,
+                false,
                 CancellationToken.None);
 
             result.IsRight.ShouldBeTrue();
@@ -322,6 +331,7 @@ public class MovieFolderScannerTests
                 FFprobePath,
                 0,
                 1,
+                false,
                 CancellationToken.None);
 
             result.IsRight.ShouldBeTrue();
@@ -376,6 +386,7 @@ public class MovieFolderScannerTests
                 FFprobePath,
                 0,
                 1,
+                false,
                 CancellationToken.None);
 
             result.IsRight.ShouldBeTrue();
@@ -430,6 +441,7 @@ public class MovieFolderScannerTests
                 FFprobePath,
                 0,
                 1,
+                false,
                 CancellationToken.None);
 
             result.IsRight.ShouldBeTrue();
@@ -484,6 +496,7 @@ public class MovieFolderScannerTests
                 FFprobePath,
                 0,
                 1,
+                false,
                 CancellationToken.None);
 
             result.IsRight.ShouldBeTrue();
@@ -538,6 +551,7 @@ public class MovieFolderScannerTests
                 FFprobePath,
                 0,
                 1,
+                false,
                 CancellationToken.None);
 
             result.IsRight.ShouldBeTrue();
@@ -592,6 +606,7 @@ public class MovieFolderScannerTests
                 FFprobePath,
                 0,
                 1,
+                false,
                 CancellationToken.None);
 
             result.IsRight.ShouldBeTrue();
@@ -646,6 +661,7 @@ public class MovieFolderScannerTests
                 FFprobePath,
                 0,
                 1,
+                false,
                 CancellationToken.None);
 
             result.IsRight.ShouldBeTrue();
@@ -709,6 +725,7 @@ public class MovieFolderScannerTests
                 FFprobePath,
                 0,
                 1,
+                false,
                 CancellationToken.None);
 
             result.IsRight.ShouldBeTrue();
@@ -751,6 +768,7 @@ public class MovieFolderScannerTests
                 FFprobePath,
                 0,
                 1,
+                false,
                 CancellationToken.None);
 
             result.IsRight.ShouldBeTrue();
@@ -787,6 +805,7 @@ public class MovieFolderScannerTests
                 FFprobePath,
                 0,
                 1,
+                false,
                 CancellationToken.None);
 
             result.IsRight.ShouldBeTrue();
@@ -836,6 +855,7 @@ public class MovieFolderScannerTests
                 FFprobePath,
                 0,
                 1,
+                false,
                 CancellationToken.None);
 
             result.IsRight.ShouldBeTrue();
@@ -887,6 +907,7 @@ public class MovieFolderScannerTests
                 FFprobePath,
                 0,
                 1,
+                false,
                 CancellationToken.None);
 
             result.IsRight.ShouldBeTrue();
@@ -932,6 +953,7 @@ public class MovieFolderScannerTests
                 FFprobePath,
                 0,
                 1,
+                false,
                 CancellationToken.None);
 
             result.IsRight.ShouldBeTrue();
@@ -982,6 +1004,7 @@ public class MovieFolderScannerTests
                 FFprobePath,
                 0,
                 1,
+                false,
                 CancellationToken.None);
 
             result.IsRight.ShouldBeTrue();
@@ -1011,6 +1034,7 @@ public class MovieFolderScannerTests
                 FFprobePath,
                 0,
                 1,
+                false,
                 CancellationToken.None);
 
             result.IsRight.ShouldBeTrue();
@@ -1019,7 +1043,198 @@ public class MovieFolderScannerTests
             await _mediaItemRepository.Received(1).FlagFileNotFound(libraryPath, oldMoviePath);
         }
 
-        private MovieFolderScanner GetService(params FakeFileEntry[] files)
+        [Test]
+        public async Task UnchangedMovie_QuickScan_Skips_Folder_With_Matching_Etag()
+        {
+            LibraryPath libraryPath = SetUpUnchangedMovie(true, true, true, out MovieFolderScanner service);
+
+            Either<BaseError, Unit> result = await service.ScanFolder(
+                libraryPath,
+                FFmpegPath,
+                FFprobePath,
+                0,
+                1,
+                false,
+                CancellationToken.None);
+
+            result.IsRight.ShouldBeTrue();
+
+            await _movieRepository.DidNotReceive().GetOrAdd(
+                Arg.Any<LibraryPath>(),
+                Arg.Any<LibraryFolder>(),
+                Arg.Any<string>(),
+                Arg.Any<CancellationToken>());
+        }
+
+        [Test]
+        public async Task UnchangedMovie_QuickScan_Skips_Statistics_Metadata_And_Artwork()
+        {
+            LibraryPath libraryPath = SetUpUnchangedMovie(true, true, false, out MovieFolderScanner service);
+
+            Either<BaseError, Unit> result = await service.ScanFolder(
+                libraryPath,
+                FFmpegPath,
+                FFprobePath,
+                0,
+                1,
+                false,
+                CancellationToken.None);
+
+            result.IsRight.ShouldBeTrue();
+
+            await _movieRepository.Received(1).GetOrAdd(
+                Arg.Any<LibraryPath>(),
+                Arg.Any<LibraryFolder>(),
+                Arg.Any<string>(),
+                Arg.Any<CancellationToken>());
+
+            await _localStatisticsProvider.DidNotReceive().RefreshStatistics(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<MediaItem>());
+
+            await _localMetadataProvider.DidNotReceive().RefreshSidecarMetadata(Arg.Any<Movie>(), Arg.Any<string>());
+
+            await _imageCache.DidNotReceive().CopyArtworkToCache(Arg.Any<string>(), Arg.Any<ArtworkKind>());
+        }
+
+        [Test]
+        public async Task UnchangedMovie_DeepScan_Refreshes_Statistics_Metadata_And_Artwork()
+        {
+            LibraryPath libraryPath = SetUpUnchangedMovie(true, true, true, out MovieFolderScanner service);
+
+            Either<BaseError, Unit> result = await service.ScanFolder(
+                libraryPath,
+                FFmpegPath,
+                FFprobePath,
+                0,
+                1,
+                true,
+                CancellationToken.None);
+
+            result.IsRight.ShouldBeTrue();
+
+            await _localStatisticsProvider.Received(1).RefreshStatistics(
+                FFmpegPath,
+                FFprobePath,
+                Arg.Is<Movie>(i => i != null && i.MediaVersions.Head().MediaFiles.Head().Path == UnchangedMoviePath));
+
+            await _localMetadataProvider.Received(1).RefreshSidecarMetadata(
+                Arg.Any<Movie>(),
+                Path.ChangeExtension(UnchangedMoviePath, "nfo"));
+
+            await _metadataRepository.DidNotReceive().CloneArtwork(
+                Arg.Any<ErsatzTV.Core.Domain.Metadata>(),
+                Arg.Any<Option<Artwork>>(),
+                Arg.Any<ArtworkKind>(),
+                Arg.Any<string>(),
+                Arg.Any<DateTime>());
+
+            await _imageCache.Received(1).CopyArtworkToCache(
+                Path.Combine(UnchangedMovieFolder, "poster.jpg"),
+                ArtworkKind.Poster);
+        }
+
+        [Test]
+        public async Task UnchangedMovie_DeepScan_Refreshes_FallbackMetadata()
+        {
+            LibraryPath libraryPath = SetUpUnchangedMovie(false, false, true, out MovieFolderScanner service);
+
+            Either<BaseError, Unit> result = await service.ScanFolder(
+                libraryPath,
+                FFmpegPath,
+                FFprobePath,
+                0,
+                1,
+                true,
+                CancellationToken.None);
+
+            result.IsRight.ShouldBeTrue();
+
+            await _localMetadataProvider.Received(1).RefreshFallbackMetadata(
+                Arg.Is<Movie>(i => i != null && i.MediaVersions.Head().MediaFiles.Head().Path == UnchangedMoviePath));
+        }
+
+        private static readonly string UnchangedMovieFolder = Path.Combine(FakeRoot, "Movie (2020)");
+        private static readonly string UnchangedMoviePath = Path.Combine(UnchangedMovieFolder, "Movie (2020).mkv");
+
+        private LibraryPath SetUpUnchangedMovie(
+            bool withNfo,
+            bool withPoster,
+            bool etagMatches,
+            out MovieFolderScanner service)
+        {
+            string nfoPath = Path.ChangeExtension(UnchangedMoviePath, "nfo");
+            string posterPath = Path.Combine(UnchangedMovieFolder, "poster.jpg");
+
+            var files = new List<FakeFileEntry> { new(UnchangedMoviePath) { LastWriteTime = DateTime.Now } };
+            if (withNfo)
+            {
+                files.Add(new FakeFileEntry(nfoPath) { LastWriteTime = DateTime.Now });
+            }
+
+            if (withPoster)
+            {
+                files.Add(new FakeFileEntry(posterPath) { LastWriteTime = DateTime.Now });
+            }
+
+            MockFileSystem fileSystem = CreateFileSystem(files.ToArray());
+            var localFileSystem = new LocalFileSystem(fileSystem, Substitute.For<ILogger<LocalFileSystem>>());
+
+            var metadata = new MovieMetadata
+            {
+                MetadataKind = withNfo ? MetadataKind.Sidecar : MetadataKind.Fallback,
+                DateUpdated = withNfo ? localFileSystem.GetLastWriteTime(nfoPath) : SystemTime.MinValueUtc,
+                Artwork = []
+            };
+
+            if (withPoster)
+            {
+                metadata.Artwork.Add(
+                    new Artwork
+                    {
+                        ArtworkKind = ArtworkKind.Poster,
+                        Path = "cached-poster",
+                        DateUpdated = fileSystem.File.GetLastWriteTime(posterPath)
+                    });
+            }
+
+            var movie = new Movie
+            {
+                MediaVersions =
+                [
+                    new MediaVersion
+                    {
+                        DateUpdated = fileSystem.File.GetLastWriteTime(UnchangedMoviePath),
+                        Streams = [new MediaStream()],
+                        MediaFiles = [new MediaFile { Path = UnchangedMoviePath }]
+                    }
+                ],
+                MovieMetadata = [metadata]
+            };
+
+            _movieRepository.GetOrAdd(
+                    Arg.Any<LibraryPath>(),
+                    Arg.Any<LibraryFolder>(),
+                    Arg.Any<string>(),
+                    Arg.Any<CancellationToken>())
+                .Returns(Right<BaseError, MediaItemScanResult<Movie>>(new MediaItemScanResult<Movie>(movie)).AsTask());
+
+            string etag = etagMatches ? FolderEtag.Calculate(UnchangedMovieFolder, localFileSystem) : "stale";
+            _libraryRepository.GetOrAddFolder(Arg.Any<LibraryPath>(), Arg.Any<Option<int>>(), UnchangedMovieFolder)
+                .Returns(new LibraryFolder { Etag = etag });
+
+            _imageCache.IsCached("cached-poster", ArtworkKind.Poster).Returns(true);
+            _imageCache.CopyArtworkToCache(Arg.Any<string>(), Arg.Any<ArtworkKind>())
+                .Returns(Right<BaseError, string>("new-poster").AsTask());
+
+            service = GetService(fileSystem);
+            return new LibraryPath { Id = 1, Path = FakeRoot, LibraryFolders = [] };
+        }
+
+        private MovieFolderScanner GetService(params FakeFileEntry[] files) => GetService(CreateFileSystem(files));
+
+        private static MockFileSystem CreateFileSystem(params FakeFileEntry[] files)
         {
             var fileSystem = new MockFileSystem();
             IFileSystemInitializer<MockFileSystem> init = fileSystem.Initialize();
@@ -1028,6 +1243,11 @@ public class MovieFolderScannerTests
                 init.WithFile(file.Path).Which(f => f.File.LastWriteTime = file.LastWriteTime);
             }
 
+            return fileSystem;
+        }
+
+        private MovieFolderScanner GetService(MockFileSystem fileSystem)
+        {
             return new MovieFolderScanner(
                 _scannerProxy,
                 fileSystem,
@@ -1037,7 +1257,7 @@ public class MovieFolderScannerTests
                 Substitute.For<ILocalSubtitlesProvider>(),
                 Substitute.For<ILocalChaptersProvider>(),
                 _localMetadataProvider,
-                Substitute.For<IMetadataRepository>(),
+                _metadataRepository,
                 _imageCache,
                 _libraryRepository,
                 _mediaItemRepository,
@@ -1064,7 +1284,7 @@ public class MovieFolderScannerTests
                 Substitute.For<ILocalSubtitlesProvider>(),
                 Substitute.For<ILocalChaptersProvider>(),
                 _localMetadataProvider,
-                Substitute.For<IMetadataRepository>(),
+                _metadataRepository,
                 _imageCache,
                 _libraryRepository,
                 _mediaItemRepository,

@@ -74,6 +74,7 @@ public class OtherVideoFolderScanner : LocalFolderScanner, IOtherVideoFolderScan
         string ffprobePath,
         decimal progressMin,
         decimal progressMax,
+        bool deepScan,
         CancellationToken cancellationToken)
     {
         try
@@ -165,7 +166,7 @@ public class OtherVideoFolderScanner : LocalFolderScanner, IOtherVideoFolderScan
                             "Previously trashed items are now present in folder {Folder}",
                             otherVideoFolder);
                     }
-                    else
+                    else if (!deepScan)
                     {
                         // etag matches and no trashed items are now present, continue to next folder
                         continue;
@@ -186,10 +187,10 @@ public class OtherVideoFolderScanner : LocalFolderScanner, IOtherVideoFolderScan
 
                     Either<BaseError, MediaItemScanResult<OtherVideo>> maybeVideo = await _otherVideoRepository
                         .GetOrAdd(libraryPath, knownFolder, file, cancellationToken)
-                        .BindT(video => UpdateStatistics(video, ffmpegPath, ffprobePath))
+                        .BindT(video => UpdateStatistics(video, ffmpegPath, ffprobePath, deepScan))
                         .BindT(video => UpdateLibraryFolderId(video, knownFolder))
-                        .BindT(UpdateMetadata)
-                        .BindT(video => UpdateThumbnail(video, cancellationToken))
+                        .BindT(video => UpdateMetadata(video, deepScan))
+                        .BindT(video => UpdateThumbnail(video, deepScan, cancellationToken))
                         .BindT(result => UpdateSubtitles(result, cancellationToken))
                         .BindT(result => UpdateChapters(result, cancellationToken))
                         .BindT(FlagNormal);
@@ -268,7 +269,8 @@ public class OtherVideoFolderScanner : LocalFolderScanner, IOtherVideoFolderScan
     }
 
     private async Task<Either<BaseError, MediaItemScanResult<OtherVideo>>> UpdateMetadata(
-        MediaItemScanResult<OtherVideo> result)
+        MediaItemScanResult<OtherVideo> result,
+        bool deepScan)
     {
         try
         {
@@ -281,7 +283,7 @@ public class OtherVideoFolderScanner : LocalFolderScanner, IOtherVideoFolderScan
 
             if (maybeNfoFile.IsNone)
             {
-                if (!Optional(otherVideo.OtherVideoMetadata).Flatten().Any())
+                if (deepScan || !Optional(otherVideo.OtherVideoMetadata).Flatten().Any())
                 {
                     _logger.LogDebug("Refreshing {Attribute} for {Path}", "Fallback Metadata", path);
                     if (await _localMetadataProvider.RefreshFallbackMetadata(otherVideo))
@@ -293,7 +295,7 @@ public class OtherVideoFolderScanner : LocalFolderScanner, IOtherVideoFolderScan
 
             foreach (string nfoFile in maybeNfoFile)
             {
-                bool shouldUpdate = Optional(otherVideo.OtherVideoMetadata).Flatten().HeadOrNone().Match(
+                bool shouldUpdate = deepScan || Optional(otherVideo.OtherVideoMetadata).Flatten().HeadOrNone().Match(
                     m => m.MetadataKind == MetadataKind.Fallback ||
                          m.DateUpdated != _localFileSystem.GetLastWriteTime(nfoFile),
                     true);
@@ -348,6 +350,7 @@ public class OtherVideoFolderScanner : LocalFolderScanner, IOtherVideoFolderScan
 
     private async Task<Either<BaseError, MediaItemScanResult<OtherVideo>>> UpdateThumbnail(
         MediaItemScanResult<OtherVideo> result,
+        bool deepScan,
         CancellationToken cancellationToken)
     {
         try
@@ -359,7 +362,14 @@ public class OtherVideoFolderScanner : LocalFolderScanner, IOtherVideoFolderScan
                 Option<string> maybeThumbnail = LocateThumbnail(otherVideo);
                 foreach (string thumbnailFile in maybeThumbnail)
                 {
-                    await RefreshArtwork(thumbnailFile, metadata, ArtworkKind.Thumbnail, None, None, cancellationToken);
+                    await RefreshArtwork(
+                        thumbnailFile,
+                        metadata,
+                        ArtworkKind.Thumbnail,
+                        None,
+                        None,
+                        deepScan,
+                        cancellationToken);
                 }
 
                 if (maybeThumbnail.IsNone && metadata.Artwork.Any(a => a.ArtworkKind is ArtworkKind.Thumbnail))
