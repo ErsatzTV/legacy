@@ -58,6 +58,7 @@ public class PrepareTroubleshootingPlaybackHandler(
     private readonly IFileSystem _fileSystem = fileSystem;
 
     private const ChannelSubtitleMode SubtitleMode = ChannelSubtitleMode.Any;
+    private static readonly TimeSpan ChannelDuration = TimeSpan.FromSeconds(30);
 
     public async Task<Either<BaseError, PlayoutItemResult>> Handle(
         PrepareTroubleshootingPlayback request,
@@ -99,19 +100,32 @@ public class PrepareTroubleshootingPlaybackHandler(
 
                     foreach (var channel in maybeChannel)
                     {
-                        Either<BaseError, PlayoutItemProcessModel> result = await mediator.Send(
-                            new GetPlayoutItemProcessByChannelNumber(
-                                channel.Number,
-                                request.StreamingMode,
+                        Either<BaseError, PlayoutItemResult> result = request.StreamingEngine switch
+                        {
+                            StreamingEngine.Next => await GetNextChannelProcess(
+                                dbContext,
+                                request,
+                                channel,
                                 start,
-                                StartAtZero: false,
-                                HlsRealtime: false,
-                                start,
-                                TimeSpan.Zero,
-                                TargetFramerate: Option<FrameRate>.None,
-                                IsTroubleshooting: true,
-                                request.FFmpegProfileId),
-                            cancellationToken);
+                                cancellationToken),
+                            _ => await mediator.Send(
+                                    new GetPlayoutItemProcessByChannelNumber(
+                                        channel.Number,
+                                        request.StreamingMode,
+                                        start,
+                                        StartAtZero: false,
+                                        HlsRealtime: false,
+                                        start,
+                                        TimeSpan.Zero,
+                                        TargetFramerate: Option<FrameRate>.None,
+                                        IsTroubleshooting: true,
+                                        request.FFmpegProfileId),
+                                    cancellationToken)
+                                .MapT(model => new PlayoutItemResult(
+                                    model.Process,
+                                    model.GraphicsEngineContext,
+                                    model.MediaItemId))
+                        };
 
                         foreach (var error in result.LeftToSeq())
                         {
@@ -126,10 +140,7 @@ public class PrepareTroubleshootingPlaybackHandler(
                             entityLocker.UnlockTroubleshootingPlayback();
                         }
 
-                        return result.Map(model => new PlayoutItemResult(
-                            model.Process,
-                            model.GraphicsEngineContext,
-                            model.MediaItemId));
+                        return result;
                     }
 
                     if (maybeChannel.IsNone)
@@ -459,6 +470,171 @@ public class PrepareTroubleshootingPlaybackHandler(
         }
 
         return BaseError.New("Failed to prepare troubleshooting playback using next engine");
+    }
+
+    private async Task<Either<BaseError, PlayoutItemResult>> GetNextChannelProcess(
+        TvContext dbContext,
+        PrepareTroubleshootingPlayback request,
+        Channel channel,
+        DateTimeOffset requestedStart,
+        CancellationToken cancellationToken)
+    {
+        Validation<BaseError, string> channelBinaryResult = await ChannelBinaryMustExist();
+        foreach (var error in channelBinaryResult.FailToSeq())
+        {
+            return error;
+        }
+
+        string channelBinary = channelBinaryResult.SuccessToSeq().Head();
+
+        Validation<BaseError, FFmpegProfile> ffmpegProfileResult =
+            await FFmpegProfileMustExist(dbContext, request, cancellationToken);
+        foreach (var error in ffmpegProfileResult.FailToSeq())
+        {
+            return error;
+        }
+
+        FFmpegProfile ffmpegProfile = ffmpegProfileResult.SuccessToSeq().Head();
+
+        Channel fullChannel = await dbContext.Channels
+            .AsNoTracking()
+            .Include(c => c.Watermark)
+            .Include(c => c.Artwork)
+            .SingleAsync(c => c.Id == channel.Id, cancellationToken);
+
+        fullChannel.FFmpegProfileId = ffmpegProfile.Id;
+        fullChannel.FFmpegProfile = ffmpegProfile;
+
+        if (!string.IsNullOrWhiteSpace(request.StreamSelector))
+        {
+            fullChannel.StreamSelectorMode = ChannelStreamSelectorMode.Custom;
+            fullChannel.StreamSelector = request.StreamSelector;
+        }
+        else if (fullChannel.StreamSelectorMode is ChannelStreamSelectorMode.Custom)
+        {
+            fullChannel.StreamSelectorMode = ChannelStreamSelectorMode.Default;
+        }
+
+        // whole seconds give an exact seek
+        DateTimeOffset start = DateTimeOffset.FromUnixTimeSeconds(requestedStart.ToUnixTimeSeconds());
+        DateTimeOffset finish = start + ChannelDuration;
+
+        int sourceChannelId = channel.Id;
+        TimeSpan playoutOffset = TimeSpan.Zero;
+        if (channel is { PlayoutSource: ChannelPlayoutSource.Mirror, MirrorSourceChannelId: not null })
+        {
+            sourceChannelId = channel.MirrorSourceChannelId.Value;
+            playoutOffset = channel.PlayoutOffset ?? TimeSpan.Zero;
+        }
+
+        // source channel time; ToNext adds the mirror offset
+        DateTime windowStart = (start - playoutOffset).UtcDateTime;
+        DateTime windowFinish = (finish - playoutOffset).UtcDateTime;
+
+        List<PlayoutItem> playoutItems = await dbContext.PlayoutItems
+            .AsNoTracking()
+            .Where(i => i.Playout.ChannelId == sourceChannelId && i.Finish > windowStart && i.Start < windowFinish)
+            .IncludeForNextPlayout()
+            .AsSplitQuery()
+            .OrderBy(i => i.Start)
+            .ToListAsync(cancellationToken);
+
+        // next fails on a gap when troubleshooting, so fill gaps with fallback like the channel playout
+        List<PlayoutItem> windowItems = [];
+        DateTime cursor = windowStart;
+        foreach (PlayoutItem playoutItem in playoutItems)
+        {
+            if (cursor < playoutItem.Start)
+            {
+                windowItems.Add(new DynamicPlayoutItem { Start = cursor, Finish = playoutItem.Start });
+            }
+
+            if (playoutItem.Finish > windowFinish)
+            {
+                playoutItem.Finish = windowFinish;
+            }
+
+            windowItems.Add(playoutItem);
+            cursor = playoutItem.Finish > cursor ? playoutItem.Finish : cursor;
+        }
+
+        if (cursor < windowFinish)
+        {
+            windowItems.Add(new DynamicPlayoutItem { Start = cursor, Finish = windowFinish });
+        }
+
+        Option<ChannelWatermark> maybeGlobalWatermark = await dbContext.ConfigElements
+            .GetValue<int>(ConfigElementKey.FFmpegGlobalWatermarkId, cancellationToken)
+            .BindT(watermarkId => dbContext.ChannelWatermarks
+                .SelectOneAsync(w => w.Id, w => w.Id == watermarkId, cancellationToken));
+
+        var playout = new Core.Next.Playout { Version = PlayoutItemConverter.PlayoutVersion, Items = [] };
+        foreach (PlayoutItem playoutItem in windowItems)
+        {
+            Option<Core.Next.PlayoutItem> maybeNextPlayoutItem = await playoutItemConverter.ToNext(
+                Some(fullChannel),
+                maybeGlobalWatermark,
+                playoutOffset,
+                playoutItem,
+                Option<List<Subtitle>>.None,
+                shouldLogMessages: true,
+                cancellationToken);
+
+            foreach (var nextPlayoutItem in maybeNextPlayoutItem)
+            {
+                playout.Items.Add(nextPlayoutItem);
+            }
+        }
+
+        localFileSystem.EnsureFolderExists(FileSystemLayout.TranscodeTroubleshootingPlayoutFolder);
+        localFileSystem.EmptyFolder(FileSystemLayout.TranscodeTroubleshootingPlayoutFolder);
+
+        string fileName = _fileSystem.Path.Combine(
+            FileSystemLayout.TranscodeTroubleshootingPlayoutFolder,
+            $"{start.ToUnixTimeMilliseconds()}_{finish.ToUnixTimeMilliseconds()}.json");
+        await _fileSystem.File.WriteAllTextAsync(fileName, Core.Next.Serialize.ToJson(playout), cancellationToken);
+
+        Option<FrameRate> targetFramerate = ffmpegProfile.NormalizeFramerate
+            ? await mediator.Send(new Channels.GetChannelFramerate(channel.Number, IgnoreProfile: true), cancellationToken)
+            : Option<FrameRate>.None;
+
+        ChannelConfig config = await channelConfigConverter.ToNext(
+            Channels.Mapper.ProjectToViewModel(fullChannel, playoutCount: 0),
+            FFmpegProfiles.Mapper.ProjectToViewModel(ffmpegProfile),
+            targetFramerate,
+            cancellationToken);
+
+        config.Playout.VirtualStart = start.ToLocalTime()
+            .ToString("yyyy-MM-dd'T'HH:mm:ss.fffK", CultureInfo.InvariantCulture);
+        logger.LogInformation("Config virtual start: {Start}", config.Playout.VirtualStart);
+
+        string workingDirectory = FileSystemLayout.TranscodeTroubleshootingFolder;
+        config.Ffmpeg.ReportsFolder = workingDirectory;
+        config.Playout.Folder = FileSystemLayout.TranscodeTroubleshootingPlayoutFolder;
+
+        // the fallback endpoint finds the channel by this number
+        List<string> arguments =
+            ["run", "--output-folder", workingDirectory, "--number", channel.Number, "--troubleshoot", "-"];
+
+        foreach (string overlay in new[] { "default.json", $"{channel.Number}.json" })
+        {
+            string overlayFile = _fileSystem.Path.Combine(FileSystemLayout.NextChannelConfigOverlaysFolder, overlay);
+            if (_fileSystem.File.Exists(overlayFile))
+            {
+                arguments.Add(overlayFile);
+            }
+        }
+
+        Command command = Cli.Wrap(channelBinary)
+            .WithArguments(arguments)
+            .WithStandardInputPipe(PipeSource.FromString(config.ToJson()));
+
+        Option<int> mediaItemId = windowItems
+            .Filter(i => i is not DynamicPlayoutItem)
+            .Map(i => i.MediaItemId)
+            .HeadOrNone();
+
+        return new PlayoutItemResult(command, Option<GraphicsEngineContext>.None, mediaItemId);
     }
 
     private async Task<Either<BaseError, PlayoutItemResult>> GetLegacyProcess(
