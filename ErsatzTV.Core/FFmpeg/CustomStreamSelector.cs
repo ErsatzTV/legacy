@@ -210,9 +210,8 @@ public class CustomStreamSelector(IFileSystem fileSystem, ILogger<CustomStreamSe
                             }
                         }
 
-                        // HLS Direct doesn't need to extract; Next streaming engine doesn't need to extract
+                        // HLS Direct doesn't need to extract
                         if (channel.StreamingMode != StreamingMode.HttpLiveStreamingDirect &&
-                            channel.StreamingEngine != StreamingEngine.Next &&
                             subtitle.SubtitleKind is SubtitleKind.Embedded && !subtitle.IsImage &&
                             !subtitle.IsExtracted)
                         {

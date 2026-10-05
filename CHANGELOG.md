@@ -81,6 +81,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
     - The rest of the scheduled time now plays the black/silence fallback
     - Fix audio/video sync loss at the end of such content
   - Fix timestamps restarting at zero between items when `ffprobe` is not on the system `PATH`
+  - Ignore unextracted text subtitles when using custom stream selector
 - Improve performance of graphics engine subtitle elements
 - Fix Jellyfin 12 shows that belong to a Jellyfin collection being replaced by the collection itself
   - The collection would appear as a show, and the real show would be flagged as missing
