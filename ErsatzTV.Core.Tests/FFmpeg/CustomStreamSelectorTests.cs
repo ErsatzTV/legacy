@@ -342,6 +342,43 @@ public class CustomStreamSelectorTests
         }
 
         [Test]
+        public async Task Should_Select_eng_Subtitle_Exact_Match_Extracted_Next()
+        {
+            const string YAML =
+                """
+                ---
+                items:
+                  - audio_language:
+                    - "ja"
+                    subtitle_language:
+                    - "eng"
+                """;
+
+            var fileSystem = new MockFileSystem();
+            fileSystem.Initialize()
+                .WithFile(TestFileName).Which(f => f.HasStringContent(YAML));
+            var streamSelector = new CustomStreamSelector(fileSystem, _logger);
+
+            _channel.StreamingEngine = StreamingEngine.Next;
+            _channel.StreamingMode = StreamingMode.HttpLiveStreamingSegmenter;
+
+            StreamSelectorResult result = await streamSelector.SelectStreams(
+                _channel,
+                DateTimeOffset.Now,
+                _audioVersion,
+                _subtitles,
+                shouldLogMessages: true);
+
+            result.Subtitle.IsSome.ShouldBeTrue();
+
+            foreach (Subtitle subtitle in result.Subtitle)
+            {
+                subtitle.Id.ShouldBe(2);
+                subtitle.Language.ShouldBe("eng");
+            }
+        }
+
+        [Test]
         public async Task Should_Select_eng_Subtitle_Pattern_Match()
         {
             const string YAML =
