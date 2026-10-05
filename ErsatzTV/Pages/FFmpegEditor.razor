@@ -34,7 +34,7 @@
             <div class="d-flex">
                 <MudText>Thread Count</MudText>
             </div>
-            <MudTextField @bind-Value="@_model.ThreadCount" For="@(() => _model.ThreadCount)"/>
+            <MudTextField @bind-Value="@_model.ThreadCount" For="@(() => _model.ThreadCount)" HelperText="Legacy engine only"/>
         </MudStack>
         <MudStack Row="true" Breakpoint="Breakpoint.SmAndDown" Class="form-field-stack gap-md-8 mb-5">
             <div class="d-flex">
@@ -78,7 +78,7 @@
                 <MudSelect @bind-Value="_model.PadMode"
                            For="@(() => _model.PadMode)"
                            Disabled="_model.HardwareAcceleration is not HardwareAccelerationKind.Vaapi"
-                           HelperText="If hardware padding is green, software padding should be used instead">
+                           HelperText="Legacy engine only. If hardware padding is green, software padding should be used instead">
                     <MudSelectItem Value="@FilterMode.HardwareIfPossible">Hardware If Possible</MudSelectItem>
                     <MudSelectItem Value="@FilterMode.Software">Software</MudSelectItem>
                 </MudSelect>
@@ -105,7 +105,8 @@
                 <MudSelect @bind-Value="_model.VideoProfile"
                            For="@(() => _model.VideoProfile)"
                            Disabled="@(_model.VideoFormat != FFmpegProfileVideoFormat.H264 || !HardwareAccelSupportsH264Profile(_model.HardwareAcceleration))"
-                           Clearable="true">
+                           Clearable="true"
+                           HelperText="Legacy engine only">
                     <MudSelectItem Value="@VideoProfile.Main">main</MudSelectItem>
                     <MudSelectItem Value="@VideoProfile.High">high</MudSelectItem>
                     @if (_model.HardwareAcceleration is HardwareAccelerationKind.Nvenc)
@@ -131,7 +132,8 @@
                 <MudSelect @bind-Value="_model.VideoPreset"
                            For="@(() => _model.VideoPreset)"
                            Disabled="@(presets.Count == 0)"
-                           Clearable="true">
+                           Clearable="true"
+                           HelperText="Legacy engine only">
                     @foreach (string preset in presets)
                     {
                         if (!string.IsNullOrWhiteSpace(preset))
@@ -145,7 +147,9 @@
                 <div class="d-flex">
                     <MudText>Allow B-Frames</MudText>
                 </div>
-                <MudCheckBox @bind-Value="@_model.AllowBFrames" For="@(() => _model.AllowBFrames)" Dense="true"/>
+                <MudCheckBox @bind-Value="@_model.AllowBFrames" For="@(() => _model.AllowBFrames)" Dense="true">
+                    <MudText Typo="Typo.caption" Style="font-weight: normal">Legacy engine only</MudText>
+                </MudCheckBox>
             </MudStack>
             <MudStack Row="true" Breakpoint="Breakpoint.SmAndDown" Class="form-field-stack gap-md-8 mb-5">
                 <div class="d-flex">
@@ -198,7 +202,7 @@
                         <div class="d-flex">
                             <MudText>VAAPI Display</MudText>
                         </div>
-                        <MudSelect @bind-Value="_model.VaapiDisplay" For="@(() => _model.VaapiDisplay)">
+                        <MudSelect @bind-Value="_model.VaapiDisplay" For="@(() => _model.VaapiDisplay)" HelperText="Legacy engine only">
                             @foreach (string display in _vaapiDisplays)
                             {
                                 <MudSelectItem Value="@display">@display</MudSelectItem>
@@ -229,7 +233,7 @@
                     <div class="d-flex">
                         <MudText>QSV Extra Hardware Frames</MudText>
                     </div>
-                    <MudTextField @bind-Value="_model.QsvExtraHardwareFrames" For="@(() => _model.QsvExtraHardwareFrames)"/>
+                    <MudTextField @bind-Value="_model.QsvExtraHardwareFrames" For="@(() => _model.QsvExtraHardwareFrames)" HelperText="Legacy engine only"/>
                 </MudStack>
             }
             else
@@ -257,7 +261,9 @@
                 <div class="d-flex">
                     <MudText>Normalize Colors</MudText>
                 </div>
-                <MudCheckBox @bind-Value="@_model.NormalizeColors" For="@(() => _model.NormalizeColors)" Dense="true"/>
+                <MudCheckBox @bind-Value="@_model.NormalizeColors" For="@(() => _model.NormalizeColors)" Dense="true">
+                    <MudText Typo="Typo.caption" Style="font-weight: normal">Legacy engine only</MudText>
+                </MudCheckBox>
             </MudStack>
             <MudStack Row="true" Breakpoint="Breakpoint.SmAndDown" Class="form-field-stack gap-md-8 mb-5">
                 <div class="d-flex">

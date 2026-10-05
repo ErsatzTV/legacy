@@ -183,19 +183,22 @@ else
         }
     </MudSelect>
 </MudStack>
-<MudStack Row="true" Breakpoint="Breakpoint.SmAndDown" Class="form-field-stack gap-md-8 mb-5">
-    <div class="d-flex">
-        <MudText>Slug Seconds</MudText>
-    </div>
-    <MudSelect T="double?" @bind-Value="_model.SlugSeconds" For="@(() => _model.SlugSeconds)" HelperText="Seconds of black video and silent audio to insert between *every* playout item">
-        <MudSelectItem Value="@((double?)null)">(none)</MudSelectItem>
-        <MudSelectItem Value="@((double?)0.5)">0.5 seconds</MudSelectItem>
-        <MudSelectItem Value="@((double?)1)">1 second</MudSelectItem>
-        <MudSelectItem Value="@((double?)2)">2 seconds</MudSelectItem>
-        <MudSelectItem Value="@((double?)3)">3 seconds</MudSelectItem>
-        <MudSelectItem Value="@((double?)5)">5 seconds</MudSelectItem>
-    </MudSelect>
-</MudStack>
+@if (_model.StreamingEngine is StreamingEngine.Legacy)
+{
+    <MudStack Row="true" Breakpoint="Breakpoint.SmAndDown" Class="form-field-stack gap-md-8 mb-5">
+        <div class="d-flex">
+            <MudText>Slug Seconds</MudText>
+        </div>
+        <MudSelect T="double?" @bind-Value="_model.SlugSeconds" For="@(() => _model.SlugSeconds)" HelperText="Seconds of black video and silent audio to insert between *every* playout item">
+            <MudSelectItem Value="@((double?)null)">(none)</MudSelectItem>
+            <MudSelectItem Value="@((double?)0.5)">0.5 seconds</MudSelectItem>
+            <MudSelectItem Value="@((double?)1)">1 second</MudSelectItem>
+            <MudSelectItem Value="@((double?)2)">2 seconds</MudSelectItem>
+            <MudSelectItem Value="@((double?)3)">3 seconds</MudSelectItem>
+            <MudSelectItem Value="@((double?)5)">5 seconds</MudSelectItem>
+        </MudSelect>
+    </MudStack>
+}
 <MudStack Row="true" Breakpoint="Breakpoint.SmAndDown" Class="form-field-stack gap-md-8 mb-5">
     <div class="d-flex">
         <MudText>Stream Selector Mode</MudText>
@@ -466,7 +469,7 @@ else
                 _model.Name = "New Channel";
                 _model.Group = "ErsatzTV";
                 _model.FFmpegProfileId = ffmpegSettings.DefaultFFmpegProfileId;
-                _model.StreamingEngine = StreamingEngine.Legacy;
+                _model.StreamingEngine = StreamingEngine.Next;
                 _model.NextEngineTextSubtitleMode = NextEngineTextSubtitleMode.Burn;
                 _model.StreamingMode = StreamingMode.TransportStreamHybrid;
                 _model.IsEnabled = true;
