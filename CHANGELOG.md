@@ -19,6 +19,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - This forces a refresh of e.g. NFO files or posters that were edited without changing their modified time
 
 ### Changed
+- Migrate all channels to the next streaming engine, and use it by default for new channels
+  - To roll back a channel, set `Streaming Engine` to `Legacy` in the channel editor
+  - Streaming mode `MPEG-TS (Legacy)` has been migrated to `MPEG-TS`
+  - Streaming mode `HLS Direct` has been migrated to `HLS Segmenter`
+    - Content is now transcoded continuously; disable `Normalize Video` or `Normalize Audio` in the FFmpeg Profile to copy that stream instead
+  - Cached `ts-legacy` and `hls-direct` URLs continue to work, and stream through the next engine
+  - FFmpeg Profiles with audio format `aac (latm)` now use `aac`
+  - FFmpeg Profiles with `V4l2m2m` hardware acceleration now use software encoding
+  - The next engine ignores these FFmpeg Profile settings: `Thread Count`, `Pad Mode`, video `Profile`, video `Preset`, `Allow B-Frames`, `VAAPI Display`, `QSV Extra Hardware Frames` and `Normalize Colors`
+    - These settings are now labeled `Legacy engine only`
+  - The next engine ignores channel `Slug Seconds`, so it is hidden for next channels
+  - Playback troubleshooting now defaults to the next engine
 - Use ErsatzTV-ffmpeg `8.1.2-4` in docker images, Windows packages and macOS packages
   - ErsatzTV-ffmpeg releases are now immutable; docker images pin them by digest
   - Docker images no longer include `libfdk_aac`; the built-in `aac` encoder is unchanged
