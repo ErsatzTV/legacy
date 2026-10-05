@@ -16,6 +16,7 @@ using ErsatzTV.FFmpeg;
 using ErsatzTV.FFmpeg.Capabilities;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using File = TagLib.File;
 using MediaStream = ErsatzTV.Core.Domain.MediaStream;
 
@@ -565,7 +566,12 @@ public partial class LocalStatisticsProvider : ILocalStatisticsProvider
                         Chapters = new List<MediaChapter>()
                     };
 
-                    if (double.TryParse(
+                    // format duration is the longest stream, which can be a subtitle that runs past the content
+                    if (GetContentDuration(json.streams) is { } contentDuration)
+                    {
+                        version.Duration = contentDuration;
+                    }
+                    else if (double.TryParse(
                             json.format?.duration,
                             NumberStyles.Number,
                             CultureInfo.InvariantCulture,
@@ -826,6 +832,38 @@ public partial class LocalStatisticsProvider : ILocalStatisticsProvider
         return 0;
     }
 
+    // transcoding uses apad with -shortest, so output ends when the video ends
+    private static TimeSpan? GetContentDuration(List<FFprobeStreamData> streams)
+    {
+        FFprobeStreamData videoStream = streams
+            .Where(s => s.codec_type == "video" && s.disposition?.attached_pic != 1)
+            .OrderByDescending(ParseBitRate)
+            .FirstOrDefault();
+        if (videoStream is not null)
+        {
+            return GetStreamDuration(videoStream);
+        }
+
+        var audioDurations = streams
+            .Where(s => s.codec_type == "audio")
+            .Select(GetStreamDuration)
+            .ToList();
+
+        // a max over a partial set could be too short and cut off content
+        return audioDurations.Count > 0 && audioDurations.All(d => d.HasValue) ? audioDurations.Max() : null;
+    }
+
+    private static TimeSpan? GetStreamDuration(FFprobeStreamData stream)
+    {
+        if (double.TryParse(stream.duration, NumberStyles.Number, CultureInfo.InvariantCulture, out double seconds)
+            && seconds > 0)
+        {
+            return TimeSpan.FromSeconds(seconds);
+        }
+
+        return stream.tags?.GetDuration();
+    }
+
     // ReSharper disable InconsistentNaming
     public record FFprobe(
         FFprobeFormat format,
@@ -858,6 +896,7 @@ public partial class LocalStatisticsProvider : ILocalStatisticsProvider
         string r_frame_rate,
         string bit_rate,
         string bits_per_raw_sample,
+        string duration,
         FFprobeDisposition disposition,
         FFprobeTags tags,
         List<FFprobeSideData> side_data_list);
@@ -887,6 +926,38 @@ public partial class LocalStatisticsProvider : ILocalStatisticsProvider
         [property: JsonProperty(PropertyName = "variant_bitrate")]
         string variantBitrate)
     {
+        [JsonExtensionData]
+        public IDictionary<string, JToken> Extra { get; init; }
+
+        // matroska writes DURATION, or DURATION-<lang> when the tag has a language other than und
+        public TimeSpan? GetDuration()
+        {
+            string value = (Extra ?? new Dictionary<string, JToken>())
+                .Where(kv => kv.Key.Equals("DURATION", StringComparison.OrdinalIgnoreCase)
+                             || kv.Key.StartsWith("DURATION-", StringComparison.OrdinalIgnoreCase))
+                .OrderBy(kv => kv.Key.Length)
+                .Select(kv => kv.Value?.ToString())
+                .FirstOrDefault();
+
+            // hh:mm:ss.nnnnnnnnn doesn't fit TimeSpan.Parse: hours can exceed 23, and the fraction has 9 digits
+            string[] parts = value?.Split(':') ?? [];
+            if (parts.Length == 3
+                && int.TryParse(parts[0], NumberStyles.None, CultureInfo.InvariantCulture, out int hours)
+                && int.TryParse(parts[1], NumberStyles.None, CultureInfo.InvariantCulture, out int minutes)
+                && double.TryParse(
+                    parts[2],
+                    NumberStyles.AllowDecimalPoint,
+                    CultureInfo.InvariantCulture,
+                    out double seconds))
+            {
+                var duration = TimeSpan.FromHours(hours) + TimeSpan.FromMinutes(minutes) +
+                               TimeSpan.FromSeconds(seconds);
+                return duration > TimeSpan.Zero ? duration : null;
+            }
+
+            return null;
+        }
+
         public static readonly FFprobeTags Empty = new(
             null,
             null,
