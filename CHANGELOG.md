@@ -28,6 +28,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Show unreleased changelog notes on home page of develop builds
   - Publish immutable develop builds to a separate new repository
     - https://github.com/ErsatzTV/legacy-develop-builds/releases/latest
+- Local libraries: use video stream duration instead of container duration for scheduling
+  - This fixes playback failures caused by e.g. embedded subtitles longer than the video itself
 - Next engine:
   - Improve watermark quality with VAAPI and QSV by avoiding an unnecessary lossy color conversion
   - Optimize intermittent watermarks by converting the watermark image once instead of on every frame
