@@ -1,12 +1,78 @@
 name: Release
 on:
-  release:
-    types: [ published ]
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+  # dry run of an unpushed tag: builds, signs and verifies a draft, then deletes it
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to dry run (e.g. v26.11.0); its CHANGELOG.md section must be on main'
+        required: true
+        type: string
+concurrency:
+  group: release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+env:
+  TAG: ${{ inputs.tag || github.ref_name }}
+  GH_REPO: ${{ github.repository }}
 jobs:
+  preflight:
+    name: Preflight
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get the sources
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' }}
+        run: |
+          fail() { echo "::error::$1"; exit 1; }
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "'$TAG' is not vX.Y.Z"
+          if [[ "$DRY_RUN" == "true" ]]; then
+            [[ "$GITHUB_REF" == "refs/heads/main" ]] || fail "dry runs are dispatched on main only"
+            if git rev-parse -q --verify "refs/tags/$TAG" > /dev/null; then
+              fail "$TAG already exists; dry runs are for unpushed tags"
+            fi
+          fi
+          git merge-base --is-ancestor HEAD origin/main || fail "$TAG ($(git rev-parse HEAD)) is not on main"
+          .github/scripts/notes.sh "$TAG" > /dev/null
+          if is_draft=$(gh release view "$TAG" --json isDraft --jq .isDraft 2> /dev/null) && [[ "$is_draft" != "true" ]]; then
+            fail "$TAG is already published"
+          fi
+
+  create_draft:
+    name: Create draft release
+    runs-on: ubuntu-latest
+    needs: preflight
+    steps:
+      - name: Get the sources
+        uses: actions/checkout@v4
+      - name: Create draft
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' }}
+        run: |
+          # a leftover draft (failed dry run, earlier attempt) may hold another commit's assets
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            echo "deleting existing draft $TAG"
+            gh release delete "$TAG" --yes
+          fi
+          .github/scripts/notes.sh "$TAG" > notes.md
+          args=(--draft --title "$TAG" --notes-file notes.md --target "$(git rev-parse HEAD)")
+          [[ "$DRY_RUN" == "true" ]] || args+=(--verify-tag)
+          gh release create "$TAG" "${args[@]}"
+
   build_and_upload:
-    uses: ersatztv/legacy/.github/workflows/artifacts.yml@main
+    uses: ./.github/workflows/artifacts.yml
+    needs: create_draft
     with:
-      tag: ${{ github.event.release.tag_name }}
+      tag: ${{ inputs.tag || github.ref_name }}
       publish: true
     secrets:
       apple_developer_certificate_p12_base64: ${{ secrets.APPLE_DEVELOPER_CERTIFICATE_P12_BASE64 }}
@@ -17,12 +83,40 @@ jobs:
       azure_client_id: ${{ secrets.AZURE_CLIENT_ID }}
       azure_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
       azure_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+  # dry runs build without pushing, so :latest never moves
   build_images:
-    uses: ersatztv/legacy/.github/workflows/docker.yml@main
+    uses: ./.github/workflows/docker.yml
+    needs: preflight
     with:
       base_version: latest
-      tag: ${{ github.event.release.tag_name }}
-      publish: true
+      tag: ${{ inputs.tag || github.ref_name }}
+      publish: ${{ github.event_name == 'push' }}
     secrets:
       docker_hub_username: ${{ secrets.DOCKER_HUB_USERNAME }}
       docker_hub_access_token: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+
+  publish:
+    name: Publish release
+    runs-on: ubuntu-latest
+    needs: [build_and_upload, build_images]
+    steps:
+      - name: Get the sources
+        uses: actions/checkout@v4
+      - name: Verify draft
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: .github/scripts/verify-draft.sh "$TAG"
+      - name: Publish
+        if: github.event_name == 'push'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release edit "$TAG" --draft=false --latest
+      - name: Delete dry run draft
+        if: github.event_name == 'workflow_dispatch'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release delete "$TAG" --yes
