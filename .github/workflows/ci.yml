@@ -1,12 +1,17 @@
 name: CI
-# builds and packages every push to main as develop.yml does, unsigned and without publishing
-# anything; publishing (and signing) is a manual develop.yml dispatch
 on:
   push:
     branches:
       - main
     paths-ignore:
       - CHANGELOG.md
+  # pr.yml doesn't package
+  pull_request:
+    paths:
+      - .github/**
+      - scripts/macOS/**
+      - docker/**
+      - ErsatzTV-macOS
 jobs:
   calculate_version:
     name: Calculate version information

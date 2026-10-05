@@ -88,7 +88,7 @@ jobs:
         run: dotnet test --blame-hang-timeout "2m" --no-restore --verbosity normal
   build_and_test_mac:
     runs-on: macos-14
-    # hosted mac runners occasionally hang in dotnet; normal runs take 7-14 minutes
+    # mac runners sometimes hang in dotnet; normal runs take 7-14 min
     timeout-minutes: 30
     steps:
       - name: Get the sources

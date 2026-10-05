@@ -1,13 +1,11 @@
 name: Develop
-# publishes a develop build of main's head on demand, so several merges can ship as one build;
-# ci.yml already builds every push to main without publishing
 on:
   workflow_dispatch:
-# one run at a time, in dispatch order, so :develop and the newest develop release always match
+# keeps :develop in step with the newest release; prune-develop.sh relies on it
 concurrency:
   group: develop
   cancel-in-progress: false
-# develop builds live in their own repository so legacy's watchers and release feed only see full releases
+# own repo keeps develop builds out of legacy's release feed
 env:
   DEVELOP_REPO: ErsatzTV/legacy-develop-builds
   DEVELOP_KEEP: 100
@@ -49,8 +47,7 @@ jobs:
           app-id: ${{ vars.DEVELOP_APP_ID }}
           private-key: ${{ secrets.DEVELOP_APP_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
-      # no --target: the tag is created on the develop repository's default branch, since legacy's
-      # commits don't exist there; the tag name carries the legacy sha
+      # no --target: legacy commits don't exist in DEVELOP_REPO
       - name: Create draft
         shell: bash
         env:
