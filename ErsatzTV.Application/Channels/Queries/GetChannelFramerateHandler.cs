@@ -25,7 +25,7 @@ public class GetChannelFramerateHandler(
                 .Map(c => c.FFmpegProfile)
                 .SingleAsync(cancellationToken);
 
-            if (!ffmpegProfile.NormalizeFramerate)
+            if (!request.IgnoreProfile && !ffmpegProfile.NormalizeFramerate)
             {
                 return Option<FrameRate>.None;
             }

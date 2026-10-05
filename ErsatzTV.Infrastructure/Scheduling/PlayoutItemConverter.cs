@@ -273,7 +273,7 @@ public class PlayoutItemConverter(
         PlayoutItem playoutItem,
         TimeSpan duration)
     {
-        DateTimeOffset exp = playoutItem.FinishOffset + TimeSpan.FromHours(2);
+        DateTimeOffset exp = UrlExpiry(playoutItem);
         string sig = InternalUrlSigner.Sign(exp, "song-background", $"{channel.Id}", $"{playoutItem.Id}");
         return new Core.Next.Source
         {
@@ -361,7 +361,7 @@ public class PlayoutItemConverter(
         PlayoutItem playoutItem,
         CancellationToken cancellationToken)
     {
-        DateTimeOffset exp = playoutItem.FinishOffset + TimeSpan.FromHours(2);
+        DateTimeOffset exp = UrlExpiry(playoutItem);
 
         if (playoutItem is DynamicPlayoutItem)
         {
@@ -636,7 +636,7 @@ public class PlayoutItemConverter(
         Core.Next.Source source;
         if (subtitle.SubtitleKind is SubtitleKind.Sidecar && subtitle.Id > 0)
         {
-            DateTimeOffset exp = playoutItem.FinishOffset + TimeSpan.FromHours(2);
+            DateTimeOffset exp = UrlExpiry(playoutItem);
             string sig = InternalUrlSigner.Sign(exp, "subtitle", $"{subtitle.Id}");
             source = new Core.Next.Source
             {
@@ -726,7 +726,7 @@ public class PlayoutItemConverter(
             Height = channel.FFmpegProfile.Resolution.Height,
         };
 
-        DateTimeOffset exp = playoutItem.FinishOffset + TimeSpan.FromHours(2);
+        DateTimeOffset exp = UrlExpiry(playoutItem);
 
         string sig = InternalUrlSigner.Sign(exp, "graphics", channel.Number, $"{playoutItem.Id}");
 
@@ -869,6 +869,13 @@ public class PlayoutItemConverter(
         }
 
         return [MusicVideoCreditsSubtitle.ForPlayoutItem(playoutItemId, playoutItemInPoint)];
+    }
+
+    // troubleshooting uses items that already finished; their urls must still be valid
+    private static DateTimeOffset UrlExpiry(PlayoutItem playoutItem)
+    {
+        DateTimeOffset now = DateTimeOffset.Now;
+        return (playoutItem.FinishOffset > now ? playoutItem.FinishOffset : now) + TimeSpan.FromHours(2);
     }
 
     private static void SetInOutPoints(PlayoutItem playoutItem, Core.Next.Source source)

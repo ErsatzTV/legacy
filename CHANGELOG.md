@@ -98,6 +98,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
     - Fix audio/video sync loss at the end of such content
   - Fix timestamps restarting at zero between items when `ffprobe` is not on the system `PATH`
   - Ignore unextracted text subtitles when using custom stream selector
+  - Fix channel playback troubleshooting, which always used the legacy engine
+    - Channel troubleshooting plays 30 seconds from the selected time, including transitions between items and fallback filler for gaps
+  - Fix troubleshooting playback stopping before the end of the transcoded content
 - Improve performance of graphics engine subtitle elements
 - Fix Jellyfin 12 shows that belong to a Jellyfin collection being replaced by the collection itself
   - The collection would appear as a show, and the real show would be flagged as missing

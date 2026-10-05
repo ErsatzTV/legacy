@@ -441,6 +441,7 @@
         foreach (ChannelViewModel channel in maybeChannel)
         {
             _title = channel.Name;
+            _streamingEngine = channel.StreamingEngine;
             _ffmpegProfileId = channel.FFmpegProfileId;
             if (channel.StreamSelectorMode is ChannelStreamSelectorMode.Custom)
             {

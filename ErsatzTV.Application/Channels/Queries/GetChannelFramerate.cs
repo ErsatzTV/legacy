@@ -2,4 +2,4 @@
 
 namespace ErsatzTV.Application.Channels;
 
-public record GetChannelFramerate(string ChannelNumber) : IRequest<Option<FrameRate>>;
+public record GetChannelFramerate(string ChannelNumber, bool IgnoreProfile = false) : IRequest<Option<FrameRate>>;
