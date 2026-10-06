@@ -49,50 +49,75 @@ public partial class SyncNextPlayoutHandler(
 
         string currentFolder = fileSystem.Path.Combine(channelFolder, "current");
 
-        // re-point symlink/junction to new folder
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        try
         {
-            if (Directory.Exists(currentFolder))
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
-                var dirInfo = new DirectoryInfo(currentFolder);
-                if (dirInfo.Attributes.HasFlag(FileAttributes.ReparsePoint))
+                if (!TryRemoveCurrentFolder(currentFolder))
                 {
-                    dirInfo.Delete();
-                }
-                else
-                {
-                    logger.LogError("Expected junction at {Folder} but found a real directory", currentFolder);
                     return;
                 }
+
+                var stdErrBuffer = new StringBuilder();
+                CommandResult command = await Cli.Wrap("cmd.exe")
+                    .WithArguments(["/c", "mklink", "/j", "current", versionFolderName])
+                    .WithWorkingDirectory(channelFolder)
+                    .WithStandardErrorPipe(PipeTarget.ToStringBuilder(stdErrBuffer))
+                    .WithValidation(CommandResultValidation.None)
+                    .ExecuteAsync(cancellationToken);
+
+                if (!command.IsSuccess)
+                {
+                    logger.LogError("Failed to link current playout JSON folder: {Error}", stdErrBuffer);
+                }
             }
-
-            var stdErrBuffer = new StringBuilder();
-            CommandResult command = await Cli.Wrap("cmd.exe")
-                .WithArguments(["/c", "mklink", "/j", "current", versionFolderName])
-                .WithWorkingDirectory(channelFolder)
-                .WithStandardErrorPipe(PipeTarget.ToStringBuilder(stdErrBuffer))
-                .WithValidation(CommandResultValidation.None)
-                .ExecuteAsync(cancellationToken);
-
-            if (!command.IsSuccess)
+            else
             {
-                logger.LogError("Failed to link current playout JSON folder: {Error}", stdErrBuffer);
+                string tempLink = fileSystem.Path.Combine(
+                    FileSystemLayout.NextPlayoutsFolder,
+                    request.ChannelNumber,
+                    fileSystem.Path.GetRandomFileName());
+
+                fileSystem.File.CreateSymbolicLink(tempLink, versionFolderName);
+                _ = Rename(tempLink, currentFolder);
             }
         }
-        else
+        finally
         {
-            string tempLink = fileSystem.Path.Combine(
-                FileSystemLayout.NextPlayoutsFolder,
-                request.ChannelNumber,
-                fileSystem.Path.GetRandomFileName());
+            // each sync adds a version folder; clean up even if linking fails
+            CleanOldVersions(channelFolder, currentFolder);
+        }
+    }
 
-            fileSystem.File.CreateSymbolicLink(tempLink, versionFolderName);
-            _ = Rename(tempLink, currentFolder);
+    private bool TryRemoveCurrentFolder(string currentFolder)
+    {
+        if (!Directory.Exists(currentFolder))
+        {
+            return true;
         }
 
-        CleanOldVersions(
-            fileSystem.Path.Combine(FileSystemLayout.NextPlayoutsFolder, request.ChannelNumber),
+        var dirInfo = new DirectoryInfo(currentFolder);
+        if (dirInfo.Attributes.HasFlag(FileAttributes.ReparsePoint))
+        {
+            dirInfo.Delete();
+            return true;
+        }
+
+        // copying app data (explorer, backups) turns junctions into real folders
+        logger.LogWarning(
+            "Expected junction at {Folder} but found a real directory; replacing it with a junction",
             currentFolder);
+
+        try
+        {
+            dirInfo.Delete(recursive: true);
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            logger.LogError(ex, "Failed to remove real directory at {Folder}", currentFolder);
+            return false;
+        }
     }
 
     private async Task WriteAllJsonTo(string channelNumber, string targetFolder, CancellationToken cancellationToken)
