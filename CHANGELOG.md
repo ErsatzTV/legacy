@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
+
+## [26.11.1] - 2026-10-06
 ### Fixed
 - Next engine:
   - Windows: fix channels failing to locate playout items after the app data folder is copied or restored (e.g. with Explorer or a backup tool)
@@ -3593,7 +3595,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Initial release to facilitate testing outside of Docker.
 
 
-[Unreleased]: https://github.com/ErsatzTV/legacy/compare/v26.11.0...HEAD
+[Unreleased]: https://github.com/ErsatzTV/legacy/compare/v26.11.1...HEAD
+[26.11.1]: https://github.com/ErsatzTV/legacy/compare/v26.11.0...v26.11.1
 [26.11.0]: https://github.com/ErsatzTV/legacy/compare/v26.10.0...v26.11.0
 [26.10.0]: https://github.com/ErsatzTV/legacy/compare/v26.9.0...v26.10.0
 [26.9.0]: https://github.com/ErsatzTV/legacy/compare/v26.8.1...v26.9.0
