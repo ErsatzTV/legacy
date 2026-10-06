@@ -9,6 +9,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Windows: fix channels failing to locate playout items after the app data folder is copied or restored (e.g. with Explorer or a backup tool)
     - The log showed `Expected junction at ... but found a real directory`
   - QSV: fix `Cannot allocate memory` error when using loudness normalization with legacy runtimes (older Intel devices)
+  - VAAPI: fix green padding with HDR and other BT.2020 content on Intel devices using the iHD driver
+  - VAAPI: fix green padding on AMD devices and Intel devices using the i965 driver
+    - These drivers ignore the requested pad color, so padding is now done in software
 
 ## [26.11.0] - 2026-10-05
 ### Added
