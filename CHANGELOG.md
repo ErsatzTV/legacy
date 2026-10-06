@@ -6,7 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 ### Fixed
 - Next engine:
-  - Windows: fix channels playing only fallback content after the app data folder is copied or restored (e.g. with Explorer or a backup tool)
+  - Windows: fix channels failing to locate playout items after the app data folder is copied or restored (e.g. with Explorer or a backup tool)
     - The log showed `Expected junction at ... but found a real directory`
   - QSV: fix `Cannot allocate memory` error when using loudness normalization with legacy runtimes (older Intel devices)
 
