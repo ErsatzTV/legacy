@@ -8,6 +8,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Next engine:
   - Linux/macOS: fix channels failing to locate playout items after the config folder is copied or restored with a tool that replaces symlinks with real folders (e.g. `cp -L`, `rsync -L`)
     - Failures to link the current playout folder are now logged instead of silently ignored
+  - VAAPI: fix playback freezing at the end of some items on channels with an `Intermittent` watermark
+    - Most common with music videos, whose audio often runs slightly longer than their video
+    - The log showed `channel ... terminated after ffmpeg stall`
 
 ## [26.11.1] - 2026-10-06
 ### Fixed
