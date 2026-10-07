@@ -40,6 +40,10 @@ jobs:
             fi
           fi
           git merge-base --is-ancestor HEAD origin/main || fail "$TAG ($(git rev-parse HEAD)) is not on main"
+          read -r next_tag next_repo <<< "$(.github/scripts/next-pin.sh)"
+          # a full release must embed an immutable next release, never a pruneable develop build
+          [[ "$next_tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "next pin $next_tag is not a next release; pin vX.Y.Z in .github/next-tag first"
+          gh release view "$next_tag" --repo "$next_repo" > /dev/null || fail "next pin $next_tag has no release in $next_repo"
           .github/scripts/notes.sh "$TAG" > /dev/null
           if is_draft=$(gh release view "$TAG" --json isDraft --jq .isDraft 2> /dev/null) && [[ "$is_draft" != "true" ]]; then
             fail "$TAG is already published"
