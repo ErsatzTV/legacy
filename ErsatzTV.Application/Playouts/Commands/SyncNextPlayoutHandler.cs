@@ -51,13 +51,13 @@ public partial class SyncNextPlayoutHandler(
 
         try
         {
+            if (!TryRemoveCurrentFolder(currentFolder))
+            {
+                return;
+            }
+
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
-                if (!TryRemoveCurrentFolder(currentFolder))
-                {
-                    return;
-                }
-
                 var stdErrBuffer = new StringBuilder();
                 CommandResult command = await Cli.Wrap("cmd.exe")
                     .WithArguments(["/c", "mklink", "/j", "current", versionFolderName])
@@ -78,8 +78,26 @@ public partial class SyncNextPlayoutHandler(
                     request.ChannelNumber,
                     fileSystem.Path.GetRandomFileName());
 
-                fileSystem.File.CreateSymbolicLink(tempLink, versionFolderName);
-                _ = Rename(tempLink, currentFolder);
+                try
+                {
+                    fileSystem.File.CreateSymbolicLink(tempLink, versionFolderName);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    logger.LogError(
+                        ex,
+                        "Failed to link current playout JSON folder; the config folder must support symlinks");
+                    return;
+                }
+
+                if (Rename(tempLink, currentFolder) != 0)
+                {
+                    int errno = Marshal.GetLastPInvokeError();
+                    logger.LogError(
+                        "Failed to link current playout JSON folder: {Error}",
+                        Marshal.GetPInvokeErrorMessage(errno));
+                    fileSystem.File.Delete(tempLink);
+                }
             }
         }
         finally
@@ -91,21 +109,47 @@ public partial class SyncNextPlayoutHandler(
 
     private bool TryRemoveCurrentFolder(string currentFolder)
     {
+        bool isWindows = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
+
         if (!Directory.Exists(currentFolder))
         {
+            // mklink fails on an existing file; unix renames over it
+            if (isWindows && File.Exists(currentFolder))
+            {
+                logger.LogWarning(
+                    "Expected junction at {Folder} but found a file; replacing it",
+                    currentFolder);
+
+                try
+                {
+                    File.Delete(currentFolder);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    logger.LogError(ex, "Failed to remove file at {Folder}", currentFolder);
+                    return false;
+                }
+            }
+
             return true;
         }
 
         var dirInfo = new DirectoryInfo(currentFolder);
         if (dirInfo.Attributes.HasFlag(FileAttributes.ReparsePoint))
         {
-            dirInfo.Delete();
+            // unix atomically renames the new symlink over the old one
+            if (isWindows)
+            {
+                dirInfo.Delete();
+            }
+
             return true;
         }
 
-        // copying app data (explorer, backups) turns junctions into real folders
+        // copying app data (explorer, backups, cp -L) turns links into real folders
         logger.LogWarning(
-            "Expected junction at {Folder} but found a real directory; replacing it with a junction",
+            "Expected {LinkKind} at {Folder} but found a real directory; replacing it",
+            isWindows ? "junction" : "symlink",
             currentFolder);
 
         try
