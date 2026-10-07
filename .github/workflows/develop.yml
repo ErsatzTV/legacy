@@ -47,6 +47,7 @@ jobs:
           app-id: ${{ vars.DEVELOP_APP_ID }}
           private-key: ${{ secrets.DEVELOP_APP_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
+          repositories: legacy-develop-builds
       # no --target: legacy commits don't exist in DEVELOP_REPO
       - name: Create draft
         shell: bash
@@ -70,7 +71,7 @@ jobs:
     with:
       tag: ${{ needs.calculate_version.outputs.tag }}
       publish: true
-      release_repo: ErsatzTV/legacy-develop-builds
+      release_repo: legacy-develop-builds
       release_app_id: ${{ vars.DEVELOP_APP_ID }}
     secrets:
       apple_developer_certificate_p12_base64: ${{ secrets.APPLE_DEVELOPER_CERTIFICATE_P12_BASE64 }}
@@ -110,6 +111,7 @@ jobs:
           app-id: ${{ vars.DEVELOP_APP_ID }}
           private-key: ${{ secrets.DEVELOP_APP_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
+          repositories: legacy-develop-builds
       - name: Verify draft
         shell: bash
         env:

@@ -11,7 +11,7 @@ on:
         required: true
         type: boolean
       release_repo:
-        description: 'Repository that holds the release (e.g. ErsatzTV/legacy-develop-builds); defaults to this repository'
+        description: 'Repository under this owner that holds the release (e.g. legacy-develop-builds); defaults to this repository'
         required: false
         type: string
         default: ''
@@ -180,7 +180,7 @@ jobs:
           rm -r ErsatzTV-Legacy.app
           rm -r ffmpeg
 
-      # github.token can't write to other repos; owner alone covers every repo the app is installed on
+      # github.token can't write to other repos
       - name: Get release repository token
         id: release-token
         if: inputs.publish && inputs.release_repo != ''
@@ -189,12 +189,13 @@ jobs:
           app-id: ${{ inputs.release_app_id }}
           private-key: ${{ secrets.release_app_private_key }}
           owner: ${{ github.repository_owner }}
+          repositories: ${{ inputs.release_repo }}
 
       - name: Publish
         if: inputs.publish
         env:
           GH_TOKEN: ${{ steps.release-token.outputs.token || github.token }}
-          RELEASE_REPO: ${{ inputs.release_repo || github.repository }}
+          RELEASE_REPO: ${{ inputs.release_repo && format('{0}/{1}', github.repository_owner, inputs.release_repo) || github.repository }}
         run: gh release upload "$TAG" "${{ env.RELEASE_NAME }}.dmg" --clobber --repo "$RELEASE_REPO"
 
   build_and_upload_linux:
@@ -262,12 +263,13 @@ jobs:
           app-id: ${{ inputs.release_app_id }}
           private-key: ${{ secrets.release_app_private_key }}
           owner: ${{ github.repository_owner }}
+          repositories: ${{ inputs.release_repo }}
 
       - name: Publish
         if: inputs.publish
         env:
           GH_TOKEN: ${{ steps.release-token.outputs.token || github.token }}
-          RELEASE_REPO: ${{ inputs.release_repo || github.repository }}
+          RELEASE_REPO: ${{ inputs.release_repo && format('{0}/{1}', github.repository_owner, inputs.release_repo) || github.repository }}
         run: gh release upload "$TAG" "${{ env.RELEASE_NAME }}.tar.gz" --clobber --repo "$RELEASE_REPO"
 
   build_dotnet_windows:
@@ -414,11 +416,12 @@ jobs:
           app-id: ${{ inputs.release_app_id }}
           private-key: ${{ secrets.release_app_private_key }}
           owner: ${{ github.repository_owner }}
+          repositories: ${{ inputs.release_repo }}
 
       - name: Publish
         if: inputs.publish
         shell: bash
         env:
           GH_TOKEN: ${{ steps.release-token.outputs.token || github.token }}
-          RELEASE_REPO: ${{ inputs.release_repo || github.repository }}
+          RELEASE_REPO: ${{ inputs.release_repo && format('{0}/{1}', github.repository_owner, inputs.release_repo) || github.repository }}
         run: gh release upload "$TAG" "${{ env.RELEASE_NAME }}.zip" --clobber --repo "$RELEASE_REPO"
