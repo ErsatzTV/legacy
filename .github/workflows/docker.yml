@@ -51,11 +51,9 @@ jobs:
             amd64) TARGET="linux-x64" ;;
             arm64) TARGET="linux-arm64" ;;
           esac
-          gh release download develop --repo ErsatzTV/next --pattern "ersatztv-next-*-${TARGET}.tar.gz" --dir next-download
-          mkdir next-extracted
-          tar xzvf next-download/*.tar.gz -C next-extracted --strip-components 1
+          .github/scripts/download-next.sh "$TARGET" next-extracted
           mv next-extracted/ersatztv-channel .
-          rm -rf next-download next-extracted
+          rm -rf next-extracted
 
       - name: Calculate informational version
         id: version

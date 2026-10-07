@@ -117,13 +117,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           next_target="${{ matrix.target }}"
-          next_target="${next_target/osx/macos}"
-          gh release download develop --repo ErsatzTV/next --pattern "ersatztv-next-*-${next_target}.tar.gz" --dir next-download
-          mkdir next-extracted
-          tar xzvf next-download/*.tar.gz -C next-extracted --strip-components 1
+          .github/scripts/download-next.sh "${next_target/osx/macos}" next-extracted
           mv next-extracted/ersatztv-channel ErsatzTV-Legacy.app/Contents/MacOS/
           chmod +x ErsatzTV-Legacy.app/Contents/MacOS/ersatztv-channel
-          rm -rf next-download next-extracted
+          rm -rf next-extracted
 
       # hashes from the release's SHA256SUMS
       - name: Download ffmpeg
@@ -245,11 +242,9 @@ jobs:
           mv scanner/* "$release_name/"
           mv main/* "$release_name/"
 
-          gh release download develop --repo ErsatzTV/next --pattern "ersatztv-next-*-${{ matrix.target }}.tar.gz" --dir next-download
-          mkdir next-extracted
-          tar xzvf next-download/*.tar.gz -C next-extracted --strip-components 1
+          .github/scripts/download-next.sh "${{ matrix.target }}" next-extracted
           mv next-extracted/ersatztv-channel "$release_name/"
-          rm -rf next-download next-extracted
+          rm -rf next-extracted
 
           tar czvf "${release_name}.tar.gz" "$release_name"
 
@@ -358,6 +353,9 @@ jobs:
     # sign_dotnet_windows is skipped when unsigned
     if: ${{ !failure() && !cancelled() }}
     steps:
+      - name: Get the sources
+        uses: actions/checkout@v4
+
       - name: Download dotnet artifacts
         uses: actions/download-artifact@v4
         with:
@@ -397,12 +395,11 @@ jobs:
 
           mv rust-build/ErsatzTV-Windows.exe "$release_name/ErsatzTV-Windows.exe"
 
-          gh release download develop --repo ErsatzTV/next --pattern "ersatztv-next-*-windows-x64.zip" --dir next-download
-          7z x next-download/*.zip -onext-extracted
-          mv next-extracted/ersatztv-next-*/ersatztv-channel.exe "$release_name/"
-          mv next-extracted/ersatztv-next-*/libvpl.dll "$release_name/"
-          mv next-extracted/ersatztv-next-*/libvpl-LICENSE.txt "$release_name/"
-          rm -rf next-download next-extracted
+          .github/scripts/download-next.sh windows-x64 next-extracted
+          mv next-extracted/ersatztv-channel.exe "$release_name/"
+          mv next-extracted/libvpl.dll "$release_name/"
+          mv next-extracted/libvpl-LICENSE.txt "$release_name/"
+          rm -rf next-extracted
 
           7z e ffmpeg/ffmpeg-n8.1.2-etv.4-win64-gpl-8.1.zip -o"$release_name" '*.exe' -r
 
