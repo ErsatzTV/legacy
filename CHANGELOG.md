@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
+### Fixed
+- Next engine:
+  - Linux/macOS: fix channels failing to locate playout items after the config folder is copied or restored with a tool that replaces symlinks with real folders (e.g. `cp -L`, `rsync -L`)
+    - Failures to link the current playout folder are now logged instead of silently ignored
 
 ## [26.11.1] - 2026-10-06
 ### Fixed
