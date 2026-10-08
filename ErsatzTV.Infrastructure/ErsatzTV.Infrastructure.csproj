@@ -35,7 +35,6 @@
         <PackageReference Include="Refit.Xml" Version="15.2.0" />
         <PackageReference Include="RichTextKit.Stbear" Version="0.4.167.3" />
         <PackageReference Include="Scriban.Signed" Version="7.5.0" />
-        <PackageReference Include="SixLabors.ImageSharp" Version="[3.1.12,4)" />
         <PackageReference Include="SkiaSharp" Version="4.153.1" />
         <PackageReference Include="TagLibSharp" Version="2.3.0" />
         <PackageReference Include="TimeZoneConverter" Version="7.2.0" />

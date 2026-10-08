@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
+### Changed
+- Graphics engine: decode image and watermark elements with SkiaSharp instead of ImageSharp
+  - TIFF, TGA, PBM and QOI images are no longer supported
+
 ### Fixed
 - Next engine:
   - Linux/macOS: fix channels failing to locate playout items after the config folder is copied or restored with a tool that replaces symlinks with real folders (e.g. `cp -L`, `rsync -L`)
