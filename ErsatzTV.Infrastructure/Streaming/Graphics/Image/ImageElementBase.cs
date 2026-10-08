@@ -1,16 +1,6 @@
-using System.Runtime.InteropServices;
 using ErsatzTV.Core.Domain;
 using ErsatzTV.FFmpeg.State;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Formats;
-using SixLabors.ImageSharp.Formats.Gif;
-using SixLabors.ImageSharp.Formats.Png;
-using SixLabors.ImageSharp.Formats.Webp;
-using SixLabors.ImageSharp.Metadata;
-using SixLabors.ImageSharp.PixelFormats;
-using SixLabors.ImageSharp.Processing;
 using SkiaSharp;
-using Image = SixLabors.ImageSharp.Image;
 
 namespace ErsatzTV.Infrastructure.Streaming.Graphics;
 
@@ -21,14 +11,11 @@ public abstract class ImageElementBase : GraphicsElement, IDisposable
     private double _animatedDurationSeconds;
     private ushort _repeatCount;
 
-    private Image _sourceImage;
-
     protected SKPointI Location { get; private set; }
 
     public virtual void Dispose()
     {
         GC.SuppressFinalize(this);
-        _sourceImage?.Dispose();
         _scaledFrames?.ForEach(f => f.Dispose());
     }
 
@@ -47,23 +34,30 @@ public abstract class ImageElementBase : GraphicsElement, IDisposable
         bool isRemoteUri = Uri.TryCreate(image, UriKind.Absolute, out Uri uriResult)
                            && (uriResult.Scheme == Uri.UriSchemeHttp || uriResult.Scheme == Uri.UriSchemeHttps);
 
+        byte[] imageBytes;
         if (isRemoteUri)
         {
             using var client = new HttpClient();
-            await using Stream imageStream = await client.GetStreamAsync(uriResult, cancellationToken);
-            _sourceImage = await Image.LoadAsync(imageStream, cancellationToken);
+            imageBytes = await client.GetByteArrayAsync(uriResult, cancellationToken);
         }
         else
         {
-            _sourceImage = await Image.LoadAsync(image!, cancellationToken);
+            imageBytes = await File.ReadAllBytesAsync(image!, cancellationToken);
         }
 
-        int scaledWidth = _sourceImage.Width;
-        int scaledHeight = _sourceImage.Height;
+        using SKData data = SKData.CreateCopy(imageBytes);
+        using SKCodec codec = SKCodec.Create(data)
+                              ?? throw new InvalidOperationException($"Unsupported image format: {image}");
+
+        int sourceWidth = codec.Info.Width;
+        int sourceHeight = codec.Info.Height;
+
+        int scaledWidth = sourceWidth;
+        int scaledHeight = sourceHeight;
         if (scale)
         {
             scaledWidth = (int)Math.Round((scaleWidthPercent ?? 100) / 100.0 * frameSize.Width);
-            double aspectRatio = (double)_sourceImage.Height / _sourceImage.Width;
+            double aspectRatio = (double)sourceHeight / sourceWidth;
             scaledHeight = (int)(scaledWidth * aspectRatio);
         }
 
@@ -84,80 +78,113 @@ public abstract class ImageElementBase : GraphicsElement, IDisposable
             horizontalMargin,
             verticalMargin);
 
-        if (_sourceImage.Metadata.DecodedImageFormat == GifFormat.Instance)
-        {
-            _repeatCount = _sourceImage.Metadata.GetFormatMetadata(GifFormat.Instance).RepeatCount;
-        }
-
         _animatedDurationSeconds = 0;
 
-        for (var i = 0; i < _sourceImage.Frames.Count; i++)
-        {
-            Image frame = _sourceImage.Frames.CloneFrame(i);
-            frame.Mutate(ctx => ctx.Resize(scaledWidth, scaledHeight));
-            _scaledFrames.Add(ToSkiaBitmap(frame));
+        var info = new SKImageInfo(sourceWidth, sourceHeight, SKColorType.Rgba8888, SKAlphaType.Premul);
+        var scaledInfo = info.WithSize(scaledWidth, scaledHeight);
 
-            double frameDelay = GetFrameDelaySeconds(_sourceImage, i);
-            _animatedDurationSeconds += frameDelay;
-            _frameDelays.Add(frameDelay);
+        SKCodecFrameInfo[] frameInfo = codec.FrameInfo;
+
+        // read after FrameInfo; gif reports infinite before that
+        // skia 0 means play once, but 0 means forever here
+        if (codec.EncodedFormat == SKEncodedImageFormat.Gif)
+        {
+            _repeatCount = codec.RepetitionCount < 0 ? (ushort)0 : (ushort)Math.Max(codec.RepetitionCount, 1);
+        }
+
+        if (frameInfo.Length == 0 && codec.EncodedFormat == SKEncodedImageFormat.Png)
+        {
+            List<ApngFrame> apngFrames = ApngDecoder.Decode(imageBytes, info);
+            foreach (ApngFrame apngFrame in apngFrames)
+            {
+                using (apngFrame.Bitmap)
+                {
+                    _scaledFrames.Add(Scale(apngFrame.Bitmap, scaledInfo));
+                }
+
+                _animatedDurationSeconds += apngFrame.DelaySeconds;
+                _frameDelays.Add(apngFrame.DelaySeconds);
+            }
+
+            if (apngFrames.Count > 0)
+            {
+                return;
+            }
+        }
+
+        if (frameInfo.Length == 0)
+        {
+            using SKBitmap frame = DecodeFrame(codec, info, 0, -1, []);
+            _scaledFrames.Add(Scale(frame, scaledInfo));
+            _frameDelays.Add(1.0 / 60.0);
+            _animatedDurationSeconds = _frameDelays[0];
+            return;
+        }
+
+        // later frames draw on top of earlier frames, so scale after decode
+        var decodedFrames = new SKBitmap[frameInfo.Length];
+        try
+        {
+            for (var i = 0; i < frameInfo.Length; i++)
+            {
+                decodedFrames[i] = DecodeFrame(codec, info, i, frameInfo[i].RequiredFrame, decodedFrames);
+
+                _scaledFrames.Add(Scale(decodedFrames[i], scaledInfo));
+
+                double frameDelay = frameInfo[i].Duration / 1000.0;
+                _animatedDurationSeconds += frameDelay;
+                _frameDelays.Add(frameDelay);
+            }
+        }
+        finally
+        {
+            foreach (SKBitmap frame in decodedFrames)
+            {
+                frame?.Dispose();
+            }
         }
     }
 
-    protected static SKBitmap ToSkiaBitmap(Image image)
+    private static SKBitmap DecodeFrame(
+        SKCodec codec,
+        SKImageInfo info,
+        int frameIndex,
+        int requiredFrame,
+        SKBitmap[] decodedFrames)
     {
-        using Image<Rgba32> rgbaImage = image.CloneAs<Rgba32>();
-
-        int width = rgbaImage.Width;
-        int height = rgbaImage.Height;
-
-        var info = new SKImageInfo(width, height, SKColorType.Rgba8888, SKAlphaType.Unpremul);
-        var skBitmap = new SKBitmap(info);
-        if (!skBitmap.TryAllocPixels(info))
+        var bitmap = new SKBitmap(info);
+        var options = new SKCodecOptions(frameIndex);
+        if (requiredFrame >= 0)
         {
-            skBitmap.Dispose();
-            throw new InvalidOperationException("Failed to allocate pixels for SKBitmap.");
+            // codec draws only changed pixels
+            decodedFrames[requiredFrame].GetPixelSpan().CopyTo(bitmap.GetPixelSpan());
+            options = new SKCodecOptions(frameIndex, requiredFrame);
         }
 
-        var pixelArray = new Rgba32[width * height];
-        rgbaImage.CopyPixelDataTo(pixelArray);
+        SKCodecResult result = codec.GetPixels(info, bitmap.GetPixels(), options);
+        if (result is not (SKCodecResult.Success or SKCodecResult.IncompleteInput))
+        {
+            bitmap.Dispose();
+            throw new InvalidOperationException($"Failed to decode image frame {frameIndex}: {result}");
+        }
 
-        var bytes = new byte[pixelArray.Length * 4];
-        MemoryMarshal.AsBytes(pixelArray.AsSpan()).CopyTo(bytes);
-
-        IntPtr dstPtr = skBitmap.GetPixels(out _);
-        Marshal.Copy(bytes, 0, dstPtr, bytes.Length);
-
-        return skBitmap;
+        return bitmap;
     }
 
-    protected static double GetFrameDelaySeconds(Image image, int frameIndex)
+    private static SKBitmap Scale(SKBitmap source, SKImageInfo scaledInfo)
     {
-        IImageFormat format = image.Metadata.DecodedImageFormat;
-        ImageFrameMetadata frameMeta = image.Frames[frameIndex].Metadata;
-
-        if (format == GifFormat.Instance)
+        if (source.Width == scaledInfo.Width && source.Height == scaledInfo.Height)
         {
-            // GIF frame delay is in hundredths of a second
-            GifFrameMetadata gifMeta = frameMeta.GetFormatMetadata(GifFormat.Instance);
-            return gifMeta.FrameDelay / 100.0;
+            return source.Copy();
         }
 
-        if (format == PngFormat.Instance)
-        {
-            // PNG animated frame delay is in seconds (as double)
-            PngFrameMetadata pngMeta = frameMeta.GetFormatMetadata(PngFormat.Instance);
-            return pngMeta.FrameDelay.ToDouble();
-        }
+        // cubic aliases when shrinking
+        SKSamplingOptions sampling = scaledInfo.Width < source.Width
+            ? new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.Linear)
+            : new SKSamplingOptions(SKCubicResampler.Mitchell);
 
-        if (format == WebpFormat.Instance)
-        {
-            // WEBP animated frame delay is in milliseconds
-            WebpFrameMetadata webpMeta = frameMeta.GetFormatMetadata(WebpFormat.Instance);
-            return webpMeta.FrameDelay / 1000.0;
-        }
-
-        // Default: assume 1/60th second (~16.67 ms) if unknown
-        return 1.0 / 60.0;
+        return source.Resize(scaledInfo, sampling)
+               ?? throw new InvalidOperationException("Failed to scale image.");
     }
 
     protected SKBitmap GetFrameForTimestamp(TimeSpan timestamp)
@@ -175,7 +202,7 @@ public abstract class ImageElementBase : GraphicsElement, IDisposable
         double currentTime = timestamp.TotalSeconds % _animatedDurationSeconds;
 
         double frameTime = 0;
-        for (var i = 0; i < _sourceImage.Frames.Count; i++)
+        for (var i = 0; i < _scaledFrames.Count; i++)
         {
             frameTime += _frameDelays[i];
             if (currentTime <= frameTime)
