@@ -22,7 +22,7 @@
         <PackageReference Include="Serilog.Extensions.Logging" Version="10.0.0" />
         <PackageReference Include="Serilog.Sinks.Debug" Version="3.0.0" />
         <PackageReference Include="Shouldly" Version="4.3.0" />
-        <PackageReference Include="Testably.Abstractions.Testing" Version="7.0.2" />
+        <PackageReference Include="Testably.Abstractions.Testing" Version="7.1.1" />
     </ItemGroup>
 
     <ItemGroup>

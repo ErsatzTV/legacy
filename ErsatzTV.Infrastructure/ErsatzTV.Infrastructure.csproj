@@ -14,11 +14,11 @@
     <ItemGroup>
         <PackageReference Include="Blurhash.SkiaSharp" Version="2.0.0" />
         <PackageReference Include="CliWrap" Version="3.10.5" />
-        <PackageReference Include="Dapper" Version="2.1.86" />
+        <PackageReference Include="Dapper" Version="2.1.89" />
         <PackageReference Include="EFCore.BulkExtensions.Core" Version="[9.0.2,10)" />
-        <PackageReference Include="Elastic.Clients.Elasticsearch" Version="9.5.2" />
+        <PackageReference Include="Elastic.Clients.Elasticsearch" Version="9.5.3" />
         <PackageReference Include="Humanizer.Core" Version="3.0.10" />
-        <PackageReference Include="Jint" Version="4.16.2" />
+        <PackageReference Include="Jint" Version="4.17.0" />
         <PackageReference Include="JsonSchema.Net" Version="9.4.0" />
         <PackageReference Include="Lucene.Net" Version="4.8.0-beta00018" />
         <PackageReference Include="Lucene.Net.Analysis.Common" Version="4.8.0-beta00018" />
@@ -29,14 +29,14 @@
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
         <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="9.0.15" />
-        <PackageReference Include="Newtonsoft.Json.Schema" Version="4.0.1" />
+        <PackageReference Include="Newtonsoft.Json.Schema" Version="4.0.2" />
         <PackageReference Include="Refit" Version="15.2.0" />
         <PackageReference Include="Refit.Newtonsoft.Json" Version="15.2.0" />
         <PackageReference Include="Refit.Xml" Version="15.2.0" />
         <PackageReference Include="RichTextKit.Stbear" Version="0.4.167.3" />
-        <PackageReference Include="Scriban.Signed" Version="7.4.0" />
+        <PackageReference Include="Scriban.Signed" Version="7.5.0" />
         <PackageReference Include="SixLabors.ImageSharp" Version="[3.1.12,4)" />
-        <PackageReference Include="SkiaSharp" Version="4.152.0" />
+        <PackageReference Include="SkiaSharp" Version="4.153.1" />
         <PackageReference Include="TagLibSharp" Version="2.3.0" />
         <PackageReference Include="TimeZoneConverter" Version="7.2.0" />
     </ItemGroup>
