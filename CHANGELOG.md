@@ -15,6 +15,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - VAAPI: fix playback freezing at the end of some items on channels with an `Intermittent` watermark
     - Most common with music videos, whose audio often runs slightly longer than their video
     - The log showed `channel ... terminated after ffmpeg stall`
+  - Always encode 4:2:0 output, which many clients require
+    - Still images and song backgrounds were previously encoded as 4:4:4 by software encoders
+  - NVIDIA: fix streams failing with a watermark in `yuva420p` (e.g. lossy WebP with transparency) and opacity below 100%
+  - NVIDIA: fix streams with a watermark failing when encoding with software (e.g. `mpeg2video`)
 
 ## [26.11.1] - 2026-10-06
 ### Fixed
