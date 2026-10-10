@@ -203,15 +203,11 @@ public class PlayoutItemConverterTests
             hasAudio);
         Next.TrackSelection track = result.Tracks!.Subtitle!;
         track.StreamIndex.ShouldBe(4);
-        Next.Source source = (track.Source ?? result.Source)!;
-        source.ShouldNotBeNull();
+        track.Source.ShouldBeNull();
+        result.Tracks.Video.ShouldBeNull();
+        Next.Source source = result.Source!;
         source.Path.ShouldBe(VideoPath);
         AssertTiming(source);
-        if (!hasAudio)
-        {
-            result.Source.ShouldBeNull();
-            track.Source.ShouldBeSameAs(result.Tracks.Video!.Source);
-        }
     }
 
     [Test]
@@ -355,7 +351,7 @@ public class PlayoutItemConverterTests
     public async Task Image_hint_has_image_format_name(string codec, string formatName)
     {
         Next.PlayoutItem result = await Convert(new Image(), [], hasAudio: false, videoCodec: codec);
-        Next.ProbeHint hint = result.Tracks!.Video!.Source!.ProbeHint!;
+        Next.ProbeHint hint = result.Source!.ProbeHint!;
         hint.FormatName.ShouldBe(formatName);
         hint.Video.ShouldHaveSingleItem().Codec.ShouldBe(codec);
     }
@@ -412,14 +408,22 @@ public class PlayoutItemConverterTests
     }
 
     [Test]
+    public async Task Video_only_item_keeps_single_source()
+    {
+        Next.PlayoutItem result = await Convert(new Movie(), [], hasAudio: false);
+
+        result.Source!.Path.ShouldBe(VideoPath);
+        result.Source.ProbeHint!.Audio.ShouldBeEmpty();
+        result.Tracks.ShouldBeNull();
+    }
+
+    [Test]
     public async Task Item_without_known_streams_keeps_source_as_video()
     {
         Next.PlayoutItem result = await Convert(new Movie(), [], hasAudio: false, hasVideo: false);
 
-        result.Source.ShouldBeNull();
-        result.Tracks!.Audio!.Source!.SourceType.ShouldBe(Next.SourceType.Lavfi);
-        result.Tracks.Audio.Source.Params.ShouldStartWith("anullsrc");
-        result.Tracks.Video!.Source!.Path.ShouldBe(VideoPath);
+        result.Source!.Path.ShouldBe(VideoPath);
+        result.Tracks.ShouldBeNull();
     }
 
     private async Task<Next.PlayoutItem> Convert(

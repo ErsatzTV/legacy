@@ -178,47 +178,13 @@ public class PlayoutItemConverter(
                 FormatName = FormatNameHint(playoutItem.MediaItem, headVersion)
             };
 
+            // next plays silence for sources without audio
             bool hasAudio = headVersion.Streams.Any(s => s.MediaStreamKind is MediaStreamKind.Audio);
             bool hasVideo = headVersion.Streams.Any(s => s.MediaStreamKind is MediaStreamKind.Video && !s.AttachedPic);
 
-            // if no audio streams, use lavfi to insert silence
-            if (!hasAudio)
+            // items with no known streams keep their source as video
+            if (hasAudio && !hasVideo)
             {
-                var videoSource = nextPlayoutItem.Source;
-
-                nextPlayoutItem.Source = null;
-                nextPlayoutItem.Tracks = new Core.Next.PlayoutItemTracks
-                {
-                    Audio = new Core.Next.TrackSelection
-                    {
-                        Source =
-                            new Core.Next.Source
-                            {
-                                SourceType = Core.Next.SourceType.Lavfi,
-                                Params = "anullsrc=channel_layout=stereo:sample_rate=48000",
-                                ProbeHint = new Core.Next.ProbeHint
-                                {
-                                    Audio =
-                                    [
-                                        new Core.Next.AudioHint
-                                        {
-                                            StreamIndex = 0,
-                                            Codec = "pcm_s16le",
-                                            Channels = 2
-                                        }
-                                    ]
-                                }
-                            }
-                    },
-                    Video = new Core.Next.TrackSelection
-                    {
-                        Source = videoSource
-                    }
-                };
-            }
-            else if (!hasVideo)
-            {
-                // checked after audio so items with no known streams keep their source as video
                 foreach (Channel channel in maybeChannel)
                 {
                     var audioSource = nextPlayoutItem.Source;

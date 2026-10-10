@@ -15,7 +15,7 @@ namespace ErsatzTV.Application.Streaming;
 public class ChannelConfigConverter(IConfigElementRepository configElementRepository, IFileSystem fileSystem)
     : IChannelConfigConverter
 {
-    public static readonly string ChannelConfigVersion = "https://ersatztv.org/channel/version/0.1.1";
+    public static readonly string ChannelConfigVersion = "https://ersatztv.org/channel/version/0.1.2";
 
     public async Task<ChannelConfig> ToNext(
         ChannelViewModel channel,
