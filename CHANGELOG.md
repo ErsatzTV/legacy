@@ -7,6 +7,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Changed
 - Graphics engine: decode image and watermark elements with SkiaSharp instead of ImageSharp
   - TIFF, TGA, PBM and QOI images are no longer supported
+- Next engine:
+  - Software scaling now defaults to `bicubic` instead of `fast_bilinear`, which reduces aliasing when downscaling
+    - This can be changed using `normalization.video.filters.scale.flags` in a channel config overlay
 
 ### Fixed
 - Next engine:
@@ -20,6 +23,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - NVIDIA: fix streams failing with a watermark in `yuva420p` (e.g. lossy WebP with transparency) and opacity below 100%
   - NVIDIA: fix streams with a watermark failing when encoding with software (e.g. `mpeg2video`)
   - VideoToolbox: fix streams failing to encode to h264 when they contain embedded (A53) closed captions
+  - Fix fallback filler playback with filler content that has no audio
 
 ## [26.11.1] - 2026-10-06
 ### Fixed

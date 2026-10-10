@@ -261,6 +261,9 @@ namespace ErsatzTV.Core.Next.Config
         [JsonPropertyName("libplacebo")]
         public LibplaceboClass? Libplacebo { get; set; }
 
+        [JsonPropertyName("scale")]
+        public ScaleClass? Scale { get; set; }
+
         [JsonPropertyName("tonemap")]
         public TonemapClass? Tonemap { get; set; }
 
@@ -305,6 +308,17 @@ namespace ErsatzTV.Core.Next.Config
     {
         [JsonPropertyName("tonemapping")]
         public string? Tonemapping { get; set; }
+    }
+
+    public partial class ScaleClass
+    {
+        /// <summary>
+        /// Flags for the software `scale` filter, e.g. `bicubic`, `lanczos`, `fast_bilinear`.
+        /// Default is `bicubic`. Also applies to graphics, image subtitles, and hardware accels that
+        /// use the software scaler.
+        /// </summary>
+        [JsonPropertyName("flags")]
+        public string? Flags { get; set; }
     }
 
     public partial class TonemapClass
