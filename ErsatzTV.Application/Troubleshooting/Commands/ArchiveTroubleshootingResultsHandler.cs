@@ -44,55 +44,41 @@ public class ArchiveTroubleshootingResultsHandler(IFileSystem fileSystem, ILocal
         {
             foreach (string file in localFileSystem.ListFiles(directory))
             {
-                string fileName = Path.GetFileName(file);
+                string fileName = fileSystem.Path.GetFileName(file);
 
-                // add to archive
-                if (fileName.StartsWith("ffmpeg-", StringComparison.OrdinalIgnoreCase))
-                {
-                    hasReport = true;
-                    zipArchive.CreateEntryFromFile(file, fileName);
-                    continue;
-                }
+                bool isReport = fileName.StartsWith("ffmpeg-", StringComparison.OrdinalIgnoreCase)
+                                 || fileName.StartsWith("ffreport", StringComparison.OrdinalIgnoreCase);
 
-                if (fileName.Equals("logs.txt", StringComparison.OrdinalIgnoreCase))
-                {
-                    zipArchive.CreateEntryFromFile(file, fileName);
-                    continue;
-                }
+                hasReport = hasReport || isReport;
 
-                if (Path.GetExtension(file).Equals(".json", StringComparison.OrdinalIgnoreCase))
-                {
-                    zipArchive.CreateEntryFromFile(file, fileName);
-                    continue;
-                }
+                bool shouldArchive = isReport
+                    || fileName.Equals("logs.txt", StringComparison.OrdinalIgnoreCase)
+                    || fileSystem.Path.GetExtension(file).Equals(".json", StringComparison.OrdinalIgnoreCase)
+                    || fileName.Contains("capabilities", StringComparison.OrdinalIgnoreCase)
+                    || fileName.Contains("stream-selector", StringComparison.OrdinalIgnoreCase)
+                    || fileName.Contains("music-video-credits", StringComparison.OrdinalIgnoreCase)
+                    || fileName.Contains("outcome", StringComparison.OrdinalIgnoreCase);
 
-                if (fileName.Contains("capabilities", StringComparison.OrdinalIgnoreCase))
+                if (shouldArchive)
                 {
-                    zipArchive.CreateEntryFromFile(file, fileName);
-                    continue;
-                }
+                    string relativePath = fileSystem.Path.GetRelativePath(
+                        FileSystemLayout.TranscodeTroubleshootingFolder,
+                        file);
 
-                if (fileName.Contains("stream-selector", StringComparison.OrdinalIgnoreCase))
-                {
-                    zipArchive.CreateEntryFromFile(file, fileName);
-                    continue;
-                }
+                    if (zipArchive.GetEntry(fileName) != null)
+                    {
+                        // next duplicates media_info.json, but we don't want to bury everything in a subfolder,
+                        // so specifically handle this case and let any unexpected conflicts end up in a subfolder
+                        if (relativePath.StartsWith(".troubleshooting_", StringComparison.OrdinalIgnoreCase))
+                        {
+                            fileName = $"next_{fileName}";
+                        }
+                        else
+                        {
+                            fileName = relativePath;
+                        }
+                    }
 
-                if (fileName.Contains("music-video-credits", StringComparison.OrdinalIgnoreCase))
-                {
-                    zipArchive.CreateEntryFromFile(file, fileName);
-                    continue;
-                }
-
-                if (fileName.Contains("ffreport", StringComparison.OrdinalIgnoreCase))
-                {
-                    hasReport = true;
-                    zipArchive.CreateEntryFromFile(file, fileName);
-                    continue;
-                }
-
-                if (fileName.Contains("outcome", StringComparison.OrdinalIgnoreCase))
-                {
                     zipArchive.CreateEntryFromFile(file, fileName);
                 }
             }
