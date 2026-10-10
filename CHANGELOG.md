@@ -19,6 +19,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
     - Still images and song backgrounds were previously encoded as 4:4:4 by software encoders
   - NVIDIA: fix streams failing with a watermark in `yuva420p` (e.g. lossy WebP with transparency) and opacity below 100%
   - NVIDIA: fix streams with a watermark failing when encoding with software (e.g. `mpeg2video`)
+  - VideoToolbox: fix streams failing to encode to h264 when they contain embedded (A53) closed captions
 
 ## [26.11.1] - 2026-10-06
 ### Fixed
