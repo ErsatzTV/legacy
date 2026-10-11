@@ -62,8 +62,17 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
+      # Cache packages only; restore must still generate each job's build metadata.
+      - name: Cache NuGet packages
+        uses: actions/cache@v6
+        with:
+          path: ~/.nuget/packages
+          key: nuget-v1-${{ runner.os }}-${{ runner.arch }}-${{ matrix.target }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', '**/packages.lock.json', '**/[Nn]u[Gg]et.[Cc]onfig', 'global.json') }}
+          restore-keys: |
+            nuget-v1-${{ runner.os }}-${{ runner.arch }}-${{ matrix.target }}-
+
       - name: Clean
-        run: dotnet clean --configuration Release && dotnet nuget locals all --clear
+        run: dotnet clean --configuration Release
 
       - name: Install dependencies
         run: dotnet restore -r "${{ matrix.target }}"
@@ -252,8 +261,17 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
+      # Cache packages only; restore must still generate each job's build metadata.
+      - name: Cache NuGet packages
+        uses: actions/cache@v6
+        with:
+          path: ~/.nuget/packages
+          key: nuget-v1-${{ runner.os }}-${{ runner.arch }}-${{ matrix.target }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', '**/packages.lock.json', '**/[Nn]u[Gg]et.[Cc]onfig', 'global.json') }}
+          restore-keys: |
+            nuget-v1-${{ runner.os }}-${{ runner.arch }}-${{ matrix.target }}-
+
       - name: Clean
-        run: dotnet clean --configuration Release && dotnet nuget locals all --clear
+        run: dotnet clean --configuration Release
 
       - name: Install dependencies
         run: dotnet restore -r "${{ matrix.target }}"
@@ -312,8 +330,17 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
+      # Cache packages only; restore must still generate each job's build metadata.
+      - name: Cache NuGet packages
+        uses: actions/cache@v6
+        with:
+          path: ~/.nuget/packages
+          key: nuget-v1-${{ runner.os }}-${{ runner.arch }}-win-x64-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', '**/packages.lock.json', '**/[Nn]u[Gg]et.[Cc]onfig', 'global.json') }}
+          restore-keys: |
+            nuget-v1-${{ runner.os }}-${{ runner.arch }}-win-x64-
+
       - name: Clean
-        run: dotnet clean --configuration Release && dotnet nuget locals all --clear
+        run: dotnet clean --configuration Release
 
       - name: Install dependencies
         run: dotnet restore -r "win-x64"
