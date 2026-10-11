@@ -15,8 +15,8 @@ on:
         required: false
         type: string
         default: ''
-      release_app_id:
-        description: 'GitHub App that can write releases to release_repo; required with release_repo'
+      release_app_client_id:
+        description: 'Client ID of the GitHub App that can write releases to release_repo; required with release_repo'
         required: false
         type: string
         default: ''
@@ -53,12 +53,12 @@ jobs:
         target: [osx-x64, osx-arm64]
     steps:
       - name: Get the sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
       - name: Setup dotnet
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
 
@@ -80,7 +80,7 @@ jobs:
         run: tar cf "dotnet-${{ matrix.target }}.tar" publish
 
       - name: Upload .NET Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: dotnet-${{ matrix.target }}
           path: dotnet-${{ matrix.target }}.tar
@@ -105,12 +105,12 @@ jobs:
             ffmpeg_sha256: 45c0d193410fba877dbca772ec83037f5f77111f859c03bde07aaa9743350c6c
     steps:
       - name: Get the sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           submodules: true
 
       - name: Download .NET Artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: dotnet-${{ matrix.target }}
 
@@ -119,7 +119,7 @@ jobs:
 
       - name: Import Code-Signing Certificates
         if: inputs.publish
-        uses: Apple-Actions/import-codesign-certs@v2
+        uses: Apple-Actions/import-codesign-certs@v7
         with:
           p12-file-base64: ${{ secrets.apple_developer_certificate_p12_base64 }}
           p12-password: ${{ secrets.apple_developer_certificate_password }}
@@ -212,9 +212,9 @@ jobs:
       - name: Get release repository token
         id: release-token
         if: inputs.publish && inputs.release_repo != ''
-        uses: actions/create-github-app-token@v2
+        uses: actions/create-github-app-token@v3
         with:
-          app-id: ${{ inputs.release_app_id }}
+          client-id: ${{ inputs.release_app_client_id }}
           private-key: ${{ secrets.release_app_private_key }}
           owner: ${{ github.repository_owner }}
           repositories: ${{ inputs.release_repo }}
@@ -243,12 +243,12 @@ jobs:
             target: linux-arm64
     steps:
       - name: Get the sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
       - name: Setup dotnet
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
 
@@ -284,9 +284,9 @@ jobs:
       - name: Get release repository token
         id: release-token
         if: inputs.publish && inputs.release_repo != ''
-        uses: actions/create-github-app-token@v2
+        uses: actions/create-github-app-token@v3
         with:
-          app-id: ${{ inputs.release_app_id }}
+          client-id: ${{ inputs.release_app_client_id }}
           private-key: ${{ secrets.release_app_private_key }}
           owner: ${{ github.repository_owner }}
           repositories: ${{ inputs.release_repo }}
@@ -303,12 +303,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Get the sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
       - name: Setup dotnet
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
 
@@ -326,7 +326,7 @@ jobs:
           dotnet publish ErsatzTV/ErsatzTV.csproj --framework net10.0 --runtime "win-x64" -c Release -o "main" -p:RestoreEnablePackagePruning=true -p:InformationalVersion="${TAG%-develop}-win-x64" -p:EnableCompressionInSingleFile=true -p:DebugType=Embedded -p:PublishSingleFile=true --self-contained true
 
       - name: Upload .NET Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: dotnet-windows-build
           path: |
@@ -343,13 +343,13 @@ jobs:
     environment: signing
     steps:
       - name: Download dotnet artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: dotnet-windows-build
           path: dotnet-build
 
       - name: Azure login
-        uses: azure/login@v2
+        uses: azure/login@v3
         with:
           client-id: ${{ secrets.azure_client_id }}
           tenant-id: ${{ secrets.azure_tenant_id }}
@@ -357,10 +357,10 @@ jobs:
           enable-AzPSSession: true
 
       - name: Sign dotnet artifacts
-        uses: azure/trusted-signing-action@v0
+        uses: azure/artifact-signing-action@v2
         with:
           endpoint: https://eus.codesigning.azure.net/
-          trusted-signing-account-name: ArtifactSigning
+          signing-account-name: ArtifactSigning
           certificate-profile-name: ErsatzTV
           files-folder: ${{ github.workspace }}/dotnet-build
           files-folder-recurse: true
@@ -370,7 +370,7 @@ jobs:
           timestamp-digest: SHA256
 
       - name: Replace dotnet artifact with signed build
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: dotnet-windows-build
           path: dotnet-build/
@@ -385,16 +385,16 @@ jobs:
     if: ${{ !failure() && !cancelled() }}
     steps:
       - name: Get the sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Download dotnet artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: dotnet-windows-build
           path: dotnet-build
 
       - name: Download rust launcher
-        uses: suisei-cn/actions-download-file@v1.3.0
+        uses: suisei-cn/actions-download-file@v1.6.1
         with:
           url: "https://github.com/ErsatzTV/ErsatzTV-Windows/releases/download/v1.0.0/ErsatzTV-Windows.exe"
           target: rust-build/
@@ -439,9 +439,9 @@ jobs:
       - name: Get release repository token
         id: release-token
         if: inputs.publish && inputs.release_repo != ''
-        uses: actions/create-github-app-token@v2
+        uses: actions/create-github-app-token@v3
         with:
-          app-id: ${{ inputs.release_app_id }}
+          client-id: ${{ inputs.release_app_client_id }}
           private-key: ${{ secrets.release_app_private_key }}
           owner: ${{ github.repository_owner }}
           repositories: ${{ inputs.release_repo }}

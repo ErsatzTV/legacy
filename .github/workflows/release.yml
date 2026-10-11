@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Get the sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: Check release
@@ -55,7 +55,7 @@ jobs:
     needs: preflight
     steps:
       - name: Get the sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       - name: Create draft
         shell: bash
         env:
@@ -106,7 +106,7 @@ jobs:
     needs: [build_and_upload, build_images]
     steps:
       - name: Get the sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       - name: Verify draft
         shell: bash
         env:

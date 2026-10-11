@@ -20,7 +20,7 @@ jobs:
           echo "::error::develop builds are published from main only"
           exit 1
       - name: Get the sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: Calculate version
@@ -39,12 +39,12 @@ jobs:
       LAST_RELEASE: ${{ needs.calculate_version.outputs.last_release }}
     steps:
       - name: Get the sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       - name: Get develop repository token
         id: develop-token
-        uses: actions/create-github-app-token@v2
+        uses: actions/create-github-app-token@v3
         with:
-          app-id: ${{ vars.DEVELOP_APP_ID }}
+          client-id: ${{ vars.DEVELOP_APP_CLIENT_ID }}
           private-key: ${{ secrets.DEVELOP_APP_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
           repositories: legacy-develop-builds
@@ -72,7 +72,7 @@ jobs:
       tag: ${{ needs.calculate_version.outputs.tag }}
       publish: true
       release_repo: legacy-develop-builds
-      release_app_id: ${{ vars.DEVELOP_APP_ID }}
+      release_app_client_id: ${{ vars.DEVELOP_APP_CLIENT_ID }}
     secrets:
       apple_developer_certificate_p12_base64: ${{ secrets.APPLE_DEVELOPER_CERTIFICATE_P12_BASE64 }}
       apple_developer_certificate_password: ${{ secrets.APPLE_DEVELOPER_CERTIFICATE_PASSWORD }}
@@ -103,12 +103,12 @@ jobs:
       TAG: ${{ needs.calculate_version.outputs.tag }}
     steps:
       - name: Get the sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       - name: Get develop repository token
         id: develop-token
-        uses: actions/create-github-app-token@v2
+        uses: actions/create-github-app-token@v3
         with:
-          app-id: ${{ vars.DEVELOP_APP_ID }}
+          client-id: ${{ vars.DEVELOP_APP_CLIENT_ID }}
           private-key: ${{ secrets.DEVELOP_APP_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
           repositories: legacy-develop-builds
