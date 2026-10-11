@@ -21,10 +21,9 @@ jobs:
             target: linux-musl-x64
           - os: ubuntu-24.04-arm
             target: linux-arm64
-          # no intel runner; arch checked instead of run
-          - os: macos-14
+          - os: macos-15-intel
             target: macos-x64
-          - os: macos-14
+          - os: macos-15
             target: macos-arm64
           - os: windows-latest
             target: windows-x64
@@ -55,13 +54,7 @@ jobs:
             [[ -f "$f" ]] || { echo "::error::missing $f"; exit 1; }
           done
 
-          if [[ "$TARGET" == macos-x64 ]]; then
-            archs="$(lipo -archs ersatztv-channel)"
-            echo "$archs"
-            [[ "$archs" == x86_64 ]] || { echo "::error::expected x86_64, got '$archs'"; exit 1; }
-          else
-            actual="$(./"${files[0]}" --version | tr -d '\r')"
-            expected="ersatztv-channel ${tag#v}+${TARGET}"
-            echo "$actual"
-            [[ "$actual" == "$expected" ]] || { echo "::error::expected '$expected', got '$actual'"; exit 1; }
-          fi
+          actual="$(./"${files[0]}" --version | tr -d '\r')"
+          expected="ersatztv-channel ${tag#v}+${TARGET}"
+          echo "$actual"
+          [[ "$actual" == "$expected" ]] || { echo "::error::expected '$expected', got '$actual'"; exit 1; }

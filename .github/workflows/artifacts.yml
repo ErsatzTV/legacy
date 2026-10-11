@@ -51,12 +51,12 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: macos-14
+          - os: macos-15
             kind: macOS
             target: osx-x64
             ffmpeg_target: macos64
             ffmpeg_sha256: 6934c4313613c33b61c63bfcd6d2b7548e7678470aba707bbc441b01b118a62f
-          - os: macos-14
+          - os: macos-15
             kind: macOS
             target: osx-arm64
             ffmpeg_target: macosarm64
