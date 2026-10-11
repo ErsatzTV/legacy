@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Next engine:
   - Software scaling now defaults to `bicubic` instead of `fast_bilinear`, which reduces aliasing when downscaling
     - This can be changed using `normalization.video.filters.scale.flags` in a channel config overlay
+  - Log messages from next channels now include the channel number, e.g. `[next::channel 7]`
 
 ### Fixed
 - Next engine:

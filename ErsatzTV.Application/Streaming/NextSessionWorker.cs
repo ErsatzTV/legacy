@@ -167,6 +167,7 @@ public class NextSessionWorker(
 
             CommandResult commandResult = await Cli.Wrap(channelBinary)
                 .WithArguments(arguments)
+                .WithJsonLogs()
                 .WithStandardInputPipe(PipeSource.FromString(channelConfig.ToJson()))
                 .WithStandardOutputPipe(PipeTarget.ToDelegate(l => NextLogger.LogNextLine(l, logger)))
                 .WithStandardErrorPipe(PipeTarget.ToDelegate(l => NextLogger.LogNextLine(l, logger)))

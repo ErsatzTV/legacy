@@ -461,6 +461,7 @@ public class PrepareTroubleshootingPlaybackHandler(
 
             Command command = Cli.Wrap(channelBinary)
                 .WithArguments(arguments)
+                .WithJsonLogs()
                 .WithStandardInputPipe(PipeSource.FromString(config.ToJson()));
 
             return new PlayoutItemResult(
@@ -627,6 +628,7 @@ public class PrepareTroubleshootingPlaybackHandler(
 
         Command command = Cli.Wrap(channelBinary)
             .WithArguments(arguments)
+            .WithJsonLogs()
             .WithStandardInputPipe(PipeSource.FromString(config.ToJson()));
 
         Option<int> mediaItemId = windowItems
