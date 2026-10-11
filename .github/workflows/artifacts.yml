@@ -45,9 +45,51 @@ permissions:
 env:
   TAG: ${{ inputs.tag }}
 jobs:
+  build_dotnet_mac:
+    name: Build dotnet for ${{ matrix.target }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target: [osx-x64, osx-arm64]
+    steps:
+      - name: Get the sources
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup dotnet
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Clean
+        run: dotnet clean --configuration Release && dotnet nuget locals all --clear
+
+      - name: Install dependencies
+        run: dotnet restore -r "${{ matrix.target }}"
+
+      - name: Build
+        shell: bash
+        run: |
+          sed -i '/Scanner/d' ErsatzTV/ErsatzTV.csproj
+          dotnet publish ErsatzTV.Scanner/ErsatzTV.Scanner.csproj --framework net10.0 --runtime "${{ matrix.target }}" -c Release -o publish -p:RestoreEnablePackagePruning=true -p:InformationalVersion="${TAG%-develop}-${{ matrix.target }}" -p:EnableCompressionInSingleFile=false -p:DebugType=Embedded -p:PublishSingleFile=true --self-contained true
+          dotnet publish ErsatzTV/ErsatzTV.csproj --framework net10.0 --runtime "${{ matrix.target }}" -c Release -o publish -p:RestoreEnablePackagePruning=true -p:InformationalVersion="${TAG%-develop}-${{ matrix.target }}" -p:EnableCompressionInSingleFile=false -p:DebugType=Embedded -p:PublishSingleFile=true --self-contained true
+
+      # tar keeps the executable bits that artifact zips drop
+      - name: Archive
+        run: tar cf "dotnet-${{ matrix.target }}.tar" publish
+
+      - name: Upload .NET Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dotnet-${{ matrix.target }}
+          path: dotnet-${{ matrix.target }}.tar
+          retention-days: 1
+
   build_and_upload_mac:
     name: Mac Build & Upload
     runs-on: ${{ matrix.os }}
+    needs: build_dotnet_mac
     strategy:
       matrix:
         include:
@@ -65,19 +107,15 @@ jobs:
       - name: Get the sources
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
           submodules: true
 
-      - name: Setup dotnet
-        uses: actions/setup-dotnet@v4
+      - name: Download .NET Artifact
+        uses: actions/download-artifact@v4
         with:
-          dotnet-version: '10.0.x'
+          name: dotnet-${{ matrix.target }}
 
-      - name: Clean
-        run: dotnet clean --configuration Release && dotnet nuget locals all --clear
-
-      - name: Install dependencies
-        run: dotnet restore -r "${{ matrix.target}}"
+      - name: Extract .NET Artifact
+        run: tar xf "dotnet-${{ matrix.target }}.tar" && rm "dotnet-${{ matrix.target }}.tar"
 
       - name: Import Code-Signing Certificates
         if: inputs.publish
@@ -91,13 +129,6 @@ jobs:
         run: |
           release_name="ErsatzTV-Legacy-${TAG}-${{ matrix.target }}"
           echo "RELEASE_NAME=${release_name}" >> "$GITHUB_ENV"
-
-      - name: Build
-        shell: bash
-        run: |
-          sed -i '' '/Scanner/d' ErsatzTV/ErsatzTV.csproj
-          dotnet publish ErsatzTV.Scanner/ErsatzTV.Scanner.csproj --framework net10.0 --runtime "${{ matrix.target }}" -c Release -o publish -p:RestoreEnablePackagePruning=true -p:InformationalVersion="${TAG%-develop}-${{ matrix.target }}" -p:EnableCompressionInSingleFile=false -p:DebugType=Embedded -p:PublishSingleFile=true --self-contained true
-          dotnet publish ErsatzTV/ErsatzTV.csproj --framework net10.0 --runtime "${{ matrix.target }}" -c Release -o publish -p:RestoreEnablePackagePruning=true -p:InformationalVersion="${TAG%-develop}-${{ matrix.target }}" -p:EnableCompressionInSingleFile=false -p:DebugType=Embedded -p:PublishSingleFile=true --self-contained true
 
       - name: Bundle
         shell: bash
