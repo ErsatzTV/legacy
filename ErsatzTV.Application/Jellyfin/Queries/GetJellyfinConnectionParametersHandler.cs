@@ -1,6 +1,8 @@
 ﻿using ErsatzTV.Core;
 using ErsatzTV.Core.Domain;
+using ErsatzTV.Core.Interfaces.Jellyfin;
 using ErsatzTV.Core.Interfaces.Repositories;
+using ErsatzTV.Core.Jellyfin;
 using Microsoft.Extensions.Caching.Memory;
 
 namespace ErsatzTV.Application.Jellyfin;
@@ -9,14 +11,17 @@ public class GetJellyfinConnectionParametersHandler : IRequestHandler<GetJellyfi
     Either<BaseError, JellyfinConnectionParametersViewModel>>
 {
     private readonly IMediaSourceRepository _mediaSourceRepository;
+    private readonly IJellyfinSecretStore _jellyfinSecretStore;
     private readonly IMemoryCache _memoryCache;
 
     public GetJellyfinConnectionParametersHandler(
         IMemoryCache memoryCache,
-        IMediaSourceRepository mediaSourceRepository)
+        IMediaSourceRepository mediaSourceRepository,
+        IJellyfinSecretStore jellyfinSecretStore)
     {
         _memoryCache = memoryCache;
         _mediaSourceRepository = mediaSourceRepository;
+        _jellyfinSecretStore = jellyfinSecretStore;
     }
 
     public async Task<Either<BaseError, JellyfinConnectionParametersViewModel>> Handle(
@@ -30,7 +35,7 @@ public class GetJellyfinConnectionParametersHandler : IRequestHandler<GetJellyfi
 
         Either<BaseError, JellyfinConnectionParametersViewModel> maybeParameters =
             await Validate(cancellationToken)
-                .MapT(cp => new JellyfinConnectionParametersViewModel(cp.ActiveConnection.Address))
+                .MapT(cp => new JellyfinConnectionParametersViewModel(cp.ActiveConnection.Address, cp.ApiKey))
                 .Map(v => v.ToEither<JellyfinConnectionParametersViewModel>());
 
         return maybeParameters.Match(
@@ -44,7 +49,8 @@ public class GetJellyfinConnectionParametersHandler : IRequestHandler<GetJellyfi
 
     private Task<Validation<BaseError, ConnectionParameters>> Validate(CancellationToken cancellationToken) =>
         JellyfinMediaSourceMustExist(cancellationToken)
-            .BindT(MediaSourceMustHaveActiveConnection);
+            .BindT(MediaSourceMustHaveActiveConnection)
+            .BindT(MediaSourceMustHaveApiKey);
 
     private Task<Validation<BaseError, JellyfinMediaSource>> JellyfinMediaSourceMustExist(
         CancellationToken cancellationToken) =>
@@ -56,11 +62,19 @@ public class GetJellyfinConnectionParametersHandler : IRequestHandler<GetJellyfi
         JellyfinMediaSource jellyfinMediaSource)
     {
         Option<JellyfinConnection> maybeConnection = jellyfinMediaSource.Connections.FirstOrDefault();
-        return maybeConnection.Map(connection => new ConnectionParameters(jellyfinMediaSource, connection))
+        return maybeConnection.Map(connection => new ConnectionParameters(connection, null))
             .ToValidation<BaseError>("Jellyfin media source requires an active connection");
     }
 
-    private sealed record ConnectionParameters(
-        JellyfinMediaSource JellyfinMediaSource,
-        JellyfinConnection ActiveConnection);
+    private async Task<Validation<BaseError, ConnectionParameters>> MediaSourceMustHaveApiKey(
+        ConnectionParameters connectionParameters)
+    {
+        JellyfinSecrets secrets = await _jellyfinSecretStore.ReadSecrets();
+        return Optional(secrets.Address == connectionParameters.ActiveConnection.Address)
+            .Where(match => match)
+            .Map(_ => connectionParameters with { ApiKey = secrets.ApiKey })
+            .ToValidation<BaseError>("Jellyfin media source requires an api key");
+    }
+
+    private sealed record ConnectionParameters(JellyfinConnection ActiveConnection, string ApiKey);
 }

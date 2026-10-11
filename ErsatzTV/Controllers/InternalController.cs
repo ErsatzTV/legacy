@@ -240,7 +240,8 @@ public class InternalController : StreamingControllerBase
                 if (path.Contains("Subtitles"))
                 {
                     fullPath = Flurl.Url.Parse(r.Address)
-                        .AppendPathSegment(path);
+                        .AppendPathSegment(path)
+                        .SetQueryParam("ApiKey", r.ApiKey);
                 }
                 else
                 {
@@ -248,7 +249,8 @@ public class InternalController : StreamingControllerBase
                         .AppendPathSegment("Videos")
                         .AppendPathSegment(path)
                         .AppendPathSegment("stream")
-                        .SetQueryParam("static", "true");
+                        .SetQueryParam("static", "true")
+                        .SetQueryParam("ApiKey", r.ApiKey);
                 }
 
                 return new RedirectResult(fullPath.ToString());

@@ -13,6 +13,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Log messages from next channels now include the channel number, e.g. `[next::channel 7]`
 
 ### Fixed
+- Fix playback from Jellyfin-compatible servers (e.g. Silo) that require authentication for media streams
+  - The Jellyfin API key is now included on stream and subtitle requests
+  - Jellyfin itself does not require it but continues to play successfully with the API key included
 - Next engine:
   - Linux/macOS: fix channels failing to locate playout items after the config folder is copied or restored with a tool that replaces symlinks with real folders (e.g. `cp -L`, `rsync -L`)
     - Failures to link the current playout folder are now logged instead of silently ignored
