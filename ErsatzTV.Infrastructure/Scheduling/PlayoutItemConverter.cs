@@ -35,7 +35,7 @@ public class PlayoutItemConverter(
     IDbContextFactory<TvContext> dbContextFactory,
     ILogger<PlayoutItemConverter> logger) : IPlayoutItemConverter
 {
-    public static readonly string PlayoutVersion = "https://ersatztv.org/playout/version/0.0.5";
+    public static readonly string PlayoutVersion = "https://ersatztv.org/playout/version/0.0.6";
 
     public async Task<Option<Core.Next.PlayoutItem>> ToNext(
         string channelNumber,
@@ -337,7 +337,10 @@ public class PlayoutItemConverter(
             {
                 SourceType = Core.Next.SourceType.Dynamic,
                 Uri =
-                    $"http://localhost:{Settings.StreamingPort}/internal/media/fallback?exp={exp.ToUnixTimeSeconds()}&sig={sig}"
+                    $"http://localhost:{Settings.StreamingPort}/internal/media/fallback?exp={exp.ToUnixTimeSeconds()}&sig={sig}",
+                TimeoutUs = 20_000_000, // 20s
+                RetryBudgetMs = 25_000, // 25s
+                RetryBackoffMs = 250
             };
         }
 
@@ -484,8 +487,11 @@ public class PlayoutItemConverter(
         bool shouldLogMessages,
         CancellationToken cancellationToken)
     {
-        List<Subtitle> allSubtitles = (await subtitles.IfNoneAsync(
-            () => GetSubtitles(channel, audioVersion.MediaItem, playoutItem.Id, playoutItem.InPoint))).ToList();
+        List<Subtitle> allSubtitles = (await subtitles.IfNoneAsync(() => GetSubtitles(
+            channel,
+            audioVersion.MediaItem,
+            playoutItem.Id,
+            playoutItem.InPoint))).ToList();
 
         // TODO: external image subtitles
         allSubtitles.RemoveAll(s => s.IsImage && s.SubtitleKind is not SubtitleKind.Embedded);

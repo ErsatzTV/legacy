@@ -305,7 +305,8 @@ namespace ErsatzTV.Core.Next
         /// <summary>
         /// Socket timeout in microseconds.
         ///
-        /// Request timeout in microseconds. Defaults to 10 seconds.
+        /// Request timeout in microseconds. Defaults to 10 seconds. With retry enabled, each
+        /// attempt's timeout is the smaller of this and the retry budget left.
         /// </summary>
         [JsonPropertyName("timeout_us")]
         public long? TimeoutUs { get; set; }
@@ -344,6 +345,24 @@ namespace ErsatzTV.Core.Next
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("command")]
         public string? Command { get; set; }
+
+        /// <summary>
+        /// Delay in milliseconds before the first retry. Defaults to 250. The delay doubles after
+        /// each retry, with jitter, and a retry is skipped when its delay would use up the budget.
+        /// </summary>
+        [JsonPropertyName("retry_backoff_ms")]
+        public long? RetryBackoffMs { get; set; }
+
+        /// <summary>
+        /// Total time in milliseconds to spend resolving this source, including every attempt and
+        /// the waits between them. Absent or 0 disables retry. Transport errors, timeouts and 5xx
+        /// responses are retried; 4xx responses and a body that isn't a valid `PlayoutItem` are not.
+        /// When resolution still fails, the channel plays its fallback for at least this long (see
+        /// `fallback.duration_seconds` in the channel config). Retries delay the first segment when
+        /// a channel starts while the resolver is unreachable.
+        /// </summary>
+        [JsonPropertyName("retry_budget_ms")]
+        public long? RetryBudgetMs { get; set; }
     }
 
     /// <summary>
@@ -735,7 +754,8 @@ namespace ErsatzTV.Core.Next
         /// <summary>
         /// Socket timeout in microseconds.
         ///
-        /// Request timeout in microseconds. Defaults to 10 seconds.
+        /// Request timeout in microseconds. Defaults to 10 seconds. With retry enabled, each
+        /// attempt's timeout is the smaller of this and the retry budget left.
         /// </summary>
         [JsonPropertyName("timeout_us")]
         public long? TimeoutUs { get; set; }
@@ -774,6 +794,24 @@ namespace ErsatzTV.Core.Next
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("command")]
         public string? Command { get; set; }
+
+        /// <summary>
+        /// Delay in milliseconds before the first retry. Defaults to 250. The delay doubles after
+        /// each retry, with jitter, and a retry is skipped when its delay would use up the budget.
+        /// </summary>
+        [JsonPropertyName("retry_backoff_ms")]
+        public long? RetryBackoffMs { get; set; }
+
+        /// <summary>
+        /// Total time in milliseconds to spend resolving this source, including every attempt and
+        /// the waits between them. Absent or 0 disables retry. Transport errors, timeouts and 5xx
+        /// responses are retried; 4xx responses and a body that isn't a valid `PlayoutItem` are not.
+        /// When resolution still fails, the channel plays its fallback for at least this long (see
+        /// `fallback.duration_seconds` in the channel config). Retries delay the first segment when
+        /// a channel starts while the resolver is unreachable.
+        /// </summary>
+        [JsonPropertyName("retry_budget_ms")]
+        public long? RetryBudgetMs { get; set; }
     }
 
     /// <summary>

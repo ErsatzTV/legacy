@@ -51,6 +51,13 @@ namespace ErsatzTV.Core.Next.Config
     public partial class Fallback
     {
         /// <summary>
+        /// Fallback length in seconds when the fallback has no end time, e.g. after a failed
+        /// dynamic source. Default 60. Raised to the source's `retry_budget_ms` if shorter.
+        /// </summary>
+        [JsonPropertyName("duration_seconds")]
+        public long? DurationSeconds { get; set; }
+
+        /// <summary>
         /// Burn the reason for the fallback into the fallback video; this is always burned,
         /// regardless of the normalization subtitle mode
         /// </summary>
