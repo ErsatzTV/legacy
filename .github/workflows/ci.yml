@@ -9,6 +9,7 @@ on:
   pull_request:
     paths:
       - .github/**
+      - '!.github/next-tag'
       - scripts/macOS/**
       - docker/**
       - ErsatzTV-macOS

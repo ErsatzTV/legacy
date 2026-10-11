@@ -1,0 +1,67 @@
+name: Next Pin
+on:
+  pull_request:
+    paths:
+      - .github/next-tag
+      - .github/scripts/*next*
+      - .github/workflows/next-pin.yml
+permissions:
+  contents: read
+jobs:
+  validate:
+    name: Validate ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: linux-x64
+          - os: ubuntu-latest
+            target: linux-musl-x64
+          - os: ubuntu-24.04-arm
+            target: linux-arm64
+          # no intel runner; arch checked instead of run
+          - os: macos-14
+            target: macos-x64
+          - os: macos-14
+            target: macos-arm64
+          - os: windows-latest
+            target: windows-x64
+    steps:
+      - name: Get the sources
+        uses: actions/checkout@v4
+
+      - name: Download next
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: .github/scripts/download-next.sh "${{ matrix.target }}" next-extracted
+
+      - name: Validate next
+        shell: bash
+        env:
+          TARGET: ${{ matrix.target }}
+        run: |
+          read -r tag _ <<< "$(.github/scripts/next-pin.sh)"
+          cd next-extracted
+          ls -la
+
+          case "$TARGET" in
+            windows-*) files=(ersatztv-channel.exe libvpl.dll libvpl-LICENSE.txt) ;;
+            *) files=(ersatztv-channel) ;;
+          esac
+          for f in "${files[@]}"; do
+            [[ -f "$f" ]] || { echo "::error::missing $f"; exit 1; }
+          done
+
+          if [[ "$TARGET" == macos-x64 ]]; then
+            archs="$(lipo -archs ersatztv-channel)"
+            echo "$archs"
+            [[ "$archs" == x86_64 ]] || { echo "::error::expected x86_64, got '$archs'"; exit 1; }
+          else
+            actual="$(./"${files[0]}" --version | tr -d '\r')"
+            expected="ersatztv-channel ${tag#v}+${TARGET}"
+            echo "$actual"
+            [[ "$actual" == "$expected" ]] || { echo "::error::expected '$expected', got '$actual'"; exit 1; }
+          fi
