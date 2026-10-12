@@ -22,12 +22,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - VAAPI: fix playback freezing at the end of some items on channels with an `Intermittent` watermark
     - Most common with music videos, whose audio often runs slightly longer than their video
     - The log showed `channel ... terminated after ffmpeg stall`
+  - VAAPI: fix `hevc` streams hanging on content with embedded (A53) closed captions with Mesa before 26.2.3
+    - Captions are left out of `hevc` output on those Mesa versions; update Mesa to keep them
   - Always encode 4:2:0 output, which many clients require
     - Still images and song backgrounds were previously encoded as 4:4:4 by software encoders
   - NVIDIA: fix streams failing with a watermark in `yuva420p` (e.g. lossy WebP with transparency) and opacity below 100%
   - NVIDIA: fix streams with a watermark failing when encoding with software (e.g. `mpeg2video`)
   - VideoToolbox: fix streams failing to encode to h264 when they contain embedded (A53) closed captions
   - Fix fallback filler playback with filler content that has no audio
+  - Fix `crop` scaling mode so it always scales to cover the output before cropping, even when the source content is larger than the target resolution
 
 ## [26.11.1] - 2026-10-06
 ### Fixed
