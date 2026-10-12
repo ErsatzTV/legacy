@@ -84,4 +84,10 @@
     <data name="ButtonDeleteChannelHelp" xml:space="preserve">
         <value>Delete Channel</value>
     </data>
+    <data name="LabelLegacyEngineWarning" xml:space="preserve">
+        <value>The legacy streaming engine will be removed in ErsatzTV 26.12. Please switch these channels to the next engine, and report anything that doesn't work on next so it can be fixed before then:</value>
+    </data>
+    <data name="LabelLegacyEngineReport" xml:space="preserve">
+        <value>Report a problem with the next engine</value>
+    </data>
 </root>

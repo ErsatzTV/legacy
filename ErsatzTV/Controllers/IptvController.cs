@@ -120,6 +120,13 @@ public class IptvController : StreamingControllerBase
             mode = "ts";
         }
 
+        if (mode == "ts-legacy")
+        {
+            _logger.LogWarning(
+                "Channel {ChannelNumber} uses the legacy streaming engine, which will be removed in ErsatzTV 26.12",
+                channelNumber);
+        }
+
         FFmpegProcessRequest request = mode switch
         {
             "ts-legacy" => new GetConcatProcessByChannelNumber(Request.Scheme, Request.Host.ToString(), channelNumber),

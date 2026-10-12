@@ -119,6 +119,10 @@ public class StartFFmpegSessionHandler : IRequestHandler<StartFFmpegSession, Eit
             return new SessionEndedBeforeReady(request.ChannelNumber);
         }
 
+        _logger.LogWarning(
+            "Channel {ChannelNumber} uses the legacy streaming engine, which will be removed in ErsatzTV 26.12",
+            request.ChannelNumber);
+
         // fire and forget worker
         Task runTask = worker.Run(request.ChannelNumber, idleTimeout, _hostApplicationLifetime.ApplicationStopping);
         _ = runTask.ContinueWith(

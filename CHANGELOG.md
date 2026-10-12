@@ -11,6 +11,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Software scaling now defaults to `bicubic` instead of `fast_bilinear`, which reduces aliasing when downscaling
     - This can be changed using `normalization.video.filters.scale.flags` in a channel config overlay
   - Log messages from next channels now include the channel number, e.g. `[next::channel 7]`
+- Warn that the legacy streaming engine will be removed in ErsatzTV 26.12
+  - The Channels page lists channels that still use the legacy engine
+  - The channel editor shows a warning when the legacy engine is selected
+  - Starting a legacy engine stream logs a warning
 
 ### Fixed
 - Fix playback from Jellyfin-compatible servers (e.g. Silo) that require authentication for media streams

@@ -27,6 +27,14 @@
         <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="pt-8">
             <MudText Typo="Typo.h5" Class="mb-2">@MainLayoutLoc["ButtonChannels"]</MudText>
             <MudDivider Class="mb-6"/>
+            @if (_legacyChannelNumbers.Count > 0)
+            {
+                <MudAlert Severity="Severity.Warning" Class="mb-6">
+                    @Loc["LabelLegacyEngineWarning"]
+                    <b>@string.Join(", ", _legacyChannelNumbers)</b>
+                    <MudLink Href="@NextIssueUrl.Get()" Target="_blank" Class="d-block mt-2">@Loc["LabelLegacyEngineReport"]</MudLink>
+                </MudAlert>
+            }
             <MudTable Hover="true"
                       @bind-RowsPerPage="@_rowsPerPage"
                       ServerData="@(new Func<TableState, CancellationToken, Task<TableData<ChannelViewModel>>>(ServerReload))"
@@ -191,6 +199,7 @@
     private readonly System.Collections.Generic.HashSet<int> _channelsThatCanPreview = [];
     private readonly Dictionary<int, bool> _ffmpegProfilesThatCanPreview = [];
     private bool _showDisabled;
+    private List<string> _legacyChannelNumbers = [];
     private int _rowsPerPage = 10;
 
     private bool ShowDisabled
@@ -234,6 +243,12 @@
                 .Map(maybeRows => maybeRows.Match(ce => int.TryParse(ce.Value, out int rows) ? rows : 10, () => 10));
             _showDisabled = await Mediator.Send(new GetConfigElementByKey(ConfigElementKey.ChannelsShowDisabled), token)
                 .Map(maybeShow => maybeShow.Match(ce => bool.TryParse(ce.Value, out bool show) && show, () => false));
+            _legacyChannelNumbers = await Mediator.Send(new GetAllChannels(), token)
+                .Map(channels => channels
+                    .Filter(c => c.StreamingEngine is StreamingEngine.Legacy)
+                    .OrderBy(c => decimal.Parse(c.Number, CultureInfo.InvariantCulture))
+                    .Map(c => c.Number)
+                    .ToList());
         }
         catch (OperationCanceledException)
         {
