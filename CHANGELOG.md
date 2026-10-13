@@ -34,6 +34,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - NVIDIA: fix streams failing with a watermark in `yuva420p` (e.g. lossy WebP with transparency) and opacity below 100%
   - NVIDIA: fix streams with a watermark failing when encoding with software (e.g. `mpeg2video`)
   - VideoToolbox: fix streams failing to encode to h264 when they contain embedded (A53) closed captions
+  - QSV: fix completely green output with legacy Intel encoders
   - Fix fallback filler playback with filler content that has no audio
   - Fix `crop` scaling mode so it always scales to cover the output before cropping, even when the source content is larger than the target resolution
 - Fix errors logged when quickly navigating to search results
