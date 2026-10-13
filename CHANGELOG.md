@@ -17,6 +17,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Starting a legacy engine stream logs a warning
 
 ### Fixed
+- Fix sequential schedules silently skipping nested `sequence` instructions inside pre-roll, mid-roll and post-roll sequences
 - Fix local show libraries ignoring episode NFO tag and genre changes after the first scan
 - Fix playback from Jellyfin-compatible servers (e.g. Silo) that require authentication for media streams
   - The Jellyfin API key is now included on stream and subtitle requests

@@ -113,6 +113,7 @@ public class SequentialPlayoutBuilder(
         DateTimeOffset finish = start.AddDays(daysToBuild);
 
         Dictionary<YamlPlayoutInstruction, IYamlPlayoutHandler> handlers = new();
+        Dictionary<string, List<YamlPlayoutInstruction>> fillerSequences = new();
         var enumeratorCache = new EnumeratorCache(mediaCollectionRepository, logger);
 
         var context = new YamlPlayoutContext(playout, playoutDefinition, 1)
@@ -327,6 +328,7 @@ public class SequentialPlayoutBuilder(
                 {
                     await ExecuteSequence(
                         handlers,
+                        fillerSequences,
                         enumeratorCache,
                         mode,
                         context,
@@ -373,18 +375,17 @@ public class SequentialPlayoutBuilder(
 
     private async Task ExecuteSequence(
         Dictionary<YamlPlayoutInstruction, IYamlPlayoutHandler> handlers,
+        Dictionary<string, List<YamlPlayoutInstruction>> fillerSequences,
         EnumeratorCache enumeratorCache,
         PlayoutBuildMode mode,
         YamlPlayoutContext context,
         string sequence,
         CancellationToken cancellationToken)
     {
-        var sequenceInstructions = context.Definition.Sequence
-            .Filter(s => s.Key == sequence)
-            .HeadOrNone()
-            .Map(s => s.Items)
-            .Flatten()
-            .ToList();
+        List<YamlPlayoutInstruction> sequenceInstructions = GetFillerSequenceInstructions(
+            context,
+            fillerSequences,
+            sequence);
 
         foreach (YamlPlayoutInstruction instruction in sequenceInstructions)
         {
@@ -406,6 +407,62 @@ public class SequentialPlayoutBuilder(
                 }
             }
         }
+    }
+
+    // nested sequences are expanded once per build so their (cloned) instructions keep reusing the same handlers;
+    // cycles are rejected before any filler sequence executes
+    private static List<YamlPlayoutInstruction> GetFillerSequenceInstructions(
+        YamlPlayoutContext context,
+        Dictionary<string, List<YamlPlayoutInstruction>> fillerSequences,
+        string sequence)
+    {
+        if (fillerSequences.TryGetValue(sequence, out List<YamlPlayoutInstruction> cached))
+        {
+            return cached;
+        }
+
+        var result = new List<YamlPlayoutInstruction>();
+
+        IEnumerable<YamlPlayoutInstruction> rawInstructions = context.Definition.Sequence
+            .Filter(s => s.Key == sequence)
+            .HeadOrNone()
+            .Map(s => s.Items)
+            .Flatten();
+
+        foreach (YamlPlayoutInstruction instruction in rawInstructions)
+        {
+            if (instruction is not YamlPlayoutSequenceInstruction sequenceInstruction)
+            {
+                result.Add(instruction);
+                continue;
+            }
+
+            List<YamlPlayoutInstruction> nestedInstructions = GetFillerSequenceInstructions(
+                context,
+                fillerSequences,
+                sequenceInstruction.Sequence);
+
+            if (!string.IsNullOrWhiteSpace(sequenceInstruction.CustomTitle))
+            {
+                nestedInstructions = nestedInstructions
+                    .Map(i =>
+                    {
+                        YamlPlayoutInstruction copy = i.Clone();
+                        copy.CustomTitle = sequenceInstruction.CustomTitle;
+                        return copy;
+                    })
+                    .ToList();
+            }
+
+            int repeat = sequenceInstruction.Repeat > 0 ? sequenceInstruction.Repeat : 1;
+            for (var r = 0; r < repeat; r++)
+            {
+                result.AddRange(nestedInstructions);
+            }
+        }
+
+        fillerSequences.Add(sequence, result);
+        return result;
     }
 
     private static bool DetectCycle(YamlPlayoutDefinition definition)
