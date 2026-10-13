@@ -3,17 +3,28 @@ using ErsatzTV.FFmpeg.Environment;
 
 namespace ErsatzTV.FFmpeg.InputOption;
 
-public class ReadrateInputOption(double readRate) : IInputOption
+public class ReadrateInputOption(double readRate, double initialBurstSeconds = 0) : IInputOption
 {
     public EnvironmentVariable[] EnvironmentVariables => [];
 
     public string[] GlobalOptions => [];
 
-    public string[] InputOptions(InputFile inputFile) =>
-    [
-        "-readrate",
-        readRate.ToString("0.0####", CultureInfo.InvariantCulture)
-    ];
+    public string[] InputOptions(InputFile inputFile)
+    {
+        var result = new List<string>
+        {
+            "-readrate",
+            readRate.ToString("0.0####", CultureInfo.InvariantCulture)
+        };
+
+        if (initialBurstSeconds > 0)
+        {
+            result.Add("-readrate_initial_burst");
+            result.Add(initialBurstSeconds.ToString("0.####", CultureInfo.InvariantCulture));
+        }
+
+        return result.ToArray();
+    }
 
     public string[] FilterOptions => [];
     public string[] OutputOptions => [];

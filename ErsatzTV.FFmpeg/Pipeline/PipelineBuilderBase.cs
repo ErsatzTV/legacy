@@ -168,7 +168,9 @@ public abstract class PipelineBuilderBase : IPipelineBuilder
             concatInputFile.AddOption(new DecoderAacLatm());
         }
 
-        concatInputFile.AddOption(new ReadrateInputOption(1.0));
+        // the burst fills client buffers (e.g. plex live tv) without waiting on realtime;
+        // it must stay below how far the hls session publishes ahead of wall clock (next: 12s)
+        concatInputFile.AddOption(new ReadrateInputOption(1.0, 6));
 
         SetMetadataServiceProvider(ffmpegState, pipelineSteps);
         SetMetadataServiceName(ffmpegState, pipelineSteps);

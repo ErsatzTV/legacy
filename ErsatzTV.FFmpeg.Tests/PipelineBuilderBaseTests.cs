@@ -283,7 +283,7 @@ public class PipelineBuilderBaseTests
         string command = PrintCommand(None, None, None, concatInputFile, None, result);
 
         command.ShouldBe(
-            "-nostdin -threads 1 -hide_banner -loglevel error -nostats -fflags +genpts+discardcorrupt+igndts -readrate 1.0 -i http://localhost:8080/iptv/channel/1.m3u8?mode=segmenter -map 0 -c copy -metadata service_provider=\"ErsatzTV\" -metadata service_name=\"Some Channel\" -f mpegts pipe:1");
+            "-nostdin -threads 1 -hide_banner -loglevel error -nostats -fflags +genpts+discardcorrupt+igndts -readrate 1.0 -readrate_initial_burst 6 -i http://localhost:8080/iptv/channel/1.m3u8?mode=segmenter -map 0 -c copy -metadata service_provider=\"ErsatzTV\" -metadata service_name=\"Some Channel\" -f mpegts pipe:1");
     }
 
     [Test]

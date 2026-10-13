@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
+### Changed
+- MPEG-TS streams send their first 6 seconds immediately instead of in real time
+  - This lets clients like Plex fill their buffer and start playback sooner
+  - Custom MPEG-TS scripts can do the same by adding `-readrate_initial_burst 6` after `-readrate 1.0`
+
 ### Fixed
 - Next engine:
   - Only advertise the HLS subtitle track when the channel's text subtitle mode is `Convert`
