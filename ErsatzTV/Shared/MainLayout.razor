@@ -442,7 +442,7 @@
 
     private void PerformSearch()
     {
-        NavigationManager.NavigateTo(_query.GetRelativeSearchQuery(), true);
+        NavigationManager.NavigateTo(_query.GetRelativeSearchQuery());
         StateHasChanged();
     }
 
@@ -461,8 +461,7 @@
     }
 
     private void NavigateTo(SearchTargetViewModel searchTarget) =>
-        // need to force smart collections to navigate since the query string is all that differs
-        NavigationManager.NavigateTo(UrlFor(searchTarget), searchTarget.Kind is SearchTargetKind.SmartCollection);
+        NavigationManager.NavigateTo(UrlFor(searchTarget));
 
     private string UrlFor(SearchTargetViewModel searchTarget) =>
         searchTarget.Kind switch

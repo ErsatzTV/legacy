@@ -425,106 +425,118 @@
     private RemoteStreamCardResultsViewModel _remoteStreams;
     private ArtistCardResultsViewModel _artists;
     private PersistingComponentStateSubscription _persistingSubscription;
+    private CancellationTokenSource _searchCts;
 
-    protected override async Task OnInitializedAsync()
+    // these only trigger OnParametersSetAsync when the query string changes; GetSearchQuery does the decoding
+    [SupplyParameterFromQuery(Name = "query")]
+    public string QueryParameter { get; set; }
+
+    [SupplyParameterFromQuery(Name = "b64query")]
+    public string Base64QueryParameter { get; set; }
+
+    protected override void OnInitialized()
     {
+        base.OnInitialized();
         _persistingSubscription = ApplicationState.RegisterOnPersisting(PersistData);
+    }
 
-        _query = NavigationManager.Uri.GetSearchQuery();
-        if (!string.IsNullOrWhiteSpace(_query))
+    protected override async Task OnParametersSetAsync()
+    {
+        string query = NavigationManager.Uri.GetSearchQuery();
+        if (query == _query)
         {
-            if (!ApplicationState.TryTakeFromJson("_movies", out MovieCardResultsViewModel restoredMovies))
+            return;
+        }
+
+        _query = query;
+        ClearSelection();
+        _movies = null;
+        _shows = null;
+        _seasons = null;
+        _episodes = null;
+        _musicVideos = null;
+        _otherVideos = null;
+        _songs = null;
+        _images = null;
+        _remoteStreams = null;
+        _artists = null;
+
+        _searchCts?.Cancel();
+
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            return;
+        }
+
+        using CancellationTokenSource cts = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken);
+        _searchCts = cts;
+        CancellationToken token = cts.Token;
+
+        try
+        {
+            MovieCardResultsViewModel movies = await RestoreOrQuery(
+                "_movies",
+                () => Mediator.Send(new QuerySearchIndexMovies($"type:movie AND ({query})", 1, 50), token));
+            TelevisionShowCardResultsViewModel shows = await RestoreOrQuery(
+                "_shows",
+                () => Mediator.Send(new QuerySearchIndexShows($"type:show AND ({query})", 1, 50), token));
+            TelevisionSeasonCardResultsViewModel seasons = await RestoreOrQuery(
+                "_seasons",
+                () => Mediator.Send(new QuerySearchIndexSeasons($"type:season AND ({query})", 1, 50), token));
+            TelevisionEpisodeCardResultsViewModel episodes = await RestoreOrQuery(
+                "_episodes",
+                () => Mediator.Send(new QuerySearchIndexEpisodes($"type:episode AND ({query})", 1, 50), token));
+            MusicVideoCardResultsViewModel musicVideos = await RestoreOrQuery(
+                "_musicVideos",
+                () => Mediator.Send(new QuerySearchIndexMusicVideos($"type:music_video AND ({query})", 1, 50), token));
+            OtherVideoCardResultsViewModel otherVideos = await RestoreOrQuery(
+                "_otherVideos",
+                () => Mediator.Send(new QuerySearchIndexOtherVideos($"type:other_video AND ({query})", 1, 50), token));
+            SongCardResultsViewModel songs = await RestoreOrQuery(
+                "_songs",
+                () => Mediator.Send(new QuerySearchIndexSongs($"type:song AND ({query})", 1, 50), token));
+            ImageCardResultsViewModel images = await RestoreOrQuery(
+                "_images",
+                () => Mediator.Send(new QuerySearchIndexImages($"type:image AND ({query})", 1, 50), token));
+            RemoteStreamCardResultsViewModel remoteStreams = await RestoreOrQuery(
+                "_remoteStreams",
+                () => Mediator.Send(new QuerySearchIndexRemoteStreams($"type:remote_stream AND ({query})", 1, 50), token));
+            ArtistCardResultsViewModel artists = await RestoreOrQuery(
+                "_artists",
+                () => Mediator.Send(new QuerySearchIndexArtists($"type:artist AND ({query})", 1, 50), token));
+
+            // a newer query may have started while this one was running
+            if (token.IsCancellationRequested)
             {
-                _movies = await Mediator.Send(new QuerySearchIndexMovies($"type:movie AND ({_query})", 1, 50), CancellationToken);
-            }
-            else
-            {
-                _movies = restoredMovies;
+                return;
             }
 
-            if (!ApplicationState.TryTakeFromJson("_shows", out TelevisionShowCardResultsViewModel restoredShows))
+            _movies = movies;
+            _shows = shows;
+            _seasons = seasons;
+            _episodes = episodes;
+            _musicVideos = musicVideos;
+            _otherVideos = otherVideos;
+            _songs = songs;
+            _images = images;
+            _remoteStreams = remoteStreams;
+            _artists = artists;
+        }
+        catch (OperationCanceledException)
+        {
+            // ignored
+        }
+        finally
+        {
+            if (ReferenceEquals(_searchCts, cts))
             {
-                _shows = await Mediator.Send(new QuerySearchIndexShows($"type:show AND ({_query})", 1, 50), CancellationToken);
-            }
-            else
-            {
-                _shows = restoredShows;
-            }
-
-            if (!ApplicationState.TryTakeFromJson("_seasons", out TelevisionSeasonCardResultsViewModel restoredSeasons))
-            {
-                _seasons = await Mediator.Send(new QuerySearchIndexSeasons($"type:season AND ({_query})", 1, 50), CancellationToken);
-            }
-            else
-            {
-                _seasons = restoredSeasons;
-            }
-
-            if (!ApplicationState.TryTakeFromJson("_episodes", out TelevisionEpisodeCardResultsViewModel restoredEpisodes))
-            {
-                _episodes = await Mediator.Send(new QuerySearchIndexEpisodes($"type:episode AND ({_query})", 1, 50), CancellationToken);
-            }
-            else
-            {
-                _episodes = restoredEpisodes;
-            }
-
-            if (!ApplicationState.TryTakeFromJson("_musicVideos", out MusicVideoCardResultsViewModel restoredMusicVideos))
-            {
-                _musicVideos = await Mediator.Send(new QuerySearchIndexMusicVideos($"type:music_video AND ({_query})", 1, 50), CancellationToken);
-            }
-            else
-            {
-                _musicVideos = restoredMusicVideos;
-            }
-
-            if (!ApplicationState.TryTakeFromJson("_otherVideos", out OtherVideoCardResultsViewModel restoredOtherVideos))
-            {
-                _otherVideos = await Mediator.Send(new QuerySearchIndexOtherVideos($"type:other_video AND ({_query})", 1, 50), CancellationToken);
-            }
-            else
-            {
-                _otherVideos = restoredOtherVideos;
-            }
-
-            if (!ApplicationState.TryTakeFromJson("_songs", out SongCardResultsViewModel restoredSongs))
-            {
-                _songs = await Mediator.Send(new QuerySearchIndexSongs($"type:song AND ({_query})", 1, 50), CancellationToken);
-            }
-            else
-            {
-                _songs = restoredSongs;
-            }
-
-            if (!ApplicationState.TryTakeFromJson("_images", out ImageCardResultsViewModel restoredImages))
-            {
-                _images = await Mediator.Send(new QuerySearchIndexImages($"type:image AND ({_query})", 1, 50), CancellationToken);
-            }
-            else
-            {
-                _images = restoredImages;
-            }
-
-            if (!ApplicationState.TryTakeFromJson("_remoteStreams", out RemoteStreamCardResultsViewModel restoredRemoteStreams))
-            {
-                _remoteStreams = await Mediator.Send(new QuerySearchIndexRemoteStreams($"type:remote_stream AND ({_query})", 1, 50), CancellationToken);
-            }
-            else
-            {
-                _remoteStreams = restoredRemoteStreams;
-            }
-
-            if (!ApplicationState.TryTakeFromJson("_artists", out ArtistCardResultsViewModel restoredArtists))
-            {
-                _artists = await Mediator.Send(new QuerySearchIndexArtists($"type:artist AND ({_query})", 1, 50), CancellationToken);
-            }
-            else
-            {
-                _artists = restoredArtists;
+                _searchCts = null;
             }
         }
     }
 
+    private async Task<TResult> RestoreOrQuery<TResult>(string key, Func<Task<TResult>> query) =>
+        ApplicationState.TryTakeFromJson(key, out TResult restored) ? restored : await query();
     private Task PersistData()
     {
         ApplicationState.PersistAsJson("_movies", _movies);

@@ -36,6 +36,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - VideoToolbox: fix streams failing to encode to h264 when they contain embedded (A53) closed captions
   - Fix fallback filler playback with filler content that has no audio
   - Fix `crop` scaling mode so it always scales to cover the output before cropping, even when the source content is larger than the target resolution
+- Fix errors logged when quickly navigating to search results
+  - The log showed `Navigation failed when changing the location to search?query=...`
+  - Searches from the search bar and smart collection targets no longer reload the whole page
 
 ## [26.11.1] - 2026-10-06
 ### Fixed
