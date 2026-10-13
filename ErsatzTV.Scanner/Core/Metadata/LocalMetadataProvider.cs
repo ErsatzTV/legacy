@@ -1614,72 +1614,69 @@ public class LocalMetadataProvider : ILocalMetadataProvider
     {
         var updated = false;
 
-        if (existing is not EpisodeMetadata)
+        foreach (Genre genre in existing.Genres.Filter(g => incoming.Genres.All(g2 => g2.Name != g.Name))
+                     .ToList())
         {
-            foreach (Genre genre in existing.Genres.Filter(g => incoming.Genres.All(g2 => g2.Name != g.Name))
-                         .ToList())
+            existing.Genres.Remove(genre);
+            if (await _metadataRepository.RemoveGenre(genre))
             {
-                existing.Genres.Remove(genre);
-                if (await _metadataRepository.RemoveGenre(genre))
-                {
-                    updated = true;
-                }
+                updated = true;
             }
+        }
 
-            foreach (Genre genre in incoming.Genres.Filter(g => existing.Genres.All(g2 => g2.Name != g.Name))
-                         .ToList())
+        foreach (Genre genre in incoming.Genres.Filter(g => existing.Genres.All(g2 => g2.Name != g.Name))
+                     .ToList())
+        {
+            existing.Genres.Add(genre);
+            if (await addGenre(existing, genre))
             {
-                existing.Genres.Add(genre);
-                if (await addGenre(existing, genre))
-                {
-                    updated = true;
-                }
+                updated = true;
             }
+        }
 
-            // an older version did not save the type id; the comparison uses the type id,
-            // so a scan replaces such a row
-            foreach (Tag tag in existing.Tags
-                         .Filter(t => incoming.Tags.All(t2 => t2.Name != t.Name || t2.ExternalTypeId != t.ExternalTypeId))
-                         .ToList())
+        // an older version did not save the type id; the comparison uses the type id,
+        // so a scan replaces such a row
+        foreach (Tag tag in existing.Tags
+                     .Filter(t => incoming.Tags.All(t2 => t2.Name != t.Name || t2.ExternalTypeId != t.ExternalTypeId))
+                     .ToList())
+        {
+            existing.Tags.Remove(tag);
+            if (await _metadataRepository.RemoveTag(tag))
             {
-                existing.Tags.Remove(tag);
-                if (await _metadataRepository.RemoveTag(tag))
-                {
-                    updated = true;
-                }
+                updated = true;
             }
+        }
 
-            foreach (Tag tag in incoming.Tags
-                         .Filter(t => existing.Tags.All(t2 => t2.Name != t.Name || t2.ExternalTypeId != t.ExternalTypeId))
-                         .ToList())
+        foreach (Tag tag in incoming.Tags
+                     .Filter(t => existing.Tags.All(t2 => t2.Name != t.Name || t2.ExternalTypeId != t.ExternalTypeId))
+                     .ToList())
+        {
+            existing.Tags.Add(tag);
+            if (await addTag(existing, tag))
             {
-                existing.Tags.Add(tag);
-                if (await addTag(existing, tag))
-                {
-                    updated = true;
-                }
+                updated = true;
             }
+        }
 
-            foreach (Studio studio in existing.Studios
-                         .Filter(s => incoming.Studios.All(s2 => s2.Name != s.Name))
-                         .ToList())
+        foreach (Studio studio in existing.Studios
+                     .Filter(s => incoming.Studios.All(s2 => s2.Name != s.Name))
+                     .ToList())
+        {
+            existing.Studios.Remove(studio);
+            if (await _metadataRepository.RemoveStudio(studio))
             {
-                existing.Studios.Remove(studio);
-                if (await _metadataRepository.RemoveStudio(studio))
-                {
-                    updated = true;
-                }
+                updated = true;
             }
+        }
 
-            foreach (Studio studio in incoming.Studios
-                         .Filter(s => existing.Studios.All(s2 => s2.Name != s.Name))
-                         .ToList())
+        foreach (Studio studio in incoming.Studios
+                     .Filter(s => existing.Studios.All(s2 => s2.Name != s.Name))
+                     .ToList())
+        {
+            existing.Studios.Add(studio);
+            if (await addStudio(existing, studio))
             {
-                existing.Studios.Add(studio);
-                if (await addStudio(existing, studio))
-                {
-                    updated = true;
-                }
+                updated = true;
             }
         }
 
