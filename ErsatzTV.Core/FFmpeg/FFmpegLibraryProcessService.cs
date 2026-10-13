@@ -1027,8 +1027,9 @@ public class FFmpegLibraryProcessService : IFFmpegProcessService
             ? string.Empty
             : $"&access_token={accessToken}";
 
+        // Empty subtitle streams delay MPEG-TS output by about 10 seconds.
         var concatInputFile = new ConcatInputFile(
-            $"http://localhost:{Settings.StreamingPort}/iptv/channel/{channel.Number}.m3u8?mode=segmenter{accessTokenQuery}",
+            $"http://localhost:{Settings.StreamingPort}/iptv/channel/{channel.Number}.m3u8?mode=segmenter&subtitles=false{accessTokenQuery}",
             resolution);
 
         if (channel.FFmpegProfile.AudioFormat is FFmpegProfileAudioFormat.AacLatm)

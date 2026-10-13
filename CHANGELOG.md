@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
+### Fixed
+- Next engine:
+  - Only advertise the HLS subtitle track when the channel's text subtitle mode is `Convert`
+    - With `Burn` (the default) the track never had cues, but it froze VLC 3 when selected
+  - Fix MPEG-TS streams taking ~10 seconds longer to start than legacy engine channels
+    - MPEG-TS streams no longer request the HLS subtitle track, which they cannot use
 
 ## [26.11.2] - 2026-10-13
 ### Changed

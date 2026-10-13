@@ -59,7 +59,8 @@ internal static class Mapper
             (int)((channel.FFmpegProfile.VideoBitrate * 1000 + channel.FFmpegProfile.AudioBitrate * 1000) * 1.2),
             channel.FFmpegProfile.VideoFormat,
             channel.FFmpegProfile.VideoProfile,
-            channel.FFmpegProfile.AudioFormat);
+            channel.FFmpegProfile.AudioFormat,
+            channel.NextEngineTextSubtitleMode);
 
     private static ArtworkContentTypeModel GetLogo(Channel channel)
     {

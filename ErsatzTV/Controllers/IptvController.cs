@@ -204,7 +204,9 @@ public class IptvController : StreamingControllerBase
         string channelNumber,
         CancellationToken cancellationToken,
         [FromQuery]
-        string mode = "mixed")
+        string mode = "mixed",
+        [FromQuery]
+        bool subtitles = true)
     {
         Option<ChannelViewModel> maybeChannel = await _mediator.Send(
             new GetChannelByNumber(channelNumber),
@@ -269,7 +271,8 @@ public class IptvController : StreamingControllerBase
                         Request.Scheme,
                         Request.Host.ToString(),
                         Request.PathBase,
-                        AccessTokenQuery());
+                        AccessTokenQuery(),
+                        subtitles);
                 Either<BaseError, string> result = await _mediator.Send(request, cancellationToken);
                 return result.Match<IActionResult>(
                     multiVariantPlaylist =>

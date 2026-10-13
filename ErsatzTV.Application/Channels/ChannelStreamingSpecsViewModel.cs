@@ -8,4 +8,5 @@ public record ChannelStreamingSpecsViewModel(
     int Bitrate,
     FFmpegProfileVideoFormat VideoFormat,
     string VideoProfile,
-    FFmpegProfileAudioFormat AudioFormat);
+    FFmpegProfileAudioFormat AudioFormat,
+    NextEngineTextSubtitleMode NextEngineTextSubtitleMode);

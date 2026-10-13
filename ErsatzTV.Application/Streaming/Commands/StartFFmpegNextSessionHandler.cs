@@ -168,6 +168,7 @@ public class StartFFmpegNextSessionHandler(
             await mediator.Send(new GetChannelStreamingSpecs(request.ChannelNumber));
         string resolution = string.Empty;
         var bitrate = "10000000";
+        var subtitles = false;
         foreach (ChannelStreamingSpecsViewModel streamingSpecs in maybeStreamingSpecs)
         {
             string videoCodec = streamingSpecs.VideoFormat switch
@@ -199,12 +200,24 @@ public class StartFFmpegNextSessionHandler(
                 ? codecs
                 : $",RESOLUTION={streamingSpecs.Width}x{streamingSpecs.Height}{codecs}";
             bitrate = streamingSpecs.Bitrate.ToString(CultureInfo.InvariantCulture);
+
+            // Burn mode leaves an empty subtitle track that freezes VLC 3 when selected.
+            subtitles = request.Subtitles &&
+                        streamingSpecs.NextEngineTextSubtitleMode is NextEngineTextSubtitleMode.Convert;
+        }
+
+        if (!subtitles)
+        {
+            return $@"#EXTM3U
+#EXT-X-VERSION:6
+#EXT-X-STREAM-INF:BANDWIDTH={bitrate}{resolution}
+{variantPlaylist}";
         }
 
         return $@"#EXTM3U
 #EXT-X-VERSION:6
-#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID=""subs"",NAME=""English"",DEFAULT=YES,AUTOSELECT=YES,FORCED=NO,LANGUAGE=""en"",URI=""{subtitlePlaylist}""
-#EXT-X-STREAM-INF:BANDWIDTH={bitrate}{resolution}
+#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID=""subs"",NAME=""Subtitles"",DEFAULT=NO,AUTOSELECT=YES,FORCED=NO,URI=""{subtitlePlaylist}""
+#EXT-X-STREAM-INF:BANDWIDTH={bitrate}{resolution},SUBTITLES=""subs""
 {variantPlaylist}";
     }
 }

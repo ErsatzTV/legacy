@@ -674,6 +674,8 @@ public class Startup
         extensionProvider.Mappings.Remove(".ts");
         extensionProvider.Mappings.Add(".ts", "video/mp2t");
 
+        extensionProvider.Mappings.TryAdd(".vtt", "text/vtt");
+
         app.UseStaticFiles(
             new StaticFileOptions
             {
