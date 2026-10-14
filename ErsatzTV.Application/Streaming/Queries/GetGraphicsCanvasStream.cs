@@ -1,3 +1,4 @@
+using ErsatzTV.Core.Graphics;
 using ErsatzTV.FFmpeg;
 
 namespace ErsatzTV.Application.Streaming;
@@ -7,4 +8,5 @@ public record GetGraphicsCanvasStream(
     int PlayoutItemId,
     TimeSpan Offset,
     TimeSpan Duration,
-    FrameRate FrameRate) : IRequest<Option<Stream>>;
+    FrameRate FrameRate,
+    Option<CanvasRegion> Region) : IRequest<Option<Stream>>;

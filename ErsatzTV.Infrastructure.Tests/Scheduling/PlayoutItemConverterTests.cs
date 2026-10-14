@@ -17,6 +17,7 @@ using Microsoft.Extensions.Logging;
 using NSubstitute;
 using NUnit.Framework;
 using Shouldly;
+using SkiaSharp;
 using Testably.Abstractions.Testing;
 using static LanguageExt.Prelude;
 using Next = ErsatzTV.Core.Next;
@@ -317,6 +318,73 @@ public class PlayoutItemConverterTests
     }
 
     [Test]
+    public async Task Watermark_only_canvas_covers_an_even_region_around_the_watermarks()
+    {
+        string image = Path.Combine(Path.GetTempPath(), $"etv-canvas-{Guid.NewGuid()}.png");
+        try
+        {
+            using (var bitmap = new SKBitmap(301, 151))
+            using (SKData data = bitmap.Encode(SKEncodedImageFormat.Png, 100))
+            {
+                await File.WriteAllBytesAsync(image, data.ToArray());
+            }
+
+            _channel.FFmpegProfile.ScalingBehavior = ScalingBehavior.Stretch;
+            _watermarks.SelectWatermarks(default, default!, default!, default, default).ReturnsForAnyArgs(
+            [
+                new WatermarkOptions(
+                    new ChannelWatermark
+                    {
+                        Mode = ChannelWatermarkMode.OpacityExpression,
+                        Location = WatermarkLocation.BottomRight,
+                        Size = WatermarkSize.ActualSize
+                    },
+                    image,
+                    None)
+            ]);
+
+            Next.PlayoutItem result = await Convert(new Movie(), []);
+
+            Next.GraphicsLayer layer = result.Graphics.ShouldHaveSingleItem();
+            layer.Kind.ShouldBe(Next.GraphicsLayerKind.Canvas);
+            layer.Location.ShouldBe(Next.GraphicsLocation.TopLeft);
+            layer.Layout.ShouldNotBeNull();
+            layer.Layout.Mode.ShouldBe(Next.Mode.Region);
+            layer.Layout.Origin.ShouldNotBeNull();
+            layer.Layout.Origin.X.ShouldBe(1618);
+            layer.Layout.Origin.Y.ShouldBe(928);
+            Next.VideoHint hint = layer.Source.ProbeHint!.Video.ShouldHaveSingleItem();
+            hint.Width.ShouldBe(302);
+            hint.Height.ShouldBe(152);
+
+            var query = new Uri(layer.Source.Uri!).Query.TrimStart('?').Split('&')
+                .Select(part => part.Split('=', 2)).ToDictionary(part => part[0], part => part[1]);
+            query["region"].ShouldBe("1618,928,302,152");
+            InternalUrlSigner.Verify(query["exp"], query["sig"], "graphics", "1", "42", "1618,928,302,152")
+                .ShouldBeTrue();
+        }
+        finally
+        {
+            File.Delete(image);
+        }
+    }
+
+    [Test]
+    public async Task Canvas_with_unmeasurable_watermark_covers_the_full_frame()
+    {
+        _channel.FFmpegProfile.ScalingBehavior = ScalingBehavior.Stretch;
+        _watermarks.SelectWatermarks(default, default!, default!, default, default).ReturnsForAnyArgs(
+            [new WatermarkOptions(new ChannelWatermark { Mode = ChannelWatermarkMode.OpacityExpression }, "/missing.png", None)]);
+
+        Next.PlayoutItem result = await Convert(new Movie(), []);
+
+        Next.GraphicsLayer layer = result.Graphics.ShouldHaveSingleItem();
+        AssertFullFrameCanvas(result);
+        layer.Source.ProbeHint!.Video.ShouldHaveSingleItem().Width.ShouldBe(1920);
+        layer.Source.Uri!.ShouldNotContain("region=");
+    }
+
+    [Test]
     public async Task Graphics_elements_put_watermarks_on_canvas()
     {
         _watermarks.SelectWatermarks(default, default!, default!, default, default).ReturnsForAnyArgs(
@@ -328,6 +396,14 @@ public class PlayoutItemConverterTests
 
         result.Graphics.ShouldNotBeNull();
         result.Graphics.ShouldHaveSingleItem().Kind.ShouldBe(Next.GraphicsLayerKind.Canvas);
+        AssertFullFrameCanvas(result);
+    }
+
+    private static void AssertFullFrameCanvas(Next.PlayoutItem item)
+    {
+        Next.GraphicsLayer layer = item.Graphics!.ShouldHaveSingleItem();
+        layer.Location.ShouldBe(Next.GraphicsLocation.TopLeft);
+        layer.Layout.ShouldBeNull();
     }
 
     [Test]

@@ -6,6 +6,7 @@ using ErsatzTV.Core;
 using ErsatzTV.Core.Domain;
 using ErsatzTV.Core.Extensions;
 using ErsatzTV.Core.FFmpeg;
+using ErsatzTV.Core.Graphics;
 using ErsatzTV.Core.Interfaces.Emby;
 using ErsatzTV.Core.Interfaces.FFmpeg;
 using ErsatzTV.Core.Interfaces.Jellyfin;
@@ -16,6 +17,7 @@ using ErsatzTV.FFmpeg.Format;
 using ErsatzTV.FFmpeg.State;
 using ErsatzTV.Infrastructure.Data;
 using ErsatzTV.Infrastructure.Extensions;
+using ErsatzTV.Infrastructure.Streaming.Graphics;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using MediaStream = ErsatzTV.Core.Domain.MediaStream;
@@ -35,7 +37,7 @@ public class PlayoutItemConverter(
     IDbContextFactory<TvContext> dbContextFactory,
     ILogger<PlayoutItemConverter> logger) : IPlayoutItemConverter
 {
-    public static readonly string PlayoutVersion = "https://ersatztv.org/playout/version/0.0.6";
+    public static readonly string PlayoutVersion = "https://ersatztv.org/playout/version/0.0.7";
 
     public async Task<Option<Core.Next.PlayoutItem>> ToNext(
         string channelNumber,
@@ -698,19 +700,44 @@ public class PlayoutItemConverter(
             Height = channel.FFmpegProfile.Resolution.Height,
         };
 
+        // canvas cost scales with pixel count, and watermarks cover a small part of the frame
+        Option<CanvasRegion> maybeRegion = graphicsElements.Count == 0
+            ? CanvasRegionCalculator.ForWatermarks(watermarks, channel.FFmpegProfile, playoutItem.MediaItem.GetHeadVersion())
+            : None;
+
+        Core.Next.CanvasLayout canvasLayout = null;
+        string regionValue = null;
+        foreach (CanvasRegion region in maybeRegion)
+        {
+            outputFrameSize = new Resolution { Width = region.Width, Height = region.Height };
+            canvasLayout = new Core.Next.CanvasLayout
+            {
+                Mode = Core.Next.Mode.Region,
+                Origin = new Core.Next.CanvasPosition { X = region.X, Y = region.Y }
+            };
+            regionValue = region.ToString();
+        }
+
         DateTimeOffset exp = UrlExpiry(playoutItem);
 
-        string sig = InternalUrlSigner.Sign(exp, "graphics", channel.Number, $"{playoutItem.Id}");
+        string sig = InternalUrlSigner.Sign(
+            exp,
+            "graphics",
+            channel.Number,
+            $"{playoutItem.Id}",
+            regionValue ?? string.Empty);
+        string regionQuery = regionValue is null ? string.Empty : $"&region={regionValue}";
 
         var layer = new Core.Next.GraphicsLayer
         {
             Kind = Core.Next.GraphicsLayerKind.Canvas,
             Location = Core.Next.GraphicsLocation.TopLeft,
+            Layout = canvasLayout,
             Source = new Core.Next.PlayoutItemSource
             {
                 SourceType = Core.Next.SourceType.Http,
                 Uri =
-                    $"http://localhost:{Settings.StreamingPort}/internal/graphics/{channel.Number}/{playoutItem.Id}?exp={exp.ToUnixTimeSeconds()}&sig={sig}",
+                    $"http://localhost:{Settings.StreamingPort}/internal/graphics/{channel.Number}/{playoutItem.Id}?exp={exp.ToUnixTimeSeconds()}&sig={sig}{regionQuery}",
                 Reconnect = false,
                 ProbeHint = new Core.Next.ProbeHint
                 {

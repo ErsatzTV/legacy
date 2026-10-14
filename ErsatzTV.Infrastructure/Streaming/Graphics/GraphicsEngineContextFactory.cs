@@ -52,7 +52,7 @@ public class GraphicsEngineContextFactory(IGraphicsElementLoader graphicsElement
 
     // must match the content box ffmpeg produces: stretch and crop both fill the frame,
     // scale-and-pad leaves the square-pixel scaled size inside the padded frame
-    private static Resolution SquarePixelFrameSize(FFmpegProfile profile, MediaVersion videoVersion)
+    internal static Resolution SquarePixelFrameSize(FFmpegProfile profile, MediaVersion videoVersion)
     {
         if (profile.ScalingBehavior is ScalingBehavior.Stretch or ScalingBehavior.Crop)
         {

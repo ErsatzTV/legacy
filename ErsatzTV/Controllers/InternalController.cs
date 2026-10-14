@@ -14,6 +14,7 @@ using ErsatzTV.Application.Subtitles.Queries;
 using ErsatzTV.Core;
 using ErsatzTV.Core.Domain;
 using ErsatzTV.Core.FFmpeg;
+using ErsatzTV.Core.Graphics;
 using ErsatzTV.Core.Interfaces.Scheduling;
 using ErsatzTV.Core.Interfaces.Streaming;
 using ErsatzTV.Core.Security;
@@ -392,12 +393,23 @@ public class InternalController : StreamingControllerBase
         string channelNumber,
         int playoutItemId,
         [FromQuery] string exp,
-        [FromQuery] string sig)
+        [FromQuery] string sig,
+        [FromQuery] string region)
     {
         if (string.IsNullOrWhiteSpace(exp) || string.IsNullOrWhiteSpace(sig) ||
-            !InternalUrlSigner.Verify(exp, sig, "graphics", channelNumber, $"{playoutItemId}"))
+            !InternalUrlSigner.Verify(exp, sig, "graphics", channelNumber, $"{playoutItemId}", region ?? string.Empty))
         {
             return NotFound();
+        }
+
+        Option<CanvasRegion> maybeRegion = None;
+        if (!string.IsNullOrWhiteSpace(region))
+        {
+            maybeRegion = CanvasRegion.Parse(region);
+            if (maybeRegion.IsNone)
+            {
+                return BadRequest();
+            }
         }
 
         const long maxMilliseconds = long.MaxValue / TimeSpan.TicksPerMillisecond;
@@ -447,7 +459,8 @@ public class InternalController : StreamingControllerBase
                 playoutItemId,
                 TimeSpan.FromTicks(offsetMs * TimeSpan.TicksPerMillisecond),
                 TimeSpan.FromTicks(durationMs * TimeSpan.TicksPerMillisecond),
-                new FrameRate(frameRate) { ParsedFrameRate = parsedFrameRate }),
+                new FrameRate(frameRate) { ParsedFrameRate = parsedFrameRate },
+                maybeRegion),
             HttpContext.RequestAborted);
 
         foreach (Stream stream in maybeStream)

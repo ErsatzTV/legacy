@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
+### Changed
+- Next engine:
+  - Watermark-only graphics canvases render just the area the watermarks cover instead of the full frame
+    - This reduces CPU use and GPU upload for animated or opacity-expression watermarks
+    - This is currently limited to local watermarks; remote/URL watermarks will still send the full frame
 
 ## [26.11.3] - 2026-10-13
 ### Changed

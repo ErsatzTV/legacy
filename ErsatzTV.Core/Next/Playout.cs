@@ -128,6 +128,13 @@ namespace ErsatzTV.Core.Next
         public GraphicsLayerKind? Kind { get; set; }
 
         /// <summary>
+        /// Canvas only: where the canvas is placed in the output frame. Default: `full_frame`.
+        /// Ignored with a warning on media layers.
+        /// </summary>
+        [JsonPropertyName("layout")]
+        public CanvasLayout? Layout { get; set; }
+
+        /// <summary>
         /// Anchor position within the primary content frame.
         /// </summary>
         [JsonPropertyName("location")]
@@ -185,6 +192,49 @@ namespace ErsatzTV.Core.Next
         /// </summary>
         [JsonPropertyName("within_source_content")]
         public bool? WithinSourceContent { get; set; }
+    }
+
+    public partial class CanvasLayout
+    {
+        /// <summary>
+        /// The canvas has the output size and is placed at (0,0). A canvas with a different size
+        /// (stale playout metadata) is stretched to the output size.
+        ///
+        /// The canvas covers part of the output. It is placed at `origin` at its own size, without
+        /// scaling. `origin` is in output pixels and does not change with the output resolution.
+        /// Parts outside the output are clipped. A canvas fully outside the output is skipped.
+        /// </summary>
+        [JsonPropertyName("mode")]
+        public Mode Mode { get; set; }
+
+        /// <summary>
+        /// Top-left output pixel of the canvas. Use even values; odd values may be rounded down for
+        /// chroma-subsampled output.
+        /// </summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("origin")]
+        public CanvasPosition? Origin { get; set; }
+    }
+
+    /// <summary>
+    /// Top-left output pixel of the canvas. Use even values; odd values may be rounded down for
+    /// chroma-subsampled output.
+    ///
+    /// A pixel position in the output frame.
+    /// </summary>
+    public partial class CanvasPosition
+    {
+        /// <summary>
+        /// Pixels from the left edge.
+        /// </summary>
+        [JsonPropertyName("x")]
+        public long X { get; set; }
+
+        /// <summary>
+        /// Pixels from the top edge.
+        /// </summary>
+        [JsonPropertyName("y")]
+        public long Y { get; set; }
     }
 
     /// <summary>
@@ -257,6 +307,19 @@ namespace ErsatzTV.Core.Next
         [JsonPropertyName("probe_hint")]
         public ProbeHint? ProbeHint { get; set; }
 
+        /// <summary>
+        /// Selects a local file source.
+        ///
+        /// Selects an ffmpeg lavfi (libavfilter virtual input) source.
+        ///
+        /// Selects an HTTP or HTTPS source.
+        ///
+        /// Selects an RTSP source.
+        ///
+        /// Selects a command that writes MPEG-TS to stdout.
+        ///
+        /// Selects a dynamic source, resolved over HTTP when the item plays.
+        /// </summary>
         [JsonPropertyName("source_type")]
         public SourceType SourceType { get; set; }
 
@@ -637,6 +700,9 @@ namespace ErsatzTV.Core.Next
         [JsonPropertyName("phase_offset_ms")]
         public long? PhaseOffsetMs { get; set; }
 
+        /// <summary>
+        /// Selects periodic timing.
+        /// </summary>
         [JsonPropertyName("timing_type")]
         public TimingType TimingType { get; set; }
     }
@@ -706,6 +772,19 @@ namespace ErsatzTV.Core.Next
         [JsonPropertyName("probe_hint")]
         public ProbeHint? ProbeHint { get; set; }
 
+        /// <summary>
+        /// Selects a local file source.
+        ///
+        /// Selects an ffmpeg lavfi (libavfilter virtual input) source.
+        ///
+        /// Selects an HTTP or HTTPS source.
+        ///
+        /// Selects an RTSP source.
+        ///
+        /// Selects a command that writes MPEG-TS to stdout.
+        ///
+        /// Selects a dynamic source, resolved over HTTP when the item plays.
+        /// </summary>
         [JsonPropertyName("source_type")]
         public SourceType SourceType { get; set; }
 
@@ -867,14 +946,15 @@ namespace ErsatzTV.Core.Next
     /// <summary>
     /// Graphics layer kind.
     ///
-    /// canvas: a full-frame layer whose frames are already the output size and carry alpha. It
-    /// is composited at (0,0) and is content-locked: the channel seeks it to its own position in
-    /// the item. `location`, margins, `width_percent`, `within_source_content`,
-    /// `opacity_percent` and `timing` are ignored (a warning is logged if present). HTTP canvas
-    /// sources receive `x-etv-channel`, `x-etv-offset-ms`, `x-etv-duration-ms` and
+    /// canvas: a layer with alpha, placed by `layout`. It is content-locked: the channel seeks
+    /// it to the current position in the item. `location`, margins, `width_percent`,
+    /// `within_source_content`, `opacity_percent` and `timing` are ignored with a warning. HTTP
+    /// canvas sources receive the `x-etv-channel`, `x-etv-offset-ms`, `x-etv-duration-ms` and
     /// `x-etv-frame-rate` headers.
     /// </summary>
     public enum GraphicsLayerKind { Canvas, Media };
+
+    public enum Mode { FullFrame, Region };
 
     /// <summary>
     /// Anchor position within the primary content frame.
@@ -915,6 +995,7 @@ namespace ErsatzTV.Core.Next
             Converters =
             {
                 GraphicsLayerKindConverter.Singleton,
+                ModeConverter.Singleton,
                 GraphicsLocationConverter.Singleton,
                 SourceTypeConverter.Singleton,
                 PeriodicClockConverter.Singleton,
@@ -985,6 +1066,40 @@ namespace ErsatzTV.Core.Next
         }
 
         public static readonly GraphicsLayerKindConverter Singleton = new GraphicsLayerKindConverter();
+    }
+
+    internal class ModeConverter : JsonConverter<Mode>
+    {
+        public override bool CanConvert(Type t) => t == typeof(Mode);
+
+        public override Mode Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "full_frame":
+                    return Mode.FullFrame;
+                case "region":
+                    return Mode.Region;
+            }
+            throw new Exception("Cannot unmarshal type Mode");
+        }
+
+        public override void Write(Utf8JsonWriter writer, Mode value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case Mode.FullFrame:
+                    JsonSerializer.Serialize(writer, "full_frame", options);
+                    return;
+                case Mode.Region:
+                    JsonSerializer.Serialize(writer, "region", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type Mode");
+        }
+
+        public static readonly ModeConverter Singleton = new ModeConverter();
     }
 
     internal class GraphicsLocationConverter : JsonConverter<GraphicsLocation>

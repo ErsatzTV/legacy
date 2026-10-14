@@ -52,31 +52,21 @@ public abstract class ImageElementBase : GraphicsElement, IDisposable
         int sourceWidth = codec.Info.Width;
         int sourceHeight = codec.Info.Height;
 
-        int scaledWidth = sourceWidth;
-        int scaledHeight = sourceHeight;
-        if (scale)
-        {
-            scaledWidth = (int)Math.Round((scaleWidthPercent ?? 100) / 100.0 * frameSize.Width);
-            double aspectRatio = (double)sourceHeight / sourceWidth;
-            scaledHeight = (int)(scaledWidth * aspectRatio);
-        }
-
-        (int horizontalMargin, int verticalMargin) = placeWithinSourceContent
-            ? SourceContentMargins(
-                squarePixelFrameSize,
-                frameSize,
-                horizontalMarginPercent ?? 0,
-                verticalMarginPercent ?? 0)
-            : NormalMargins(frameSize, horizontalMarginPercent ?? 0, verticalMarginPercent ?? 0);
-
-        Location = CalculatePosition(
+        SKRectI bounds = CalculateBounds(
+            squarePixelFrameSize,
+            frameSize,
+            sourceWidth,
+            sourceHeight,
             location,
-            frameSize.Width,
-            frameSize.Height,
-            scaledWidth,
-            scaledHeight,
-            horizontalMargin,
-            verticalMargin);
+            scale,
+            scaleWidthPercent,
+            horizontalMarginPercent,
+            verticalMarginPercent,
+            placeWithinSourceContent);
+
+        int scaledWidth = bounds.Width;
+        int scaledHeight = bounds.Height;
+        Location = bounds.Location;
 
         _animatedDurationSeconds = 0;
 
@@ -143,6 +133,47 @@ public abstract class ImageElementBase : GraphicsElement, IDisposable
                 frame?.Dispose();
             }
         }
+    }
+
+    internal static SKRectI CalculateBounds(
+        Resolution squarePixelFrameSize,
+        Resolution frameSize,
+        int sourceWidth,
+        int sourceHeight,
+        WatermarkLocation location,
+        bool scale,
+        double? scaleWidthPercent,
+        double? horizontalMarginPercent,
+        double? verticalMarginPercent,
+        bool placeWithinSourceContent)
+    {
+        int scaledWidth = sourceWidth;
+        int scaledHeight = sourceHeight;
+        if (scale)
+        {
+            scaledWidth = (int)Math.Round((scaleWidthPercent ?? 100) / 100.0 * frameSize.Width);
+            double aspectRatio = (double)sourceHeight / sourceWidth;
+            scaledHeight = (int)(scaledWidth * aspectRatio);
+        }
+
+        (int horizontalMargin, int verticalMargin) = placeWithinSourceContent
+            ? SourceContentMargins(
+                squarePixelFrameSize,
+                frameSize,
+                horizontalMarginPercent ?? 0,
+                verticalMarginPercent ?? 0)
+            : NormalMargins(frameSize, horizontalMarginPercent ?? 0, verticalMarginPercent ?? 0);
+
+        SKPointI position = CalculatePosition(
+            location,
+            frameSize.Width,
+            frameSize.Height,
+            scaledWidth,
+            scaledHeight,
+            horizontalMargin,
+            verticalMargin);
+
+        return SKRectI.Create(position.X, position.Y, scaledWidth, scaledHeight);
     }
 
     private static SKBitmap DecodeFrame(

@@ -95,8 +95,10 @@ public class GraphicsEngine(
         long frameCount = 0;
         var totalFrames = (long)(context.Duration.TotalSeconds * context.FrameRate.ParsedFrameRate);
 
-        int width = context.FrameSize.Width;
-        int height = context.FrameSize.Height;
+        // elements use full-frame coordinates
+        (int originX, int originY, int width, int height) = context.Region.Match(
+            r => (r.X, r.Y, r.Width, r.Height),
+            () => (0, 0, context.FrameSize.Width, context.FrameSize.Height));
         int frameBufferSize = width * height * 4; // BGRA = 4 bytes
         var skImageInfo = new SKImageInfo(width, height, SKColorType.Bgra8888, SKAlphaType.Unpremul);
 
@@ -180,6 +182,7 @@ public class GraphicsEngine(
                             {
                                 var canvas = surface.Canvas;
                                 canvas.Clear(SKColors.Transparent);
+                                canvas.Translate(-originX, -originY);
 
                                 foreach (PreparedElementImage preparedImage in preparedElementImages)
                                 {

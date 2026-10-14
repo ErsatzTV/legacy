@@ -120,20 +120,27 @@ public class GetGraphicsCanvasStreamHandler(
                     playoutItem.FinishOffset,
                     request.Offset,
                     finish - now,
-                    contentTotalDuration));
+                    contentTotalDuration)) with
+            {
+                // next places the canvas from the playout, so use the signed region even if the channel changed
+                Region = request.Region
+            };
 
             logger.LogDebug(
-                "Streaming graphics canvas for channel {ChannelNumber} item {PlayoutItemId}: offset {Offset}, duration {Duration}, rate {FrameRate}, elements {ElementCount}",
+                "Streaming graphics canvas for channel {ChannelNumber} item {PlayoutItemId}: offset {Offset}, duration {Duration}, rate {FrameRate}, elements {ElementCount}, region {Region}",
                 channel.Number,
                 playoutItem.Id,
                 request.Offset,
                 finish - now,
                 request.FrameRate.RFrameRate,
-                context.Elements.Count);
+                context.Elements.Count,
+                context.Region.Match(r => r.ToString(), () => "full frame"));
 
             return StartCanvas(
                 await maybeFFmpegPath.IfNoneAsync(string.Empty),
-                channel.FFmpegProfile.Resolution,
+                context.Region.Match(
+                    r => new Resolution { Width = r.Width, Height = r.Height },
+                    () => channel.FFmpegProfile.Resolution),
                 request.FrameRate,
                 context,
                 cancellationToken);

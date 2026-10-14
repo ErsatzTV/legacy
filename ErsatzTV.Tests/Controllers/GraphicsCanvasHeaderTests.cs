@@ -41,10 +41,10 @@ public class GraphicsCanvasHeaderTests
         controller.Request.Headers[header] = value;
 
         DateTimeOffset expires = DateTimeOffset.UtcNow.AddMinutes(5);
-        string signature = InternalUrlSigner.Sign(expires, "graphics", "1", "123");
+        string signature = InternalUrlSigner.Sign(expires, "graphics", "1", "123", string.Empty);
         IActionResult result = await controller.GetGraphicsCanvas(
             "1", 123,
-            expires.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture), signature);
+            expires.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture), signature, null);
 
         result.ShouldBeOfType<BadRequestResult>();
     }

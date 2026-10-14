@@ -18,7 +18,10 @@ public record GraphicsEngineContext(
     DateTimeOffset ContentFinishTime,
     TimeSpan Seek,
     TimeSpan Duration,
-    TimeSpan ContentTotalDuration);
+    TimeSpan ContentTotalDuration)
+{
+    public Option<CanvasRegion> Region { get; init; }
+}
 
 public abstract record GraphicsElementContext;
 
