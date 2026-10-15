@@ -10,6 +10,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
     - This reduces CPU use and GPU upload for animated or opacity-expression watermarks
     - This is currently limited to local watermarks; remote/URL watermarks will still send the full frame
 
+### Fixed
+- Next engine:
+  - Fix active channels falling behind schedule when the playout is updated
+
 ## [26.11.3] - 2026-10-13
 ### Changed
 - MPEG-TS streams send their first 6 seconds immediately instead of in real time
