@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Next engine:
   - Fix active channels falling behind schedule when the playout is updated
   - Fix image subtitles (e.g. PGS) missing or misplaced with hardware acceleration when the subtitle size differs from the video size (e.g. cropped video)
+  - Fix QSV stream failing when no Intel device is found; the channel now uses a software pipeline
 
 ## [26.11.3] - 2026-10-13
 ### Changed
