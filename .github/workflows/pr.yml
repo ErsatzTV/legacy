@@ -71,6 +71,10 @@ jobs:
       - name: Build
         run: dotnet build --configuration Release --no-restore
 
+      - name: Install age CLI
+        shell: bash
+        run: scripts/install-age-ci.sh
+
       - name: Test
         run: dotnet test --configuration Release --no-build --no-restore --blame-hang-timeout "2m" --verbosity normal
   build_and_test_linux:
@@ -114,6 +118,10 @@ jobs:
       - name: Build
         run: dotnet build ErsatzTV/ErsatzTV.csproj --runtime "${{ matrix.target }}" --configuration Release --no-restore && dotnet build --configuration Release --no-restore
 
+      - name: Install age CLI
+        shell: bash
+        run: scripts/install-age-ci.sh
+
       - name: Test
         run: dotnet test --configuration Release --no-build --no-restore --blame-hang-timeout "2m" --verbosity normal
   build_and_test_mac:
@@ -152,6 +160,10 @@ jobs:
 
       - name: Build
         run: dotnet build --configuration Release --no-restore
+
+      - name: Install age CLI
+        shell: bash
+        run: scripts/install-age-ci.sh
 
       - name: Test
         run: dotnet test --configuration Release --no-build --no-restore --blame-hang-timeout "2m" --verbosity normal

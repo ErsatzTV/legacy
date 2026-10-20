@@ -13,6 +13,7 @@
 
     <ItemGroup>
         <PackageReference Include="Blurhash.SkiaSharp" Version="2.0.0" />
+        <PackageReference Include="BouncyCastle.Cryptography" Version="2.6.2" />
         <PackageReference Include="CliWrap" Version="3.10.5" />
         <PackageReference Include="Dapper" Version="2.1.89" />
         <PackageReference Include="EFCore.BulkExtensions.Core" Version="[9.0.2,10)" />

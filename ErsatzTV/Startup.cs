@@ -74,6 +74,7 @@ using ErsatzTV.Infrastructure.Sqlite.Data;
 using ErsatzTV.Infrastructure.Streaming;
 using ErsatzTV.Infrastructure.Streaming.Graphics;
 using ErsatzTV.Infrastructure.Trakt;
+using ErsatzTV.Infrastructure.Troubleshooting;
 using ErsatzTV.Security;
 using ErsatzTV.Serialization;
 using ErsatzTV.Services;
@@ -824,6 +825,7 @@ public class Startup
         services.AddSingleton<SearchQueryParser>();
         services.AddSingleton<ITroubleshootingNotifier, TroubleshootingNotifier>();
         services.AddSingleton<ITroubleshootingPlayoutItemStore, TroubleshootingPlayoutItemStore>();
+        services.AddSingleton<IAgeEncryptor, AgeEncryptor>();
         services.AddSingleton<CustomFontMapper>();
         services.AddSingleton<GraphicsEngineFonts>();
         services.AddSingleton(Program.InMemoryLogService);
