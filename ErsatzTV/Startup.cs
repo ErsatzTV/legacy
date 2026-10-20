@@ -409,6 +409,8 @@ public class Startup
             }
         }
 
+        TroubleshootingUpload.DeleteArchives();
+
         // until we add a setting for a file-specific scheme://host:port to access
         // stream urls contained in this file, it doesn't make sense to do
         // for now, continue to use scheme and host from incoming requests
@@ -521,6 +523,9 @@ public class Startup
             });
 
         services.AddHttpClient("RefitCustomClient").AddHttpMessageHandler<SlowApiHandler>();
+        services.AddHttpClient(
+            TroubleshootingUploadClient.HttpClientName,
+            client => client.Timeout = TimeSpan.FromMinutes(10));
 
         services.Configure<TraktConfiguration>(Configuration.GetSection("Trakt"));
 
@@ -826,6 +831,7 @@ public class Startup
         services.AddSingleton<ITroubleshootingNotifier, TroubleshootingNotifier>();
         services.AddSingleton<ITroubleshootingPlayoutItemStore, TroubleshootingPlayoutItemStore>();
         services.AddSingleton<IAgeEncryptor, AgeEncryptor>();
+        services.AddSingleton<ITroubleshootingUploadClient, TroubleshootingUploadClient>();
         services.AddSingleton<CustomFontMapper>();
         services.AddSingleton<GraphicsEngineFonts>();
         services.AddSingleton(Program.InMemoryLogService);

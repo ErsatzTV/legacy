@@ -20,6 +20,7 @@
 @inject ICourier Courier;
 @inject ISnackbar Snackbar;
 @inject IFileSystem FileSystem;
+@inject IDialogService Dialog;
 
 <MudForm Style="max-height: 100%">
     <MudPaper Square="true" Style="display: flex; height: 64px; min-height: 64px; width: 100%; z-index: 100; align-items: center">
@@ -31,6 +32,14 @@
                        Disabled="@(!_hasPlayed || Locker.IsTroubleshootingPlaybackLocked())"
                        OnClick="@DownloadResults">
                 Download Results
+            </MudButton>
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Secondary"
+                       Class="ml-6"
+                       StartIcon="@Icons.Material.Filled.CloudUpload"
+                       Disabled="@(!_hasPlayed || Locker.IsTroubleshootingPlaybackLocked())"
+                       OnClick="@UploadResults">
+                Upload Results
             </MudButton>
             @if (MediaItemId.HasValue)
             {
@@ -460,6 +469,12 @@
     private async Task DownloadResults()
     {
         await JsRuntime.InvokeVoidAsync("window.open", "api/troubleshoot/playback/archive");
+    }
+
+    private async Task UploadResults()
+    {
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true };
+        await Dialog.ShowAsync<TroubleshootingUploadDialog>("Upload Results", options);
     }
 
     private async Task DownloadSample()

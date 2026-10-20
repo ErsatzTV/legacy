@@ -10,8 +10,14 @@ public class ArchiveTroubleshootingResultsHandler(IFileSystem fileSystem, ILocal
 {
     public Task<Option<string>> Handle(ArchiveTroubleshootingResults request, CancellationToken cancellationToken)
     {
-        string tempFile = Path.GetTempFileName();
+        string tempFile = request.OutputPath ?? Path.GetTempFileName();
         var hasReport = false;
+
+        // update mode keeps entries from a stale file
+        if (request.OutputPath is not null)
+        {
+            fileSystem.File.Delete(tempFile);
+        }
 
         try
         {

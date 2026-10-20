@@ -1,3 +1,3 @@
 namespace ErsatzTV.Application.Troubleshooting;
 
-public record ArchiveTroubleshootingResults : IRequest<Option<string>>;
+public record ArchiveTroubleshootingResults(string OutputPath = null) : IRequest<Option<string>>;

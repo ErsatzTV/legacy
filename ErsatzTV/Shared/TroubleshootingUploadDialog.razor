@@ -1,0 +1,181 @@
+@using ErsatzTV.Application.Troubleshooting
+@using ErsatzTV.Core.Interfaces.Troubleshooting
+@using ErsatzTV.Core.Troubleshooting
+@using Humanizer
+@implements IAsyncDisposable
+@inject IMediator Mediator
+@inject IJSRuntime JsRuntime
+
+<MudDialog>
+    <DialogContent>
+        @if (_prepareError is not null)
+        {
+            <MudAlert Severity="Severity.Error">@_prepareError</MudAlert>
+        }
+        else if (_prepared is null)
+        {
+            <MudText>Preparing troubleshooting results...</MudText>
+            <MudProgressLinear Color="Color.Primary" Indeterminate="true" Class="mt-4"/>
+        }
+        else if (_uploadId is not null)
+        {
+            <MudText>Upload complete. Paste this ID into your GitHub issue or Discord thread:</MudText>
+            <div class="d-flex align-center mt-4">
+                <code @ref="_idElement" style="font-size: 1.5rem">@TroubleshootingUpload.FormatId(_uploadId)</code>
+                <MudIconButton Icon="@Icons.Material.Filled.ContentCopy" Class="ml-2" OnClick="@CopyId"/>
+            </div>
+        }
+        else
+        {
+            <MudText>
+                These files will be encrypted so that only the ErsatzTV maintainer can read them, and then uploaded:
+            </MudText>
+            <MudSimpleTable Dense="true" Class="mt-4" Style="max-height: 300px; overflow-y: auto">
+                <tbody>
+                @foreach (PreparedTroubleshootingUploadEntry entry in _prepared.Entries)
+                {
+                    <tr>
+                        <td>@entry.Name</td>
+                        <td style="text-align: right">@entry.Size.Bytes().Humanize()</td>
+                    </tr>
+                }
+                </tbody>
+            </MudSimpleTable>
+            <MudText Typo="Typo.body2" Class="mt-2">Total (compressed): @_prepared.ArchiveSize.Bytes().Humanize()</MudText>
+            <MudText Typo="Typo.body2" Class="mt-4">
+                The upload is deleted from the server after 7 days. Copies the maintainer downloads are deleted when the issue is closed.
+            </MudText>
+            @if (_prepared.TooLarge)
+            {
+                <MudAlert Severity="Severity.Warning" Class="mt-4">
+                    These results are too large to upload. Use Download Results instead.
+                </MudAlert>
+            }
+
+            @if (_uploadError is not null)
+            {
+                <MudAlert Severity="Severity.Error" Class="mt-4">@_uploadError</MudAlert>
+            }
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@Close">@(_uploadId is null ? "Cancel" : "Close")</MudButton>
+        @if (_uploadId is null && _prepareError is null)
+        {
+            <MudButton Color="Color.Primary"
+                       Variant="Variant.Filled"
+                       Disabled="@(_prepared is null || _prepared.TooLarge || _uploading)"
+                       OnClick="@Upload">
+                @if (_uploading)
+                {
+                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2"/>
+                }
+                Upload
+            </MudButton>
+        }
+    </DialogActions>
+</MudDialog>
+
+@code {
+    private readonly CancellationTokenSource _cts = new();
+    private PreparedTroubleshootingUpload _prepared;
+    private string _prepareError;
+    private bool _uploading;
+    private string _uploadId;
+    private string _uploadError;
+    private ElementReference _idElement;
+    private bool _disposed;
+
+    [CascadingParameter]
+    IMudDialogInstance MudDialog { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            Either<BaseError, PreparedTroubleshootingUpload> result =
+                await Mediator.Send(new PrepareTroubleshootingUpload(), _cts.Token);
+
+            foreach (BaseError error in result.LeftToSeq())
+            {
+                _prepareError = error.Value;
+            }
+
+            foreach (PreparedTroubleshootingUpload prepared in result.RightToSeq())
+            {
+                _prepared = prepared;
+
+                // DisposeAsync ran before _prepared was set
+                if (_disposed)
+                {
+                    await Mediator.Send(new DiscardTroubleshootingUpload(prepared.ArchivePath), CancellationToken.None);
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // dialog closed
+        }
+    }
+
+    private async Task Upload()
+    {
+        _uploading = true;
+        _uploadError = null;
+
+        try
+        {
+            Either<TroubleshootingUploadError, string> result =
+                await Mediator.Send(new UploadTroubleshootingArchive(_prepared.ArchivePath), _cts.Token);
+
+            foreach (TroubleshootingUploadError error in result.LeftToSeq())
+            {
+                _uploadError = error.StatusCode switch
+                {
+                    426 => "This version of ErsatzTV can no longer upload. Upgrade ErsatzTV, or use Download Results.",
+                    429 or 503 => "The upload server is busy or unavailable. Try again later, or use Download Results.",
+                    _ => $"The upload failed: {Describe(error)} Use Download Results instead."
+                };
+            }
+
+            foreach (string id in result.RightToSeq())
+            {
+                _uploadId = id;
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // dialog closed
+        }
+        finally
+        {
+            _uploading = false;
+        }
+    }
+
+    private static string Describe(TroubleshootingUploadError error)
+    {
+        string message = string.IsNullOrWhiteSpace(error.Message)
+            ? $"HTTP {error.StatusCode}"
+            : error.Message.TrimEnd();
+
+        return message.EndsWith('.') ? message : $"{message}.";
+    }
+
+    private async Task CopyId() => await JsRuntime.InvokeVoidAsync("clipboardCopy.copyText", _idElement);
+
+    private void Close() => MudDialog.Close(DialogResult.Ok(true));
+
+    public async ValueTask DisposeAsync()
+    {
+        _disposed = true;
+        await _cts.CancelAsync();
+        _cts.Dispose();
+
+        if (_prepared is not null && _uploadId is null)
+        {
+            await Mediator.Send(new DiscardTroubleshootingUpload(_prepared.ArchivePath), CancellationToken.None);
+        }
+    }
+
+}

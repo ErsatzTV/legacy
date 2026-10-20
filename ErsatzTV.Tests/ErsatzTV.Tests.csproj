@@ -19,7 +19,9 @@
         <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       </PackageReference>
       <PackageReference Include="NUnit3TestAdapter" Version="6.3.0" />
+      <PackageReference Include="NSubstitute" Version="6.2.0" />
       <PackageReference Include="Shouldly" Version="4.3.0" />
+      <PackageReference Include="Testably.Abstractions.Testing" Version="7.1.1" />
     </ItemGroup>
 
 </Project>

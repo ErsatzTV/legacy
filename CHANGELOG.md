@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
+### Added
+- Add `Upload Results` button to playback troubleshooting
+  - Results are encrypted on your ErsatzTV server so only the ErsatzTV maintainer can read them
+  - The upload returns an ID (e.g. `etv-xxxx-xxxxxx`) to paste into a GitHub issue or Discord thread
+  - Uploads are deleted from the upload server after 7 days
+  - `Download Results` still works when ErsatzTV can't reach the upload server
+
 ### Changed
 - Next engine:
   - Watermark-only graphics canvases render just the area the watermarks cover instead of the full frame
