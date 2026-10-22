@@ -1094,8 +1094,9 @@ public class JellyfinApiClient : IJellyfinApiClient
                     Rotation = videoStream.Rotation.HasValue ? (videoStream.Rotation.Value % 360 + 360) % 360 : 0
                 });
 
+            // external audio files aren't in the source file, and are numbered before its streams
             foreach (JellyfinMediaStreamResponse audioStream in streams.Filter(s =>
-                         s.Type == JellyfinMediaStreamType.Audio))
+                         s.Type == JellyfinMediaStreamType.Audio && !s.IsExternal))
             {
                 var stream = new MediaStream
                 {
