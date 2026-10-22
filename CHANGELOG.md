@@ -16,6 +16,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Watermark-only graphics canvases render just the area the watermarks cover instead of the full frame
     - This reduces CPU use and GPU upload for animated or opacity-expression watermarks
     - This is currently limited to local watermarks; remote/URL watermarks will still send the full frame
+- Use ErsatzTV-ffmpeg `8.1.2-5` in docker images, Windows packages and macOS packages
+  - Fix transcoding speed drop when burning in image subtitles, especially with TrueHD audio
+  - Fix macOS VideoToolbox encoding failure when video contains A53 closed captions
+  - Add RKMPP accel support to arm64 docker image and native package; Jellyfin ffmpeg is no longer required
 
 ### Fixed
 - Next engine:
