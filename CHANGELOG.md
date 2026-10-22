@@ -31,6 +31,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Fix Jellyfin external audio files being added as audio streams with negative indexes
   - These broke playback of the whole playout file with the next engine (`expected u32`)
   - Affected Jellyfin movies and episodes will be rescanned automatically
+- Fix channel troubleshooting `Play` button being disabled with no explanation
+  - Date and time now defaults to the current time and shows an error when it can't be parsed
 
 ## [26.11.3] - 2026-10-13
 ### Changed

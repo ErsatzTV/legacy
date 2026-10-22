@@ -108,7 +108,12 @@
                     <div class="d-flex">
                         <MudText>Date and Time</MudText>
                     </div>
-                    <MudTextField T="string" @bind-Value="_startString" OnBlur="@OnStartStringBlur" />
+                    <MudTextField T="string"
+                                  @bind-Value="_startString"
+                                  OnBlur="@OnStartStringBlur"
+                                  Error="@(_startError is not null)"
+                                  ErrorText="@_startError"
+                                  HelperText="The point in the channel's playout to preview, e.g. 'now' or 'tomorrow 8pm'" />
                 </MudStack>
             }
             else
@@ -191,6 +196,18 @@
                            OnClick="@PreviewChannel">
                     Play
                 </MudButton>
+                @if (Locker.IsTroubleshootingPlaybackLocked())
+                {
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary align-self-center">
+                        Playback is unavailable while a troubleshooting session is running.
+                    </MudText>
+                }
+                else if (_channelMode && !_start.HasValue)
+                {
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary align-self-center">
+                        Enter a valid date and time to enable playback.
+                    </MudText>
+                }
             </MudStack>
             <div class="d-flex" style="width: 100%">
                 <media-controller style="aspect-ratio: 16/9; width: 100%">
@@ -255,6 +272,7 @@
     private MudTextField<string> _logsField;
     private DateTimeOffset? _start;
     private string _startString;
+    private string _startError;
 
     [SupplyParameterFromQuery(Name = "mediaItem")]
     public int? MediaItemId { get; set; }
@@ -450,6 +468,9 @@
         foreach (ChannelViewModel channel in maybeChannel)
         {
             _title = channel.Name;
+            _start = DateTimeOffset.Now;
+            _startString = _start.Value.ToString("G", _dtf);
+            _startError = null;
             _streamingEngine = channel.StreamingEngine;
             _ffmpegProfileId = channel.FFmpegProfileId;
             if (channel.StreamSelectorMode is ChannelStreamSelectorMode.Custom)
@@ -549,6 +570,7 @@
         if (string.IsNullOrWhiteSpace(_startString))
         {
             _start = null;
+            _startError = "Date and time is required";
             return;
         }
 
@@ -557,7 +579,13 @@
         if (DateTimeOffset.TryParse(parsedResult?.Start?.ToString() ?? _startString, out DateTimeOffset dateTimeOffset))
         {
             _start = dateTimeOffset;
+            _startError = null;
             await InvokeAsync(() => { _startString = dateTimeOffset.ToString("G", _dtf); });
+        }
+        else
+        {
+            _start = null;
+            _startError = $"Unable to parse '{_startString}' as a date and time";
         }
     }
 
