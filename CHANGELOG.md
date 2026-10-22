@@ -10,6 +10,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - The upload returns an ID (e.g. `etv-xxxx-xxxxxx`) to paste into a GitHub issue or Discord thread
   - Uploads are deleted from the upload server after 7 days
   - `Download Results` still works when ErsatzTV can't reach the upload server
+- Detect DolbyVision content from media server libraries
+  - This enables the next engine to use the appropriate tonemapping filter
 
 ### Changed
 - Next engine:

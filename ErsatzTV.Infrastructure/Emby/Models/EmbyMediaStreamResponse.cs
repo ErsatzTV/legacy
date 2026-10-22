@@ -24,4 +24,6 @@ public class EmbyMediaStreamResponse
     public string ColorPrimaries { get; set; }
     public int? Rotation { get; set; }
     public double? RealFrameRate { get; set; }
+    public string ExtendedVideoType { get; set; }
+    public string ExtendedVideoSubType { get; set; }
 }

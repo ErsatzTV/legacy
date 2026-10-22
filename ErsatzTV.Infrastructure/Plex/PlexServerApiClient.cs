@@ -821,6 +821,7 @@ public class PlexServerApiClient(PlexEtag plexEtag, ILogger<PlexServerApiClient>
                     ColorSpace = (videoStream.ColorSpace ?? string.Empty).ToLowerInvariant(),
                     ColorTransfer = (videoStream.ColorTrc ?? string.Empty).ToLowerInvariant(),
                     ColorPrimaries = (videoStream.ColorPrimaries ?? string.Empty).ToLowerInvariant(),
+                    DvProfile = videoStream.DvProfile > 0 ? videoStream.DvProfile.Value : null,
                     Rotation = rotation
                 });
 

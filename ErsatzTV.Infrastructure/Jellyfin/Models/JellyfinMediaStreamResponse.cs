@@ -23,5 +23,5 @@ public class JellyfinMediaStreamResponse
     public string ColorTransfer { get; set; }
     public string ColorPrimaries { get; set; }
     public int? Rotation { get; set; }
-    public bool? IsAnamorphic { get; set; }
+    public int? DvProfile { get; set; }
 }

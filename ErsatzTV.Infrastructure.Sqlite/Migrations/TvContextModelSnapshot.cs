@@ -1334,7 +1334,7 @@ namespace ErsatzTV.Infrastructure.Sqlite.Migrations
                     b.Property<bool>("Forced")
                         .HasColumnType("INTEGER");
 
-                    b.Property<bool>("HasHdr10Metadata")
+                    b.Property<bool?>("HasHdr10Metadata")
                         .HasColumnType("INTEGER");
 
                     b.Property<int>("Index")

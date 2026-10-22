@@ -57,12 +57,15 @@ public partial class LocalStatisticsProvider : ILocalStatisticsProvider
                 MediaVersion version = ProjectToMediaVersion(path, ffprobe);
                 foreach (MediaStream stream in version.Streams.Where(s => s.MediaStreamKind is MediaStreamKind.Video))
                 {
-                    if (IsPq(stream) && !stream.HasHdr10Metadata)
+                    if (IsPq(stream) && stream.HasHdr10Metadata == null)
                     {
                         Either<BaseError, bool> probeResult =
                             await ProbeFrameForHdr10Metadata(ffprobePath, path, stream.Index);
 
-                        stream.HasHdr10Metadata = probeResult.IsRight && probeResult.RightToSeq().All(identity);
+                        if (probeResult.IsRight)
+                        {
+                            stream.HasHdr10Metadata = probeResult.RightToSeq().All(identity);
+                        }
                     }
                 }
 
@@ -237,14 +240,17 @@ public partial class LocalStatisticsProvider : ILocalStatisticsProvider
                     foreach (MediaStream stream in
                              version.Streams.Where(s => s.MediaStreamKind is MediaStreamKind.Video))
                     {
-                        if (IsPq(stream) && !stream.HasHdr10Metadata)
+                        if (IsPq(stream) && stream.HasHdr10Metadata == null)
                         {
                             Either<BaseError, bool> probeResult = await ProbeFrameForHdr10Metadata(
                                 ffprobePath,
                                 mediaItemPath,
                                 stream.Index);
 
-                            stream.HasHdr10Metadata = probeResult.IsRight && probeResult.RightToSeq().All(identity);
+                            if (probeResult.IsRight)
+                            {
+                                stream.HasHdr10Metadata = probeResult.RightToSeq().All(identity);
+                            }
                         }
                     }
 

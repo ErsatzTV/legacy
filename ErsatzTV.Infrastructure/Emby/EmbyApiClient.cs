@@ -1,4 +1,5 @@
 ﻿using System.Globalization;
+using System.Text.RegularExpressions;
 using ErsatzTV.Core;
 using ErsatzTV.Core.Domain;
 using ErsatzTV.Core.Emby;
@@ -11,7 +12,7 @@ using Refit;
 
 namespace ErsatzTV.Infrastructure.Emby;
 
-public class EmbyApiClient : IEmbyApiClient
+public partial class EmbyApiClient : IEmbyApiClient
 {
     private readonly IEmbyPathReplacementService _embyPathReplacementService;
     private readonly ILogger<EmbyApiClient> _logger;
@@ -913,6 +914,16 @@ public class EmbyApiClient : IEmbyApiClient
                 Chapters = new List<MediaChapter>()
             };
 
+            int? dvProfile = null;
+            if (string.Equals(videoStream.ExtendedVideoType, "DolbyVision", StringComparison.OrdinalIgnoreCase))
+            {
+                Match match = DvProfileRegex().Match(videoStream.ExtendedVideoSubType ?? string.Empty);
+                if (match.Success && int.TryParse(match.Groups[1].Value, out int profile) && profile > 0)
+                {
+                    dvProfile = profile;
+                }
+            }
+
             version.Streams.Add(
                 new MediaStream
                 {
@@ -929,7 +940,8 @@ public class EmbyApiClient : IEmbyApiClient
                     ColorSpace = (videoStream.ColorSpace ?? string.Empty).ToLowerInvariant(),
                     ColorTransfer = (videoStream.ColorTransfer ?? string.Empty).ToLowerInvariant(),
                     ColorPrimaries = (videoStream.ColorPrimaries ?? string.Empty).ToLowerInvariant(),
-                    Rotation = videoStream.Rotation.HasValue ? (videoStream.Rotation.Value % 360 + 360) % 360 : 0
+                    Rotation = videoStream.Rotation.HasValue ? (videoStream.Rotation.Value % 360 + 360) % 360 : 0,
+                    DvProfile = dvProfile
                 });
 
             foreach (EmbyMediaStreamResponse audioStream in streams.Filter(s => s.Type == EmbyMediaStreamType.Audio))
@@ -979,4 +991,7 @@ public class EmbyApiClient : IEmbyApiClient
             return version;
         });
     }
+
+    [GeneratedRegex(@"DoviProfile(\d)")]
+    private static partial Regex DvProfileRegex();
 }

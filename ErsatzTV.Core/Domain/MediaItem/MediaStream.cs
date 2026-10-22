@@ -22,7 +22,7 @@ public class MediaStream
     public string ColorTransfer { get; set; }
     public string ColorPrimaries { get; set; }
     public int? DvProfile { get; set; }
-    public bool HasHdr10Metadata { get; set; }
+    public bool? HasHdr10Metadata { get; set; }
     public int BitsPerRawSample { get; set; }
     public int? Rotation { get; set; }
     public string FileName { get; set; }

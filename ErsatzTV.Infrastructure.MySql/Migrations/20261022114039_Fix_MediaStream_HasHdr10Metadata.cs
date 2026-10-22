@@ -1,0 +1,38 @@
+﻿using Microsoft.EntityFrameworkCore.Migrations;
+
+#nullable disable
+
+namespace ErsatzTV.Infrastructure.MySql.Migrations
+{
+    /// <inheritdoc />
+    public partial class Fix_MediaStream_HasHdr10Metadata : Migration
+    {
+        /// <inheritdoc />
+        protected override void Up(MigrationBuilder migrationBuilder)
+        {
+            migrationBuilder.AlterColumn<bool>(
+                name: "HasHdr10Metadata",
+                table: "MediaStream",
+                type: "tinyint(1)",
+                nullable: true,
+                oldClrType: typeof(bool),
+                oldType: "tinyint(1)");
+        }
+
+        /// <inheritdoc />
+        protected override void Down(MigrationBuilder migrationBuilder)
+        {
+            migrationBuilder.Sql("UPDATE MediaStream SET HasHdr10Metadata = 0 WHERE HasHdr10Metadata IS NULL");
+
+            migrationBuilder.AlterColumn<bool>(
+                name: "HasHdr10Metadata",
+                table: "MediaStream",
+                type: "tinyint(1)",
+                nullable: false,
+                defaultValue: false,
+                oldClrType: typeof(bool),
+                oldType: "tinyint(1)",
+                oldNullable: true);
+        }
+    }
+}
