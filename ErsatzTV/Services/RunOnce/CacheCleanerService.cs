@@ -1,7 +1,9 @@
 ﻿using System.IO.Abstractions;
+using ErsatzTV.Application.Subtitles;
 using ErsatzTV.Core;
 using ErsatzTV.Core.Domain;
 using ErsatzTV.Core.Interfaces.Metadata;
+using ErsatzTV.Core.Interfaces.Repositories;
 using ErsatzTV.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -81,5 +83,53 @@ public class CacheCleanerService(
                 File.Delete(fileName);
             }
         }
+
+        await StripSubtitleCacheNulBytes(scope, fileSystem, stoppingToken);
+    }
+
+    // existing files are not extracted again, so fix them once
+    private async Task StripSubtitleCacheNulBytes(
+        IServiceScope scope,
+        IFileSystem fileSystem,
+        CancellationToken cancellationToken)
+    {
+        IConfigElementRepository configElementRepository =
+            scope.ServiceProvider.GetRequiredService<IConfigElementRepository>();
+
+        Option<bool> maybeStripped = await configElementRepository.GetValue<bool>(
+            ConfigElementKey.FFmpegSubtitleCacheNulStripped,
+            cancellationToken);
+        if (maybeStripped.IfNone(false))
+        {
+            return;
+        }
+
+        if (fileSystem.Directory.Exists(FileSystemLayout.SubtitleCacheFolder))
+        {
+            logger.LogInformation("Stripping NUL bytes from subtitle cache");
+
+            var count = 0;
+            foreach (string fileName in fileSystem.Directory.EnumerateFiles(
+                         FileSystemLayout.SubtitleCacheFolder,
+                         "*",
+                         SearchOption.AllDirectories))
+            {
+                string extension = Path.GetExtension(fileName);
+                if (extension is not (".ass" or ".srt" or ".vtt"))
+                {
+                    continue;
+                }
+
+                if (await SubtitleNulBytes.StripOrDelete(fileSystem, fileName, logger, cancellationToken) is
+                    SubtitleNulBytes.StripResult.Stripped)
+                {
+                    count++;
+                }
+            }
+
+            logger.LogInformation("Stripped NUL bytes from {Count} cached subtitles", count);
+        }
+
+        await configElementRepository.Upsert(ConfigElementKey.FFmpegSubtitleCacheNulStripped, true, cancellationToken);
     }
 }

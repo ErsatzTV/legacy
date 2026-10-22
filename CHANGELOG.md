@@ -36,6 +36,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Affected Jellyfin movies and episodes will be rescanned automatically
 - Fix channel troubleshooting `Play` button being disabled with no explanation
   - Date and time now defaults to the current time and shows an error when it can't be parsed
+- Fix some extracted ASS subtitles never being displayed
+  - Affected subtitles that were already extracted will be repaired automatically on startup
 
 ## [26.11.3] - 2026-10-13
 ### Changed

@@ -167,6 +167,24 @@ public abstract class ExtractEmbeddedSubtitlesHandlerBase(IFileSystem fileSystem
                 {
                     foreach (SubtitleToExtract subtitle in subtitlesToExtract)
                     {
+                        string fullOutputPath = Path.Combine(
+                            FileSystemLayout.SubtitleCacheFolder,
+                            subtitle.OutputPath);
+                        switch (await SubtitleNulBytes.StripOrDelete(
+                                    fileSystem,
+                                    fullOutputPath,
+                                    logger,
+                                    cancellationToken))
+                        {
+                            case SubtitleNulBytes.StripResult.Failed:
+                                continue;
+                            case SubtitleNulBytes.StripResult.Stripped:
+                                logger.LogDebug(
+                                    "Stripped NUL bytes from extracted subtitle {Path}",
+                                    fullOutputPath);
+                                break;
+                        }
+
                         await dbContext.Connection.ExecuteAsync(
                             "UPDATE `Subtitle` SET `IsExtracted` = 1, `Path` = @Path WHERE `Id` = @SubtitleId",
                             new { SubtitleId = subtitle.Subtitle.Id, Path = subtitle.OutputPath });
