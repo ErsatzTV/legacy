@@ -18,6 +18,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Watermark-only graphics canvases render just the area the watermarks cover instead of the full frame
     - This reduces CPU use and GPU upload for animated or opacity-expression watermarks
     - This is currently limited to local watermarks; remote/URL watermarks will still send the full frame
+  - Remove VideoToolbox `h264` encoder workaround that stripped A53 closed captions
+    - This is no longer needed with ErsatzTV-ffmpeg `8.1.2-5`
 - Use ErsatzTV-ffmpeg `8.1.2-5` in docker images, Windows packages and macOS packages
   - Fix transcoding speed drop when burning in image subtitles, especially with TrueHD audio
   - Fix macOS VideoToolbox encoding failure when video contains A53 closed captions
@@ -31,6 +33,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Fix QSV green padding on Windows with certain HDR content
   - Fix slow transcoding of high-resolution video with PGS subtitles until the first subtitle appears
   - Fix RKMPP stream failing with loudness normalization
+  - Fix VAAPI blocky, smeared `h264` video on older AMD GPUs
 - Fix Jellyfin external audio files being added as audio streams with negative indexes
   - These broke playback of the whole playout file with the next engine (`expected u32`)
   - Affected Jellyfin movies and episodes will be rescanned automatically

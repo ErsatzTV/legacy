@@ -124,6 +124,7 @@ public static class DbInitializer
             Number = "1",
             Name = "ErsatzTV",
             FFmpegProfile = defaultProfile,
+            StreamingEngine = StreamingEngine.Next,
             StreamingMode = StreamingMode.TransportStreamHybrid,
             IsEnabled = true,
             ShowInEpg = true
