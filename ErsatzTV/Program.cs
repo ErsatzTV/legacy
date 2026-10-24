@@ -47,8 +47,8 @@ public class Program
 
     public static async Task<int> Main(string[] args)
     {
-        // A lock file in the config folder instead of a named mutex: since .NET 10.0.13 named mutexes
-        // need a writable home directory, and a file lock also covers containers sharing one config folder.
+        // named mutexes need a writable home since .NET 10.0.13;
+        // a file lock also blocks containers sharing a config folder
         using FileStream singletonLock = TryLockConfigFolder(out bool alreadyRunning);
         if (alreadyRunning)
         {
@@ -158,32 +158,43 @@ public class Program
     private static FileStream TryLockConfigFolder(out bool alreadyRunning)
     {
         alreadyRunning = false;
+        string lockPath = Path.Combine(FileSystemLayout.AppDataFolder, "ersatztv.lock");
 
         try
         {
             Directory.CreateDirectory(FileSystemLayout.AppDataFolder);
-
-            // Read access still takes an exclusive lock, and works when the file is owned by another uid
-            // (e.g. a container that previously ran as root) or the config folder is read-only.
-            return new FileStream(
-                Path.Combine(FileSystemLayout.AppDataFolder, "ersatztv.lock"),
-                FileMode.OpenOrCreate,
-                FileAccess.Read,
-                FileShare.None);
-        }
-        catch (IOException ex) when (IsSharingViolation(ex))
-        {
-            alreadyRunning = true;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            Console.WriteLine($"Unable to lock config folder; continuing without single instance check: {ex.Message}");
+            // lock file open below reports the error
         }
 
+        // NFS silently skips the lock on a read-only handle; read-only is only a fallback
+        // for a lock file owned by another uid or a read-only config folder
+        Exception lastError = null;
+        foreach (FileAccess access in new[] { FileAccess.ReadWrite, FileAccess.Read })
+        {
+            try
+            {
+                return new FileStream(lockPath, FileMode.OpenOrCreate, access, FileShare.None);
+            }
+            catch (IOException ex) when (IsSharingViolation(ex))
+            {
+                alreadyRunning = true;
+                return null;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                lastError = ex;
+            }
+        }
+
+        Console.WriteLine(
+            $"Unable to lock config folder; continuing without single instance check: {lastError?.Message}");
         return null;
     }
 
-    // Unix reports the raw errno for EWOULDBLOCK instead of a Windows HRESULT
+    // on unix, HResult is the raw errno (EWOULDBLOCK), not an HRESULT
     private static bool IsSharingViolation(IOException ex) =>
         OperatingSystem.IsWindows()
             ? ex.HResult is unchecked((int)0x80070020) or unchecked((int)0x80070021)
