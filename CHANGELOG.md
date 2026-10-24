@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
+### Added
+- Next engine:
+  - VAAPI: tonemap with `libplacebo` when a Vulkan device on the same GPU (Intel or AMD) is available
+
+### Changed
+- Use ErsatzTV-ffmpeg `8.1.2-6` in docker images, Windows packages and macOS packages
+  - Fix Vulkan to VAAPI reverse mapping synchronization
+  - Fix `av1_qsv` decoder exporting duplicate HDR side data
+  - Fix macOS VideoToolbox `h264` decoding failure on content with many reference frames
 
 ## [26.11.4] - 2026-10-23
 ### Added
