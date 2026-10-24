@@ -1,8 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.InteropServices;
-using System.Security.Cryptography;
-using System.Text;
 using Destructurama;
 using ErsatzTV.Core;
 using ErsatzTV.Services.Validators;
@@ -49,18 +47,12 @@ public class Program
 
     public static async Task<int> Main(string[] args)
     {
-        // Keyed on the config folder, not a constant, so an instance running against an
-        // isolated ETV_CONFIG_FOLDER (a staging copy) can coexist with the primary one.
-        string singletonId = Convert.ToHexString(
-            SHA256.HashData(Encoding.UTF8.GetBytes(FileSystemLayout.AppDataFolder)))[..16];
-
-        using var _ = new Mutex(
-            true,
-            $"Global\\ErsatzTV.Singleton.{singletonId}",
-            out bool createdNew);
-        if (!createdNew)
+        // A lock file in the config folder instead of a named mutex: since .NET 10.0.13 named mutexes
+        // need a writable home directory, and a file lock also covers containers sharing one config folder.
+        using FileStream singletonLock = TryLockConfigFolder(out bool alreadyRunning);
+        if (alreadyRunning)
         {
-            Console.WriteLine("Another instance of ErsatztTV is already running.");
+            Console.WriteLine("Another instance of ErsatzTV is already running with this config folder.");
             return 1;
         }
 
@@ -162,6 +154,40 @@ public class Program
             await Log.CloseAndFlushAsync();
         }
     }
+
+    private static FileStream TryLockConfigFolder(out bool alreadyRunning)
+    {
+        alreadyRunning = false;
+
+        try
+        {
+            Directory.CreateDirectory(FileSystemLayout.AppDataFolder);
+
+            // Read access still takes an exclusive lock, and works when the file is owned by another uid
+            // (e.g. a container that previously ran as root) or the config folder is read-only.
+            return new FileStream(
+                Path.Combine(FileSystemLayout.AppDataFolder, "ersatztv.lock"),
+                FileMode.OpenOrCreate,
+                FileAccess.Read,
+                FileShare.None);
+        }
+        catch (IOException ex) when (IsSharingViolation(ex))
+        {
+            alreadyRunning = true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Console.WriteLine($"Unable to lock config folder; continuing without single instance check: {ex.Message}");
+        }
+
+        return null;
+    }
+
+    // Unix reports the raw errno for EWOULDBLOCK instead of a Windows HRESULT
+    private static bool IsSharingViolation(IOException ex) =>
+        OperatingSystem.IsWindows()
+            ? ex.HResult is unchecked((int)0x80070020) or unchecked((int)0x80070021)
+            : ex.HResult == (OperatingSystem.IsLinux() ? 11 : 35);
 
     private static IHostBuilder CreateHostBuilder(string[] args)
     {

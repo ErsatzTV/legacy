@@ -1,4 +1,4 @@
-﻿FROM mcr.microsoft.com/dotnet/aspnet:10.0-noble-arm64v8 AS dotnet-runtime
+﻿FROM mcr.microsoft.com/dotnet/aspnet:10.0.13-noble-arm64v8@sha256:3a05e37c371f358d2b5cb9687d9992171b34b8c9146c283bef865bdbd2c53c55 AS dotnet-runtime
 
 FROM ghcr.io/ersatztv/ersatztv-ffmpeg:8.1.2-5@sha256:4eaee78c9798a99f6a61c90fb8899f60360b71dd7a0dd0e96c27401b11c55886 AS runtime-base
 COPY --from=dotnet-runtime /usr/share/dotnet /usr/share/dotnet

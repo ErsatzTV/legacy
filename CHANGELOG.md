@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
+### Fixed
+- Fix startup crash `The system cannot open the device or file specified` when running as a non-root user or with a read-only root filesystem
+  - This was caused by a .NET runtime security update that changed where single-instance checks are stored
+  - ErsatzTV now uses a lock file in the config folder, which also prevents multiple instances (e.g. two docker containers) from sharing the same config folder
 
 ## [26.11.4] - 2026-10-23
 ### Added
