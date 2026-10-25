@@ -20,18 +20,35 @@ namespace ErsatzTV.Core.Next.Config
     using System.Text.Json.Serialization;
     using System.Globalization;
 
+    /// <summary>
+    /// Settings for one channel: where its playout is, which ffmpeg to use, and the output
+    /// format.
+    /// A relative path in any of these settings is relative to the file that sets it.
+    /// </summary>
     public partial class ChannelConfig
     {
+        /// <summary>
+        /// What plays when nothing is scheduled or an item fails.
+        /// </summary>
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("fallback")]
         public Fallback? Fallback { get; set; }
 
+        /// <summary>
+        /// ffmpeg and ffprobe settings.
+        /// </summary>
         [JsonPropertyName("ffmpeg")]
         public Ffmpeg Ffmpeg { get; set; }
 
+        /// <summary>
+        /// Output format for audio, video and subtitles.
+        /// </summary>
         [JsonPropertyName("normalization")]
         public Normalization Normalization { get; set; }
 
+        /// <summary>
+        /// Where to find the channel's playout files.
+        /// </summary>
         [JsonPropertyName("playout")]
         public Playout Playout { get; set; }
 
@@ -45,11 +62,20 @@ namespace ErsatzTV.Core.Next.Config
     }
 
     /// <summary>
+    /// What plays when nothing is scheduled or an item fails.
+    ///
     /// Controls the content that replaces scheduled content when there is nothing to play
     /// (a gap in the playout) or when the scheduled item fails
     /// </summary>
     public partial class Fallback
     {
+        /// <summary>
+        /// Still image shown instead of black, scaled and padded to the output size. Black is used
+        /// if the image fails to play.
+        /// </summary>
+        [JsonPropertyName("background_image")]
+        public string? BackgroundImage { get; set; }
+
         /// <summary>
         /// Fallback length in seconds when the fallback has no end time, e.g. after a failed
         /// dynamic source. Default 60. Raised to the source's `retry_budget_ms` if shorter.
@@ -66,47 +92,92 @@ namespace ErsatzTV.Core.Next.Config
         public bool? ShowError { get; set; }
     }
 
+    /// <summary>
+    /// ffmpeg and ffprobe settings.
+    /// </summary>
     public partial class Ffmpeg
     {
+        /// <summary>
+        /// ffmpeg video filters to never use, even when the ffmpeg build has them, e.g.
+        /// `["scale_cuda"]`. Pipelines that need one use another filter or software instead.
+        /// </summary>
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("disabled_filters")]
         public List<string>? DisabledFilters { get; set; }
 
+        /// <summary>
+        /// Path to the ffmpeg executable. Unset or empty uses `ffmpeg` from `PATH`.
+        /// </summary>
         [JsonPropertyName("ffmpeg_path")]
         public string? FfmpegPath { get; set; }
 
+        /// <summary>
+        /// Path to the ffprobe executable. Unset or empty uses `ffprobe` from `PATH`.
+        /// </summary>
         [JsonPropertyName("ffprobe_path")]
         public string? FfprobePath { get; set; }
 
+        /// <summary>
+        /// ffmpeg video filters in order of preference, used when more than one filter can do the
+        /// same step, e.g. `["tonemap_vaapi", "tonemap_opencl"]`.
+        /// </summary>
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("preferred_filters")]
         public List<string>? PreferredFilters { get; set; }
 
+        /// <summary>
+        /// Folder for troubleshooting reports. When set, each failed item or fallback writes a
+        /// subfolder with the ffmpeg output, the channel config and media info. Unset writes none.
+        /// </summary>
         [JsonPropertyName("reports_folder")]
         public string? ReportsFolder { get; set; }
     }
 
+    /// <summary>
+    /// Output format for audio, video and subtitles.
+    /// </summary>
     public partial class Normalization
     {
+        /// <summary>
+        /// Audio output settings.
+        /// </summary>
         [JsonPropertyName("audio")]
         public Audio Audio { get; set; }
 
+        /// <summary>
+        /// Subtitle output settings.
+        /// </summary>
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("subtitle")]
         public Subtitle? Subtitle { get; set; }
 
+        /// <summary>
+        /// Video output settings.
+        /// </summary>
         [JsonPropertyName("video")]
         public Video Video { get; set; }
     }
 
+    /// <summary>
+    /// Audio output settings.
+    /// </summary>
     public partial class Audio
     {
+        /// <summary>
+        /// Bitrate in kbit/s. Unset leaves it to the encoder.
+        /// </summary>
         [JsonPropertyName("bitrate_kbps")]
         public long? BitrateKbps { get; set; }
 
+        /// <summary>
+        /// Rate control buffer size (`-bufsize`) in kbit/s. Unset leaves it to the encoder.
+        /// </summary>
         [JsonPropertyName("buffer_kbps")]
         public long? BufferKbps { get; set; }
 
+        /// <summary>
+        /// Number of channels, e.g. `2` for stereo. Unset keeps the source channel count.
+        /// </summary>
         [JsonPropertyName("channels")]
         public long? Channels { get; set; }
 
@@ -124,67 +195,117 @@ namespace ErsatzTV.Core.Next.Config
         [JsonPropertyName("format")]
         public AudioFormat? Format { get; set; }
 
+        /// <summary>
+        /// Targets for `normalize_loudness`.
+        /// </summary>
         [JsonPropertyName("loudness")]
         public LoudnessClass? Loudness { get; set; }
 
         /// <summary>
-        /// `copy`: copy items with a source codec in `copy_formats`. Transcode all other items.
+        /// Whether to transcode every item or copy items whose codec allows it.
         /// </summary>
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("mode")]
         public StreamMode? Mode { get; set; }
 
+        /// <summary>
+        /// Normalize loudness with the ffmpeg `loudnorm` filter to the `loudness` targets.
+        /// Not allowed when `mode` is `copy`.
+        /// </summary>
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("normalize_loudness")]
         public bool? NormalizeLoudness { get; set; }
 
+        /// <summary>
+        /// Sample rate in Hz, e.g. `48000`. Unset keeps the source rate, or 48000 when
+        /// `normalize_loudness` is on.
+        /// </summary>
         [JsonPropertyName("sample_rate_hz")]
         public long? SampleRateHz { get; set; }
     }
 
     public partial class LoudnessClass
     {
+        /// <summary>
+        /// Integrated loudness target in LUFS (`loudnorm` `I`). Unset is -16.
+        /// </summary>
         [JsonPropertyName("integrated_target")]
         public double? IntegratedTarget { get; set; }
 
+        /// <summary>
+        /// Loudness range target in LU (`loudnorm` `LRA`). Unset is 11.
+        /// </summary>
         [JsonPropertyName("range_target")]
         public double? RangeTarget { get; set; }
 
+        /// <summary>
+        /// Maximum true peak in dBTP (`loudnorm` `TP`). Unset is -1.5.
+        /// </summary>
         [JsonPropertyName("true_peak")]
         public double? TruePeak { get; set; }
     }
 
+    /// <summary>
+    /// Subtitle output settings.
+    /// </summary>
     public partial class Subtitle
     {
+        /// <summary>
+        /// Folder of fonts for burned-in text subtitles.
+        /// </summary>
         [JsonPropertyName("fonts_folder")]
         public string? FontsFolder { get; set; }
 
+        /// <summary>
+        /// ASS style overrides for burned-in text subtitles, e.g. `FontName=Arial,FontSize=24`
+        /// (the `subtitles` filter's `force_style` option).
+        /// </summary>
         [JsonPropertyName("force_style")]
         public string? ForceStyle { get; set; }
 
+        /// <summary>
+        /// What to do with the selected text subtitle track. Image subtitles are always burned in.
+        /// </summary>
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("mode")]
         public SubtitleMode? Mode { get; set; }
     }
 
+    /// <summary>
+    /// Video output settings.
+    /// </summary>
     public partial class Video
     {
+        /// <summary>
+        /// Hardware acceleration for decoding, filtering and encoding. Steps the device can't do use
+        /// software. If the device can't be probed, the whole channel uses software. Unset or empty
+        /// uses software.
+        /// </summary>
         [JsonPropertyName("accel")]
         public AccelEnum? Accel { get; set; }
 
         /// <summary>
-        /// Windows only. Unset picks the discrete AMD adapter.
+        /// AMF adapter index. Windows only. Unset picks the discrete AMD adapter.
         /// </summary>
         [JsonPropertyName("amf_device")]
         public long? AmfDevice { get; set; }
 
+        /// <summary>
+        /// Bit depth, `8` or `10`. `mpeg2video` always uses 8.
+        /// </summary>
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("bit_depth")]
         public long? BitDepth { get; set; }
 
+        /// <summary>
+        /// Bitrate in kbit/s. Required for `mpeg2video`. Unset leaves it to the encoder.
+        /// </summary>
         [JsonPropertyName("bitrate_kbps")]
         public long? BitrateKbps { get; set; }
 
+        /// <summary>
+        /// Rate control buffer size (`-bufsize`) in kbit/s. Unset leaves it to the encoder.
+        /// </summary>
         [JsonPropertyName("buffer_kbps")]
         public long? BufferKbps { get; set; }
 
@@ -194,10 +315,16 @@ namespace ErsatzTV.Core.Next.Config
         [JsonPropertyName("copy_formats")]
         public List<VideoFormat>? CopyFormats { get; set; }
 
+        /// <summary>
+        /// Deinterlace interlaced sources. Progressive sources are not changed.
+        /// </summary>
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("deinterlace")]
         public bool? Deinterlace { get; set; }
 
+        /// <summary>
+        /// Options for individual ffmpeg filters. Unset options use the filter's default.
+        /// </summary>
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("filters")]
         public Filters? Filters { get; set; }
@@ -219,100 +346,198 @@ namespace ErsatzTV.Core.Next.Config
         [JsonPropertyName("frame_rate")]
         public string? FrameRate { get; set; }
 
+        /// <summary>
+        /// Height in pixels. Applies only when `width` is also set; otherwise the source size is
+        /// kept.
+        /// The fallback uses 1080 when unset.
+        /// </summary>
         [JsonPropertyName("height")]
         public long? Height { get; set; }
 
         /// <summary>
-        /// `copy`: copy items with a source codec in `copy_formats`. Transcode all other items, and
-        /// items with graphics, burned-in subtitles, still images, Dolby Vision profile 5 or AVI
-        /// sources.
+        /// Whether to transcode every item or copy items whose codec allows it. In `copy` mode,
+        /// items
+        /// with graphics, burned-in subtitles, still images, Dolby Vision profile 5 or AVI sources
+        /// are
+        /// always transcoded.
         /// </summary>
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("mode")]
         public StreamMode? Mode { get; set; }
 
+        /// <summary>
+        /// How a source with a different aspect ratio fits `width` and `height`.
+        /// </summary>
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("scaling_mode")]
         public ScalingMode? ScalingMode { get; set; }
 
         /// <summary>
-        /// Unset uses `/dev/dri/renderD128`.
+        /// VAAPI render node. Unset uses `/dev/dri/renderD128`.
         /// </summary>
         [JsonPropertyName("vaapi_device")]
         public string? VaapiDevice { get; set; }
 
         /// <summary>
-        /// Unset lets libva select the driver for `vaapi_device`.
+        /// VAAPI driver. Unset lets libva select the driver for `vaapi_device`.
         /// </summary>
         [JsonPropertyName("vaapi_driver")]
         public VaapiDriverEnum? VaapiDriver { get; set; }
 
+        /// <summary>
+        /// Whether VAAPI HEVC encoding may use the low-power entrypoint (Intel VDEnc) when the GPU
+        /// also
+        /// has the default one. Default `auto`.
+        /// </summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("vaapi_low_power")]
+        public VaapiLowPower? VaapiLowPower { get; set; }
+
+        /// <summary>
+        /// Width in pixels. Applies only when `height` is also set; otherwise the source size is
+        /// kept.
+        /// The fallback uses 1920 when unset.
+        /// </summary>
         [JsonPropertyName("width")]
         public long? Width { get; set; }
     }
 
+    /// <summary>
+    /// Options for individual ffmpeg filters. Unset options use the filter's default.
+    /// </summary>
     public partial class Filters
     {
+        /// <summary>
+        /// Options for the [`bwdif`](https://ffmpeg.org/ffmpeg-filters.html#bwdif-1) filter, used
+        /// for
+        /// software deinterlacing.
+        /// </summary>
         [JsonPropertyName("bwdif")]
         public BwdifClass? Bwdif { get; set; }
 
+        /// <summary>
+        /// Options for the [`bwdif_cuda`](https://ffmpeg.org/ffmpeg-filters.html#bwdif_005fcuda)
+        /// filter, used for CUDA deinterlacing.
+        /// </summary>
         [JsonPropertyName("bwdif_cuda")]
         public BwdifCudaClass? BwdifCuda { get; set; }
 
+        /// <summary>
+        /// Options for the `deinterlace_qsv` filter, used for QSV deinterlacing. Run
+        /// `ffmpeg -h filter=deinterlace_qsv` for its options.
+        /// </summary>
         [JsonPropertyName("deinterlace_qsv")]
         public DeinterlaceQsvClass? DeinterlaceQsv { get; set; }
 
+        /// <summary>
+        /// Options for the `deinterlace_vaapi` filter, used for VAAPI deinterlacing. Run
+        /// `ffmpeg -h filter=deinterlace_vaapi` for its options.
+        /// </summary>
         [JsonPropertyName("deinterlace_vaapi")]
         public DeinterlaceVaapiClass? DeinterlaceVaapi { get; set; }
 
+        /// <summary>
+        /// Options for the [`libplacebo`](https://ffmpeg.org/ffmpeg-filters.html#libplacebo) filter,
+        /// used for CUDA and Vulkan tonemapping.
+        /// </summary>
         [JsonPropertyName("libplacebo")]
         public LibplaceboClass? Libplacebo { get; set; }
 
+        /// <summary>
+        /// Options for the [`scale`](https://ffmpeg.org/ffmpeg-filters.html#scale-1) filter, used
+        /// for
+        /// software scaling.
+        /// </summary>
         [JsonPropertyName("scale")]
         public ScaleClass? Scale { get; set; }
 
+        /// <summary>
+        /// Options for the [`tonemap`](https://ffmpeg.org/ffmpeg-filters.html#tonemap-1) filter,
+        /// used
+        /// for software tonemapping.
+        /// </summary>
         [JsonPropertyName("tonemap")]
         public TonemapClass? Tonemap { get; set; }
 
+        /// <summary>
+        /// Options for the
+        /// [`tonemap_opencl`](https://ffmpeg.org/ffmpeg-filters.html#tonemap_005fopencl) filter,
+        /// used
+        /// for VAAPI tonemapping.
+        /// </summary>
         [JsonPropertyName("tonemap_opencl")]
         public TonemapOpenclClass? TonemapOpencl { get; set; }
 
+        /// <summary>
+        /// Options for the [`w3fdif`](https://ffmpeg.org/ffmpeg-filters.html#w3fdif) filter, used
+        /// for
+        /// software deinterlacing.
+        /// </summary>
         [JsonPropertyName("w3fdif")]
         public W3FdifClass? W3Fdif { get; set; }
 
+        /// <summary>
+        /// Options for the [`yadif`](https://ffmpeg.org/ffmpeg-filters.html#yadif-1) filter, used
+        /// for
+        /// software deinterlacing.
+        /// </summary>
         [JsonPropertyName("yadif")]
         public YadifClass? Yadif { get; set; }
 
+        /// <summary>
+        /// Options for the [`yadif_cuda`](https://ffmpeg.org/ffmpeg-filters.html#yadif_005fcuda)
+        /// filter, used for CUDA deinterlacing.
+        /// </summary>
         [JsonPropertyName("yadif_cuda")]
         public YadifCudaClass? YadifCuda { get; set; }
     }
 
     public partial class BwdifClass
     {
+        /// <summary>
+        /// Value for the `bwdif` `mode` option. Allowed characters: a-z, 0-9, `_`, `.`, `+`, `-`.
+        /// </summary>
         [JsonPropertyName("mode")]
         public string? Mode { get; set; }
     }
 
     public partial class BwdifCudaClass
     {
+        /// <summary>
+        /// Value for the `bwdif_cuda` `mode` option. Allowed characters: a-z, 0-9, `_`, `.`, `+`,
+        /// `-`.
+        /// </summary>
         [JsonPropertyName("mode")]
         public string? Mode { get; set; }
     }
 
     public partial class DeinterlaceQsvClass
     {
+        /// <summary>
+        /// Value for the `deinterlace_qsv` `mode` option. Allowed characters: a-z, 0-9, `_`, `.`,
+        /// `+`,
+        /// `-`.
+        /// </summary>
         [JsonPropertyName("mode")]
         public string? Mode { get; set; }
     }
 
     public partial class DeinterlaceVaapiClass
     {
+        /// <summary>
+        /// Value for the `deinterlace_vaapi` `mode` option. Allowed characters: a-z, 0-9, `_`, `.`,
+        /// `+`, `-`.
+        /// </summary>
         [JsonPropertyName("mode")]
         public string? Mode { get; set; }
     }
 
     public partial class LibplaceboClass
     {
+        /// <summary>
+        /// Value for the `libplacebo` `tonemapping` option. Allowed characters: a-z, 0-9, `_`, `.`,
+        /// `+`, `-`.
+        /// </summary>
         [JsonPropertyName("tonemapping")]
         public string? Tonemapping { get; set; }
     }
@@ -330,41 +555,66 @@ namespace ErsatzTV.Core.Next.Config
 
     public partial class TonemapClass
     {
+        /// <summary>
+        /// Value for the `tonemap` `tonemap` option. Allowed characters: a-z, 0-9, `_`, `.`, `+`,
+        /// `-`.
+        /// </summary>
         [JsonPropertyName("tonemap")]
         public string? Tonemap { get; set; }
     }
 
     public partial class TonemapOpenclClass
     {
+        /// <summary>
+        /// Value for the `tonemap_opencl` `tonemap` option. Allowed characters: a-z, 0-9, `_`, `.`,
+        /// `+`, `-`.
+        /// </summary>
         [JsonPropertyName("tonemap")]
         public string? Tonemap { get; set; }
     }
 
     public partial class W3FdifClass
     {
+        /// <summary>
+        /// Value for the `w3fdif` `mode` option. Allowed characters: a-z, 0-9, `_`, `.`, `+`, `-`.
+        /// </summary>
         [JsonPropertyName("mode")]
         public string? Mode { get; set; }
     }
 
     public partial class YadifClass
     {
+        /// <summary>
+        /// Value for the `yadif` `mode` option. Allowed characters: a-z, 0-9, `_`, `.`, `+`, `-`.
+        /// </summary>
         [JsonPropertyName("mode")]
         public string? Mode { get; set; }
     }
 
     public partial class YadifCudaClass
     {
+        /// <summary>
+        /// Value for the `yadif_cuda` `mode` option. Allowed characters: a-z, 0-9, `_`, `.`, `+`,
+        /// `-`.
+        /// </summary>
         [JsonPropertyName("mode")]
         public string? Mode { get; set; }
     }
 
+    /// <summary>
+    /// Where to find the channel's playout files.
+    /// </summary>
     public partial class Playout
     {
+        /// <summary>
+        /// Folder of playout files, named `{start}_{finish}.json`.
+        /// </summary>
         [JsonPropertyName("folder")]
         public string Folder { get; set; }
 
         /// <summary>
-        /// RFC3339 formatted date/time, e.g. 2026-04-13T00:24:21.527-05:00
+        /// Play the playout as if the channel started at this time instead of now. RFC 3339, e.g.
+        /// `2026-04-13T00:24:21.527-05:00`. For testing.
         /// </summary>
         [JsonPropertyName("virtual_start")]
         public string? VirtualStart { get; set; }
@@ -372,38 +622,114 @@ namespace ErsatzTV.Core.Next.Config
 
     /// <summary>
     /// Limited to codecs that mux correctly into HLS MPEG-TS.
+    ///
+    /// AAC.
+    ///
+    /// Dolby Digital (AC-3).
+    ///
+    /// Dolby Digital Plus (E-AC-3).
+    ///
+    /// MPEG-1 Audio Layer II.
+    ///
+    /// MPEG-1 Audio Layer III.
     /// </summary>
     public enum AudioCopyFormat { Aac, Ac3, Eac3, Mp2, Mp3 };
 
     /// <summary>
     /// Codec for transcoded items. When `mode` is `copy`, used only for items that are not
     /// copied.
+    ///
+    /// AAC.
+    ///
+    /// Dolby Digital (AC-3).
     /// </summary>
     public enum AudioFormat { Aac, Ac3 };
 
     /// <summary>
-    /// `copy`: copy items with a source codec in `copy_formats`. Transcode all other items.
+    /// Whether to transcode every item or copy items whose codec allows it.
     ///
-    /// `copy`: copy items with a source codec in `copy_formats`. Transcode all other items, and
-    /// items with graphics, burned-in subtitles, still images, Dolby Vision profile 5 or AVI
-    /// sources.
+    /// Whether to transcode every item or copy items whose codec allows it. In `copy` mode,
+    /// items
+    /// with graphics, burned-in subtitles, still images, Dolby Vision profile 5 or AVI sources
+    /// are
+    /// always transcoded.
+    ///
+    /// Transcode every item.
+    ///
+    /// Copy items with a source codec in `copy_formats`. Transcode all other items.
     /// </summary>
     public enum StreamMode { Copy, Transcode };
 
+    /// <summary>
+    /// What to do with the selected text subtitle track. Image subtitles are always burned in.
+    ///
+    /// Burn subtitles into the video.
+    ///
+    /// Convert text subtitles to a WebVTT track in the HLS stream.
+    /// </summary>
     public enum SubtitleMode { Burn, Convert };
 
+    /// <summary>
+    /// AMD AMF. Windows only.
+    ///
+    /// NVIDIA NVENC/NVDEC.
+    ///
+    /// Intel Quick Sync Video.
+    ///
+    /// Rockchip MPP. Linux only.
+    ///
+    /// VA-API. Linux only.
+    ///
+    /// Apple VideoToolbox. macOS only.
+    ///
+    /// Vulkan Video.
+    /// </summary>
     public enum AccelEnum { Amf, Cuda, Qsv, Rkmpp, Vaapi, Videotoolbox, Vulkan };
 
     /// <summary>
     /// Codec for transcoded items. When `mode` is `copy`, this and all other video settings
     /// apply
     /// only to items that are not copied.
+    ///
+    /// H.264 (AVC).
+    ///
+    /// H.265 (HEVC).
+    ///
+    /// MPEG-2 video. Requires `bitrate_kbps`.
     /// </summary>
     public enum VideoFormat { H264, Hevc, Mpeg2Video };
 
+    /// <summary>
+    /// How a source with a different aspect ratio fits `width` and `height`.
+    ///
+    /// Scale to fit inside the frame and pad the rest with black.
+    ///
+    /// Scale to fill the frame, ignoring the aspect ratio.
+    ///
+    /// Scale to cover the frame and crop the overflow.
+    /// </summary>
     public enum ScalingMode { Crop, ScaleAndPad, Stretch };
 
+    /// <summary>
+    /// Intel media driver, for Broadwell and newer.
+    ///
+    /// Legacy Intel driver, for older Intel GPUs.
+    ///
+    /// Mesa driver for AMD GPUs.
+    /// </summary>
     public enum VaapiDriverEnum { I965, Ihd, Radeonsi };
+
+    /// <summary>
+    /// Whether VAAPI HEVC encoding may use the low-power entrypoint (Intel VDEnc) when the GPU
+    /// also
+    /// has the default one. Default `auto`.
+    ///
+    /// Use low-power for HEVC when it supports bitrate rate control. Faster on Intel iGPUs with
+    /// both entrypoints; slightly lower quality on grainy sources.
+    ///
+    /// Use the default entrypoint when the GPU has it.
+    /// </summary>
+    public enum VaapiLowPower { Auto, Never };
 
     public partial class ChannelConfig
     {
@@ -430,6 +756,7 @@ namespace ErsatzTV.Core.Next.Config
                 VideoFormatConverter.Singleton,
                 ScalingModeConverter.Singleton,
                 VaapiDriverEnumConverter.Singleton,
+                VaapiLowPowerConverter.Singleton,
                 new DateOnlyConverter(),
                 new TimeOnlyConverter(),
                 IsoDateTimeOffsetConverter.Singleton
@@ -762,6 +1089,40 @@ namespace ErsatzTV.Core.Next.Config
         }
 
         public static readonly VaapiDriverEnumConverter Singleton = new VaapiDriverEnumConverter();
+    }
+
+    internal class VaapiLowPowerConverter : JsonConverter<VaapiLowPower>
+    {
+        public override bool CanConvert(Type t) => t == typeof(VaapiLowPower);
+
+        public override VaapiLowPower Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "auto":
+                    return VaapiLowPower.Auto;
+                case "never":
+                    return VaapiLowPower.Never;
+            }
+            throw new Exception("Cannot unmarshal type VaapiLowPower");
+        }
+
+        public override void Write(Utf8JsonWriter writer, VaapiLowPower value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case VaapiLowPower.Auto:
+                    JsonSerializer.Serialize(writer, "auto", options);
+                    return;
+                case VaapiLowPower.Never:
+                    JsonSerializer.Serialize(writer, "never", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type VaapiLowPower");
+        }
+
+        public static readonly VaapiLowPowerConverter Singleton = new VaapiLowPowerConverter();
     }
 
     public class DateOnlyConverter : JsonConverter<DateOnly>

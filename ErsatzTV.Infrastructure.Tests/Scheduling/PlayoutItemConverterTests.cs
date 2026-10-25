@@ -502,6 +502,31 @@ public class PlayoutItemConverterTests
         result.Tracks.ShouldBeNull();
     }
 
+    [TestCase(true, "background.png")]
+    [TestCase(false, "_background.png")]
+    public void Background_image_prefers_custom_file(bool hasCustom, string expectedFile)
+    {
+        _fileSystem.Directory.CreateDirectory(FileSystemLayout.ResourcesCacheFolder);
+        _fileSystem.File.WriteAllText(
+            Path.Combine(FileSystemLayout.ResourcesCacheFolder, "_background.png"),
+            string.Empty);
+        if (hasCustom)
+        {
+            _fileSystem.File.WriteAllText(
+                Path.Combine(FileSystemLayout.ResourcesCacheFolder, "background.png"),
+                string.Empty);
+        }
+
+        Next.PlayoutItem result = _converter.BackgroundImageToNext(_start, _start.AddMinutes(5));
+
+        result.Start.ShouldBe(_start);
+        result.Finish.ShouldBe(_start.AddMinutes(5));
+        result.Source!.SourceType.ShouldBe(Next.SourceType.Local);
+        result.Source.Path.ShouldBe(Path.Combine(FileSystemLayout.ResourcesCacheFolder, expectedFile));
+        result.Source.ProbeHint.ShouldBeNull();
+        result.Tracks.ShouldBeNull();
+    }
+
     private async Task<Next.PlayoutItem> Convert(
         MediaItem mediaItem,
         List<Subtitle> subtitles,

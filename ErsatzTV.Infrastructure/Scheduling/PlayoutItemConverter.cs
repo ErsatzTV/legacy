@@ -236,6 +236,28 @@ public class PlayoutItemConverter(
         return nextPlayoutItem;
     }
 
+    // matches the legacy offline screen, which uses a custom background.png when present
+    public Core.Next.PlayoutItem BackgroundImageToNext(DateTimeOffset start, DateTimeOffset finish)
+    {
+        string path = fileSystem.Path.Combine(FileSystemLayout.ResourcesCacheFolder, "background.png");
+        if (!fileSystem.File.Exists(path))
+        {
+            path = fileSystem.Path.Combine(FileSystemLayout.ResourcesCacheFolder, "_background.png");
+        }
+
+        return new Core.Next.PlayoutItem
+        {
+            Id = Guid.NewGuid().ToString(),
+            Start = start,
+            Finish = finish,
+            Source = new Core.Next.Source
+            {
+                SourceType = Core.Next.SourceType.Local,
+                Path = path
+            }
+        };
+    }
+
     private static Core.Next.Source SongBackgroundSource(
         Channel channel,
         PlayoutItem playoutItem,

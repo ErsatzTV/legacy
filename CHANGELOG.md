@@ -13,6 +13,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Fix Vulkan to VAAPI reverse mapping synchronization
   - Fix `av1_qsv` decoder exporting duplicate HDR side data
   - Fix macOS VideoToolbox `h264` decoding failure on content with many reference frames
+- Next engine:
+  - Use default legacy background (`background.png`) for offline and error streams
 
 ## [26.11.5] - 2026-10-24
 ### Fixed

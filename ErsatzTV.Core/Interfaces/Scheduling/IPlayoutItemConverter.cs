@@ -17,4 +17,6 @@ public interface IPlayoutItemConverter
         Option<List<Subtitle>> subtitles,
         bool shouldLogMessages,
         CancellationToken cancellationToken);
+
+    Core.Next.PlayoutItem BackgroundImageToNext(DateTimeOffset start, DateTimeOffset finish);
 }

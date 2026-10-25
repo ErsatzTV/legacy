@@ -15,7 +15,7 @@ namespace ErsatzTV.Application.Streaming;
 public class ChannelConfigConverter(IConfigElementRepository configElementRepository, IFileSystem fileSystem)
     : IChannelConfigConverter
 {
-    public static readonly string ChannelConfigVersion = "https://ersatztv.org/channel/version/0.1.2";
+    public static readonly string ChannelConfigVersion = "https://ersatztv.org/channel/version/0.1.3";
 
     public async Task<ChannelConfig> ToNext(
         ChannelViewModel channel,
@@ -183,9 +183,19 @@ public class ChannelConfigConverter(IConfigElementRepository configElementReposi
             },
             Fallback = new Fallback
             {
-                ShowError = true
+                ShowError = true,
+                BackgroundImage = BackgroundImagePath()
             }
         };
+    }
+
+    // matches the legacy offline screen, which uses a custom background.png when present
+    private string BackgroundImagePath()
+    {
+        string custom = fileSystem.Path.Combine(FileSystemLayout.ResourcesCacheFolder, "background.png");
+        return fileSystem.File.Exists(custom)
+            ? custom
+            : fileSystem.Path.Combine(FileSystemLayout.ResourcesCacheFolder, "_background.png");
     }
 
     private const int MaxNextFrameRate = 240;

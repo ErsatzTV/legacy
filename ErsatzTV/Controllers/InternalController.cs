@@ -494,6 +494,12 @@ public class InternalController : StreamingControllerBase
             return BadRequest();
         }
 
+        if (!Request.Headers.TryGetValue("x-etv-until", out StringValues untilString) || untilString.Count != 1 ||
+            !DateTimeOffset.TryParse(untilString[0], out DateTimeOffset until))
+        {
+            return BadRequest();
+        }
+
         await using TvContext dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
         Option<Channel> maybeChannel = await dbContext.Channels
             .SingleOrDefaultAsync(c => c.Number == channelNumber[0], cancellationToken)
@@ -523,6 +529,11 @@ public class InternalController : StreamingControllerBase
                 }
             }
 
+            return Content(
+                System.Text.Json.JsonSerializer.Serialize(
+                    _playoutItemConverter.BackgroundImageToNext(now, until),
+                    Core.Next.Converter.Settings),
+                "application/json");
         }
 
         return NotFound();
