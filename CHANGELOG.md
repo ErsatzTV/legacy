@@ -7,14 +7,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Added
 - Next engine:
   - VAAPI: tonemap with `libplacebo` when a Vulkan device on the same GPU (Intel or AMD) is available
+  - VAAPI: encode HEVC with low-power entrypoint when possible; this can greatly improve performance
+  - Use default legacy background (`background.png`) for offline and error streams
 
 ### Changed
 - Use ErsatzTV-ffmpeg `8.1.2-6` in docker images, Windows packages and macOS packages
   - Fix Vulkan to VAAPI reverse mapping synchronization
   - Fix `av1_qsv` decoder exporting duplicate HDR side data
   - Fix macOS VideoToolbox `h264` decoding failure on content with many reference frames
+
+### Fixed
 - Next engine:
-  - Use default legacy background (`background.png`) for offline and error streams
+  - Fix VAAPI stream failing to start on AMD when an OpenCL runtime (e.g. NVIDIA, rusticl) is installed
 
 ## [26.11.5] - 2026-10-24
 ### Fixed
