@@ -12,15 +12,15 @@ public class FFmpegVersionHealthCheck(
     IHardwareCapabilitiesFactory hardwareCapabilitiesFactory)
     : BaseHealthCheck, IFFmpegVersionHealthCheck
 {
-    private const string BundledVersion = "8.1.2";
-    private const int BundledRevision = 5;
-    private const string BundledRelease = "8.1.2-5";
+    // the oldest release that passes, set by hand: Proxmox VE installs update ffmpeg separately from ErsatzTV
+    private const int MinimumRevision = 5;
 
     public override string Title => "FFmpeg Version";
 
     public async Task<HealthCheckResult> Check(CancellationToken cancellationToken)
     {
-        var link = new HealthCheckLink($"https://github.com/ErsatzTV/ErsatzTV-ffmpeg/releases/tag/{BundledRelease}");
+        FFmpegPin pin = FFmpegPin.Bundled.Value;
+        var link = new HealthCheckLink(pin.ReleaseUrl);
 
         Option<ConfigElement> maybeFFmpegPath =
             await configElementRepository.GetConfigElement(ConfigElementKey.FFmpegPath, cancellationToken);
@@ -47,7 +47,7 @@ public class FFmpegVersionHealthCheck(
 
             foreach (string version in maybeVersion)
             {
-                foreach (HealthCheckResult result in ValidateVersion(version, "ffmpeg", link))
+                foreach (HealthCheckResult result in ValidateVersion(pin, version, "ffmpeg", link))
                 {
                     return result;
                 }
@@ -68,7 +68,7 @@ public class FFmpegVersionHealthCheck(
 
             foreach (string version in maybeVersion)
             {
-                foreach (HealthCheckResult result in ValidateVersion(version, "ffprobe", link))
+                foreach (HealthCheckResult result in ValidateVersion(pin, version, "ffprobe", link))
                 {
                     return result;
                 }
@@ -78,7 +78,31 @@ public class FFmpegVersionHealthCheck(
         return new HealthCheckResult("FFmpeg Version", HealthCheckStatus.Pass, string.Empty, string.Empty, None);
     }
 
-    private Option<HealthCheckResult> ValidateVersion(string version, string app, HealthCheckLink link)
+    private Option<HealthCheckResult> ValidateVersion(FFmpegPin pin, string version, string app, HealthCheckLink link)
+    {
+        switch (Classify(pin, version))
+        {
+            case FFmpegVersionStatus.TooOld:
+                return FailResult(
+                    $"{app} version {version} is too old; please install ErsatzTV-ffmpeg {pin.Tag}!",
+                    $"{app} version is too old",
+                    link);
+            case FFmpegVersionStatus.NotCurrent:
+                return WarningResult(
+                    $"{app} version {version} is not a current ErsatzTV-ffmpeg build; please install ErsatzTV-ffmpeg {pin.Tag}!",
+                    $"{app} version is not current",
+                    link);
+            case FFmpegVersionStatus.OtherDevelop:
+                return WarningResult(
+                    $"{app} version {version} is a develop build of ErsatzTV-ffmpeg that this ErsatzTV doesn't ship; please install ErsatzTV-ffmpeg {pin.Tag}!",
+                    $"{app} version is not current",
+                    link);
+            default:
+                return None;
+        }
+    }
+
+    internal static FFmpegVersionStatus Classify(FFmpegPin pin, string version)
     {
         if (version.StartsWith("3.", StringComparison.OrdinalIgnoreCase) ||
             version.StartsWith("4.", StringComparison.OrdinalIgnoreCase) ||
@@ -86,34 +110,37 @@ public class FFmpegVersionHealthCheck(
             version.StartsWith("6.", StringComparison.OrdinalIgnoreCase) ||
             version.StartsWith("7.", StringComparison.OrdinalIgnoreCase))
         {
-            return FailResult(
-                $"{app} version {version} is too old; please install ErsatzTV-ffmpeg {BundledRelease}!",
-                $"{app} version is too old",
-                link);
+            return FFmpegVersionStatus.TooOld;
         }
 
-        if (!IsBundledSeries(version))
-        {
-            return WarningResult(
-                $"{app} version {version} is not a current ErsatzTV-ffmpeg build; please install ErsatzTV-ffmpeg {BundledRelease}!",
-                $"{app} version is not current",
-                link);
-        }
-
-        return None;
-    }
-
-    // newer revisions pass: they can reach /releases/latest (e.g. Proxmox) before a legacy release bumps this
-    private static bool IsBundledSeries(string version)
-    {
         string v = version.StartsWith('n') ? version[1..] : version;
-        var prefix = $"{BundledVersion}-etv.";
-        return v.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) &&
-               int.TryParse(
-                   v.AsSpan(prefix.Length),
-                   NumberStyles.None,
-                   CultureInfo.InvariantCulture,
-                   out int revision) &&
-               revision >= BundledRevision;
+        var prefix = $"{pin.Version}-etv.";
+        if (!v.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+        {
+            return FFmpegVersionStatus.NotCurrent;
+        }
+
+        string build = v[prefix.Length..];
+        if (build.StartsWith("dev.", StringComparison.OrdinalIgnoreCase))
+        {
+            return pin.IsDevelop && string.Equals(build[4..], pin.DevelopSha, StringComparison.OrdinalIgnoreCase)
+                ? FFmpegVersionStatus.Current
+                : FFmpegVersionStatus.OtherDevelop;
+        }
+
+        // newer revisions pass: they can reach /releases/latest (e.g. Proxmox) before a legacy release bumps the pin.
+        // With a develop pin, the release that includes it is newer than the one it was built on.
+        int minimum = pin.IsDevelop ? Math.Max(MinimumRevision, pin.LastRevision + 1) : MinimumRevision;
+        return int.TryParse(build, NumberStyles.None, CultureInfo.InvariantCulture, out int revision) && revision >= minimum
+            ? FFmpegVersionStatus.Current
+            : FFmpegVersionStatus.NotCurrent;
     }
+}
+
+public enum FFmpegVersionStatus
+{
+    Current,
+    TooOld,
+    NotCurrent,
+    OtherDevelop
 }

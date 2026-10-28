@@ -14,6 +14,11 @@ jobs:
           fetch-depth: 0
           submodules: true
 
+      - name: Check ffmpeg pin
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: .github/scripts/ffmpeg-pin.sh check
+
       - name: Setup dotnet
         uses: actions/setup-dotnet@v6
         with:
