@@ -434,8 +434,14 @@ public class PlayoutItemConverterTests
 
     [TestCase("/media/movie.avi", "avi")]
     [TestCase("/media/movie.AVI", "avi")]
-    [TestCase(VideoPath, null)]
-    public async Task Video_hint_identifies_avi(string path, string? formatName)
+    [TestCase(VideoPath, "matroska,webm")]
+    [TestCase("/media/movie.mp4", "mov,mp4,m4a,3gp,3g2,mj2")]
+    [TestCase("/media/movie.WMV", "asf")]
+    [TestCase("/media/capture.ts", "mpegts")]
+    [TestCase("/media/movie.vob", "mpeg")]
+    [TestCase("/media/movie.rmvb", null)]
+    [TestCase("/media/movie", null)]
+    public async Task Video_hint_identifies_container(string path, string? formatName)
     {
         _fileSystem.File.WriteAllText(path, string.Empty);
         Next.PlayoutItem result = await Convert(new Movie(), [], path: path);
