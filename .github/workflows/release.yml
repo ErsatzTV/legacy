@@ -44,6 +44,9 @@ jobs:
           # a full release must embed an immutable next release, never a pruneable develop build
           [[ "$next_tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "next pin $next_tag is not a next release; pin vX.Y.Z in .github/next-tag first"
           gh release view "$next_tag" --repo "$next_repo" > /dev/null || fail "next pin $next_tag has no release in $next_repo"
+          ffmpeg_pin="$(.github/scripts/ffmpeg-pin.sh check)" || fail "ffmpeg pin check failed"
+          read -r ffmpeg_tag _ <<< "$ffmpeg_pin"
+          [[ "$ffmpeg_tag" =~ ^[0-9]+\.[0-9]+\.[0-9]+-[0-9]+$ ]] || fail "ffmpeg pin $ffmpeg_tag is not an ErsatzTV-ffmpeg release; pin X.Y.Z-N in .github/ffmpeg.json first"
           .github/scripts/notes.sh "$TAG" > /dev/null
           if is_draft=$(gh release view "$TAG" --json isDraft --jq .isDraft 2> /dev/null) && [[ "$is_draft" != "true" ]]; then
             fail "$TAG is already published"

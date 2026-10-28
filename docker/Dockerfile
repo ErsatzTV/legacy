@@ -1,6 +1,9 @@
+# keep equal to .github/ffmpeg.json (.github/scripts/ffmpeg-pin.sh check)
+ARG FFMPEG_IMAGE=ghcr.io/ersatztv/ersatztv-ffmpeg-develop:8.1.2-1dee3b3b-develop@sha256:2b7370357183aa2c7b3668c444432129fa7894f667bbacaf43a5629b36162afb
+
 FROM mcr.microsoft.com/dotnet/aspnet:10.0.13-noble-amd64@sha256:f879b8a9cb3f6694b8b0c9fa530eb0c39d8920db09c05a7edbd6c4c6c104ae1b AS dotnet-runtime
 
-FROM ghcr.io/ersatztv/ersatztv-ffmpeg:8.1.2-6@sha256:a306d00dbcd84938ef48baa22f87e21c2b0e19bdd2859f60495c55e44cb24355 AS runtime-base
+FROM ${FFMPEG_IMAGE} AS runtime-base
 COPY --from=dotnet-runtime /usr/share/dotnet /usr/share/dotnet
 RUN apt-get update && \
     apt-get install -y --no-install-recommends python3 python3-pip && \
@@ -43,6 +46,7 @@ COPY ErsatzTV.Core/. ./ErsatzTV.Core/
 COPY ErsatzTV.Core.Nullable/. ./ErsatzTV.Core.Nullable/
 COPY ErsatzTV.FFmpeg/. ./ErsatzTV.FFmpeg/
 COPY ErsatzTV.Infrastructure/. ./ErsatzTV.Infrastructure/
+COPY .github/ffmpeg.json ./.github/
 COPY ErsatzTV.Infrastructure.Sqlite/. ./ErsatzTV.Infrastructure.Sqlite/
 COPY ErsatzTV.Infrastructure.MySql/. ./ErsatzTV.Infrastructure.MySql/
 COPY ErsatzTV.Scanner/. ./ErsatzTV.Scanner/

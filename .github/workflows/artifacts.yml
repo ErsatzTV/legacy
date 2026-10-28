@@ -106,12 +106,10 @@ jobs:
             kind: macOS
             target: osx-x64
             ffmpeg_target: macos64
-            ffmpeg_sha256: cacaa6ac13cbce76cbd212f49e9c91991b4387999e6fc4f1aefbf3c49523856c
           - os: macos-15
             kind: macOS
             target: osx-arm64
             ffmpeg_target: macosarm64
-            ffmpeg_sha256: a3a4ebfec7590979d39aa45733d99e4477fbc024e0bf565d14dd51193b73f36b
     steps:
       - name: Get the sources
         uses: actions/checkout@v7
@@ -162,16 +160,11 @@ jobs:
           chmod +x ErsatzTV-Legacy.app/Contents/MacOS/ersatztv-channel
           rm -rf next-extracted
 
-      # hashes from the release's SHA256SUMS
       - name: Download ffmpeg
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          archive="ffmpeg-n8.1.2-etv.6-${{ matrix.ffmpeg_target }}-gpl-8.1.tar.xz"
-          gh release download 8.1.2-6 --repo ErsatzTV/ErsatzTV-ffmpeg --dir ffmpeg --pattern "$archive"
-          echo "${{ matrix.ffmpeg_sha256 }}  ffmpeg/${archive}" | shasum -a 256 -c
-          tar xJf "ffmpeg/${archive}" -C ffmpeg --strip-components 1
+        run: .github/scripts/download-ffmpeg.sh "${{ matrix.ffmpeg_target }}" ffmpeg
 
       - name: Sign
         if: inputs.publish
@@ -434,15 +427,11 @@ jobs:
           url: "https://github.com/ErsatzTV/ErsatzTV-Windows/releases/download/v1.0.0/ErsatzTV-Windows.exe"
           target: rust-build/
 
-      # hash from the release's SHA256SUMS
       - name: Download ffmpeg
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release download 8.1.2-6 --repo ErsatzTV/ErsatzTV-ffmpeg --dir ffmpeg \
-            --pattern ffmpeg-n8.1.2-etv.6-win64-gpl-8.1.zip
-          echo "944b53351bad1be88ff0f9e1da2e2742c869d8b2f3a7ed1d3fe9d1614d5f26f5  ffmpeg/ffmpeg-n8.1.2-etv.6-win64-gpl-8.1.zip" | sha256sum -c
+        run: .github/scripts/download-ffmpeg.sh win64 ffmpeg
 
       - name: Package artifacts
         shell: bash
@@ -467,7 +456,7 @@ jobs:
           mv next-extracted/libvpl-LICENSE.txt "$release_name/"
           rm -rf next-extracted
 
-          7z e ffmpeg/ffmpeg-n8.1.2-etv.6-win64-gpl-8.1.zip -o"$release_name" '*.exe' -r
+          cp ffmpeg/bin/*.exe "$release_name/"
 
           (cd "${release_name}" && 7z a "../${release_name}.zip" .)
 

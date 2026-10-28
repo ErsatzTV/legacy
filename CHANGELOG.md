@@ -11,14 +11,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Use default legacy background (`background.png`) for offline and error streams
 
 ### Changed
-- Use ErsatzTV-ffmpeg `8.1.2-6` in docker images, Windows packages and macOS packages
+- Use an ErsatzTV-ffmpeg develop build (`8.1.2-1dee3b3b-develop`, newer than `8.1.2-6`) in docker images, Windows packages and macOS packages
   - Fix Vulkan to VAAPI reverse mapping synchronization
   - Fix `av1_qsv` decoder exporting duplicate HDR side data
   - Fix macOS VideoToolbox `h264` decoding failure on content with many reference frames
+  - Fix QSV video playing several frames behind audio after a seek (e.g. joining a channel mid-program)
+  - Fix QSV video playing a few frames late for content that starts on an open GOP (e.g. clips cut from DVD rips)
+  - Fix QSV showing corrupted frames at the start of H.264 content that begins mid-GOP
+  - Fix QSV failing to decode VC-1 in WMV files (and Matroska remuxed from WMV) with `image parameters invalid`
+  - Fix VAAPI H.264 encoding failing with `Access unit too large` on MPEG-2 recordings with closed captions that start mid-GOP
 
 ### Fixed
 - Next engine:
   - Fix VAAPI stream failing to start on AMD when an OpenCL runtime (e.g. NVIDIA, rusticl) is installed
+  - Fix burning the wrong embedded text subtitle when a file has more than one subtitle stream
+  - Fix QSV stream failing to start on Linux when the VPL runtime reports a decoder the VA driver has disabled (e.g. VC-1 and VP8 on Arc)
+    - Those formats are now decoded in software
+  - Fix brief heavy blocking in VAAPI H.264 output with the `i965` driver after static scenes
+  - Fix QSV stream failing with `Can't allocate a surface` on pre-Tiger Lake Intel GPUs for files that store audio far behind video (e.g. some WMV)
 - Fix Trakt list refresh failing to match items when `Generate Playlist` is enabled
 - Fix Trakt list `Generated Playlist` so it also removes items that are no longer present in Trakt
 

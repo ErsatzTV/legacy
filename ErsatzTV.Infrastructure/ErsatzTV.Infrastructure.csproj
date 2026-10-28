@@ -52,6 +52,10 @@
     </ItemGroup>
 
     <ItemGroup>
+        <EmbeddedResource Include="..\.github\ffmpeg.json" LogicalName="ffmpeg.json" />
+    </ItemGroup>
+
+    <ItemGroup>
       <Content Include="..\.dockerignore">
         <Link>.dockerignore</Link>
       </Content>
