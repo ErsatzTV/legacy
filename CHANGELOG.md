@@ -19,7 +19,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Fixed
 - Next engine:
   - Fix VAAPI stream failing to start on AMD when an OpenCL runtime (e.g. NVIDIA, rusticl) is installed
-- Fix Trakt playlist sync so it removes items that are no longer present in Trakt
+- Fix Trakt list refresh failing to match items when `Generate Playlist` is enabled
+- Fix Trakt list `Generated Playlist` so it also removes items that are no longer present in Trakt
 
 ## [26.11.5] - 2026-10-24
 ### Fixed

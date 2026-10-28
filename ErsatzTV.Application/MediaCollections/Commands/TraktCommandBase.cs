@@ -62,6 +62,8 @@ public abstract class TraktCommandBase
         Option<TraktList> maybeExisting = await dbContext.TraktLists
             .Include(l => l.Items)
             .ThenInclude(i => i.Guids)
+            .Include(tl => tl.Playlist)
+            .ThenInclude(p => p.Items)
             .SelectOneAsync(tl => tl.Id, tl => tl.User == list.User && tl.List == list.List, cancellationToken);
 
         return await maybeExisting.Match(
