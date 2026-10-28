@@ -314,7 +314,8 @@ public class PlayoutItemConverter(
             }
         };
 
-    // next defaults a missing format_name to mpegts, which hides still images and avi from it
+    // next defaults a missing format_name to mpegts, which hides still images and the container
+    // from it; legacy doesn't store ffprobe's format_name, so the extension stands in for it
     private static string FormatNameHint(MediaItem mediaItem, MediaVersion headVersion)
     {
         if (mediaItem is Image)
@@ -333,9 +334,19 @@ public class PlayoutItemConverter(
             };
         }
 
-        bool isAvi = Optional(headVersion.MediaFiles).Flatten().HeadOrNone().Exists(f =>
-            string.Equals(Path.GetExtension(f.Path), ".avi", StringComparison.OrdinalIgnoreCase));
-        return isAvi ? "avi" : null;
+        string extension = Optional(headVersion.MediaFiles).Flatten().HeadOrNone()
+            .Map(f => (Path.GetExtension(f.Path) ?? string.Empty).ToLowerInvariant())
+            .IfNone(string.Empty);
+        return extension switch
+        {
+            ".avi" => "avi",
+            ".mkv" or ".mk3d" or ".webm" => "matroska,webm",
+            ".mp4" or ".m4v" or ".mov" => "mov,mp4,m4a,3gp,3g2,mj2",
+            ".wmv" or ".asf" => "asf",
+            ".ts" or ".m2ts" or ".mts" => "mpegts",
+            ".mpg" or ".mpeg" or ".vob" => "mpeg",
+            _ => null
+        };
     }
 
     private static string PixelFormatForBitDepth(int bitDepth)
