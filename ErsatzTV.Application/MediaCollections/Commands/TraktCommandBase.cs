@@ -62,6 +62,8 @@ public abstract class TraktCommandBase
         Option<TraktList> maybeExisting = await dbContext.TraktLists
             .Include(l => l.Items)
             .ThenInclude(i => i.Guids)
+            .Include(tl => tl.Playlist)
+            .ThenInclude(p => p.Items)
             .SelectOneAsync(tl => tl.Id, tl => tl.User == list.User && tl.List == list.List, cancellationToken);
 
         return await maybeExisting.Match(
@@ -141,6 +143,7 @@ public abstract class TraktCommandBase
             _logger.LogDebug("Matching trakt list items: {User}/{List}", list.User, list.List);
 
             var ids = new System.Collections.Generic.HashSet<int>();
+            var matchedRanks = new System.Collections.Generic.HashSet<int>();
 
             foreach (TraktListItem item in list.Items
                          .OrderBy(i => i.Title).ThenBy(i => i.Year).ThenBy(i => i.Season).ThenBy(i => i.Episode))
@@ -214,15 +217,17 @@ public abstract class TraktCommandBase
                         };
 
                         playlistItem.MediaItemId = item.MediaItemId;
+                        matchedRanks.Add(item.Rank);
                     }
-                    else
-                    {
-                        // could not find item; remove playlist item if present
-                        foreach (PlaylistItem maybeItem in list.Playlist.Items.Find(i => i.Index == item.Rank))
-                        {
-                            list.Playlist.Items.Remove(maybeItem);
-                        }
-                    }
+                }
+            }
+
+            if (list.GeneratePlaylist)
+            {
+                // ranks of removed or unmatched trakt items have no current item to overwrite them
+                foreach (PlaylistItem stale in list.Playlist.Items.Filter(i => !matchedRanks.Contains(i.Index)).ToList())
+                {
+                    list.Playlist.Items.Remove(stale);
                 }
             }
 
