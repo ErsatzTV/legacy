@@ -34,30 +34,30 @@
         <PackageReference Include="Blazored.FluentValidation" Version="2.2.0" />
         <PackageReference Include="BlazorSortable" Version="8.1.0" />
         <PackageReference Include="Chronic.Core" Version="0.4.0" />
-        <PackageReference Include="FluentValidation" Version="12.1.1" />
+        <PackageReference Include="FluentValidation" Version="12.2.0" />
         <PackageReference Include="FluentValidation.AspNetCore" Version="11.3.1" />
         <PackageReference Include="Heron.MudCalendar" Version="4.1.0" />
         <PackageReference Include="HtmlSanitizer" Version="9.2.1039" />
         <PackageReference Include="LanguageExt.Core" Version="4.4.9" />
-        <PackageReference Include="Markdig" Version="1.4.0" />
+        <PackageReference Include="Markdig" Version="1.5.1" />
         <PackageReference Include="MediatR.Courier.DependencyInjection" Version="5.0.0" />
-        <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.12" />
-        <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="10.0.12" />
-        <PackageReference Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" Version="10.0.12" />
-        <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.12" />
-        <PackageReference Include="Microsoft.AspNetCore.SpaServices.Extensions" Version="10.0.12" />
+        <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.14" />
+        <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="10.0.14" />
+        <PackageReference Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" Version="10.0.14" />
+        <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.14" />
+        <PackageReference Include="Microsoft.AspNetCore.SpaServices.Extensions" Version="10.0.14" />
         <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.15">
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
-        <PackageReference Include="Microsoft.Extensions.ApiDescription.Server" Version="10.0.12">
+        <PackageReference Include="Microsoft.Extensions.ApiDescription.Server" Version="10.0.14">
           <PrivateAssets>all</PrivateAssets>
           <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
-        <PackageReference Include="MudBlazor" Version="9.11.0" />
+        <PackageReference Include="MudBlazor" Version="9.12.0" />
         <PackageReference Include="NaturalSort.Extension" Version="4.4.1" />
-        <PackageReference Include="Refit.HttpClientFactory" Version="16.3.0" />
-        <PackageReference Include="Scalar.AspNetCore" Version="2.17.14" />
+        <PackageReference Include="Refit.HttpClientFactory" Version="16.4.0" />
+        <PackageReference Include="Scalar.AspNetCore" Version="2.18.5" />
         <PackageReference Include="Serilog" Version="4.4.0" />
         <PackageReference Include="Serilog.AspNetCore" Version="10.0.0" />
         <PackageReference Include="Serilog.Settings.Configuration" Version="10.0.1" />
