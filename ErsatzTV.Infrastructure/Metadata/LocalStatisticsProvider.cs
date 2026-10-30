@@ -304,24 +304,6 @@ public partial class LocalStatisticsProvider : ILocalStatisticsProvider
         FFprobe ffprobe = JsonConvert.DeserializeObject<FFprobe>(probe.StandardOutput);
         if (ffprobe is not null)
         {
-            Match match = SarDarRegex().Match(probe.StandardError);
-            if (match.Success)
-            {
-                string sar = match.Groups[1].Value;
-                string dar = match.Groups[2].Value;
-                foreach (FFprobeStreamData stream in Optional(
-                                 ffprobe.streams?.Where(s => s.codec_type == "video").ToList())
-                             .Flatten())
-                {
-                    FFprobeStreamData replacement = stream with
-                    {
-                        sample_aspect_ratio = sar, display_aspect_ratio = dar
-                    };
-                    ffprobe.streams?.Remove(stream);
-                    ffprobe.streams?.Add(replacement);
-                }
-            }
-
             // fix chapter ids to be something sensible
             var maybeChapters = Optional(ffprobe.chapters).Flatten().ToList();
             var newChapters = new List<FFprobeChapter>();
@@ -981,9 +963,6 @@ public partial class LocalStatisticsProvider : ILocalStatisticsProvider
     [SuppressMessage("Naming", "CA1707:Identifiers should not contain underscores")]
     public record FFprobeSideData(string side_data_type, int? dv_profile, double? rotation);
     // ReSharper restore InconsistentNaming
-
-    [GeneratedRegex(@"\[SAR\s+([0-9]+:[0-9]+)\s+DAR\s+([0-9]+:[0-9]+)\]")]
-    private static partial Regex SarDarRegex();
 
     [GeneratedRegex(@"Single frame detection: TFF:\s+(\d+) BFF:\s+(\d+) Progressive:\s+(\d+)")]
     private static partial Regex SingleFrameRegex();

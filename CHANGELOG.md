@@ -31,6 +31,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Fix QSV stream failing with `Can't allocate a surface` on pre-Tiger Lake Intel GPUs for files that store audio far behind video (e.g. some WMV)
 - Fix Trakt list refresh failing to match items when `Generate Playlist` is enabled
 - Fix Trakt list `Generated Playlist` so it also removes items that are no longer present in Trakt
+- Fix aspect ratio detection for new items in local libraries
+  - Deep scan can be used to fix existing items
 
 ## [26.11.5] - 2026-10-24
 ### Fixed
