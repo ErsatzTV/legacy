@@ -9,6 +9,7 @@ using ErsatzTV.Core.Interfaces.FFmpeg;
 using ErsatzTV.Core.Interfaces.Metadata;
 using ErsatzTV.Core.Interfaces.Repositories;
 using ErsatzTV.Core.Interfaces.Streaming;
+using ErsatzTV.Core.Iptv;
 using ErsatzTV.Core.Security;
 using ErsatzTV.FFmpeg;
 using ErsatzTV.FFmpeg.Environment;
@@ -1023,6 +1024,7 @@ public class FFmpegLibraryProcessService : IFFmpegProcessService
     {
         var resolution = new FrameSize(channel.FFmpegProfile.Resolution.Width, channel.FFmpegProfile.Resolution.Height);
 
+        accessToken = AccessToken.Sanitize(accessToken);
         string accessTokenQuery = string.IsNullOrWhiteSpace(accessToken)
             ? string.Empty
             : $"&access_token={accessToken}";

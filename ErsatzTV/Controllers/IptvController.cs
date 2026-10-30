@@ -51,7 +51,7 @@ public class IptvController : StreamingControllerBase
                     Request.PathBase,
                     mode,
                     Request.Headers.UserAgent,
-                    Request.Query["access_token"]))
+                    QueryAccessToken))
             .Map<ChannelPlaylist, IActionResult>(Ok);
 
     [HttpHead("iptv/xmltv.xml")]
@@ -62,7 +62,7 @@ public class IptvController : StreamingControllerBase
                     Request.Scheme,
                     Request.Host.ToString(),
                     Request.PathBase,
-                    Request.Query["access_token"]))
+                    QueryAccessToken))
             .ToActionResult();
 
     [HttpHead("iptv/hdhr/channel/{channelNumber}.ts")]
@@ -133,7 +133,7 @@ public class IptvController : StreamingControllerBase
             _ => new GetWrappedProcessByChannelNumber(
                 Request.Scheme,
                 Request.Host.ToString(),
-                Request.Query["access_token"],
+                QueryAccessToken,
                 channelNumber)
         };
 
@@ -310,7 +310,7 @@ public class IptvController : StreamingControllerBase
                             Request.Host.ToString(),
                             channelNumber,
                             mode,
-                            Request.Query["access_token"]),
+                            QueryAccessToken),
                         cancellationToken)
                     .Map(r => r.Match<IActionResult>(
                         playlist => Content(playlist, "application/vnd.apple.mpegurl"),
@@ -357,7 +357,11 @@ public class IptvController : StreamingControllerBase
         return GetProcessResponse(result, channelNumber, StreamingMode.HttpLiveStreamingDirect);
     }
 
-    private string AccessTokenQuery() => string.IsNullOrWhiteSpace(Request.Query["access_token"])
+    // without jwt the token authorizes nothing, so never echo it
+    private string QueryAccessToken =>
+        JwtHelper.IsEnabled ? AccessToken.Sanitize(Request.Query["access_token"]) : null;
+
+    private string AccessTokenQuery() => string.IsNullOrWhiteSpace(QueryAccessToken)
         ? string.Empty
-        : $"?access_token={Request.Query["access_token"]}";
+        : $"?access_token={QueryAccessToken}";
 }
