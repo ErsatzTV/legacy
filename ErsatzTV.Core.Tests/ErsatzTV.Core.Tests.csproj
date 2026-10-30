@@ -9,20 +9,20 @@
     <ItemGroup>
         <PackageReference Include="CliWrap" Version="3.10.5" />
         <PackageReference Include="LanguageExt.Core" Version="4.4.9" />
-        <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="10.0.12" />
-        <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.12" />
-        <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.12" />
-        <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.12" />
-        <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="10.0.12" />
-        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.10.1" />
+        <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="10.0.14" />
+        <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.14" />
+        <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.14" />
+        <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.14" />
+        <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="10.0.14" />
+        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.11.0" />
         <PackageReference Include="NSubstitute" Version="6.2.0" />
         <PackageReference Include="NUnit" Version="5.0.0" />
-        <PackageReference Include="NUnit3TestAdapter" Version="6.3.0" />
+        <PackageReference Include="NUnit3TestAdapter" Version="6.3.1" />
         <PackageReference Include="Serilog" Version="4.4.0" />
         <PackageReference Include="Serilog.Extensions.Logging" Version="10.0.0" />
         <PackageReference Include="Serilog.Sinks.Debug" Version="3.0.0" />
         <PackageReference Include="Shouldly" Version="4.3.0" />
-        <PackageReference Include="Testably.Abstractions.Testing" Version="7.1.1" />
+        <PackageReference Include="Testably.Abstractions.Testing" Version="7.1.2" />
     </ItemGroup>
 
     <ItemGroup>

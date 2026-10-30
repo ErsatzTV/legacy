@@ -12,16 +12,16 @@
     </ItemGroup>
 
     <ItemGroup>
-      <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.10.1" />
+      <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.11.0" />
       <PackageReference Include="NUnit" Version="5.0.0" />
       <PackageReference Include="NUnit.Analyzers" Version="4.15.0">
         <PrivateAssets>all</PrivateAssets>
         <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       </PackageReference>
-      <PackageReference Include="NUnit3TestAdapter" Version="6.3.0" />
+      <PackageReference Include="NUnit3TestAdapter" Version="6.3.1" />
       <PackageReference Include="NSubstitute" Version="6.2.0" />
       <PackageReference Include="Shouldly" Version="4.3.0" />
-      <PackageReference Include="Testably.Abstractions.Testing" Version="7.1.1" />
+      <PackageReference Include="Testably.Abstractions.Testing" Version="7.1.2" />
     </ItemGroup>
 
 </Project>
