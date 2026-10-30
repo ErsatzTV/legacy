@@ -1,5 +1,5 @@
 # keep equal to .github/ffmpeg.json (.github/scripts/ffmpeg-pin.sh check)
-ARG FFMPEG_IMAGE=ghcr.io/ersatztv/ersatztv-ffmpeg-develop:8.1.2-1dee3b3b-develop@sha256:2b7370357183aa2c7b3668c444432129fa7894f667bbacaf43a5629b36162afb
+ARG FFMPEG_IMAGE=ghcr.io/ersatztv/ersatztv-ffmpeg-develop:8.1.2-411d3241-develop@sha256:cc6b8f2f4ab9b0e00d5d95c3682c4b4d02f017fa12d156d044fa1ead7b9533e3
 
 FROM ${FFMPEG_IMAGE}
 RUN apt-get update && apt-get install -y ca-certificates gnupg mkvtoolnix && \

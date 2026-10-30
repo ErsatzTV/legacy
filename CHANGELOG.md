@@ -11,7 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Use default legacy background (`background.png`) for offline and error streams
 
 ### Changed
-- Use an ErsatzTV-ffmpeg develop build (`8.1.2-1dee3b3b-develop`, newer than `8.1.2-6`) in docker images, Windows packages and macOS packages
+- Use an ErsatzTV-ffmpeg develop build (`8.1.2-411d3241-develop`, newer than `8.1.2-6`) in docker images, Windows packages and macOS packages
   - Fix Vulkan to VAAPI reverse mapping synchronization
   - Fix `av1_qsv` decoder exporting duplicate HDR side data
   - Fix macOS VideoToolbox `h264` decoding failure on content with many reference frames
@@ -20,6 +20,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Fix QSV showing corrupted frames at the start of H.264 content that begins mid-GOP
   - Fix QSV failing to decode VC-1 in WMV files (and Matroska remuxed from WMV) with `image parameters invalid`
   - Fix VAAPI H.264 encoding failing with `Access unit too large` on MPEG-2 recordings with closed captions that start mid-GOP
+  - Fix AMF showing corrupted frames at the start of H.264 and HEVC content that begins mid-GOP
+  - Fix AMF failing to decode AV1 HDR10 and 10-bit content
+  - Fix AMF HEVC encoding failing on some AMD GPUs whose driver writes the HEVC headers out of order
 
 ### Fixed
 - Next engine:
@@ -29,6 +32,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
     - Those formats are now decoded in software
   - Fix brief heavy blocking in VAAPI H.264 output with the `i965` driver after static scenes
   - Fix QSV stream failing with `Can't allocate a surface` on pre-Tiger Lake Intel GPUs for files that store audio far behind video (e.g. some WMV)
+  - Fix QSV VC-1 streams failing or hanging on Windows with pre-Tiger Lake Intel GPUs (e.g. Haswell, Kaby Lake)
+    - VC-1 is now decoded in software on those GPUs
+  - Fix QSV MPEG-2 streams starting very slowly or failing to start in time due to improper segmentation
+  - Fix AMF streams starting very slowly or failing to start in time due to improper segmentation
+  - Fix AMF streams hanging with loudness normalization when video is not scaled or converted on the GPU
+  - Fix AMF streams failing or hanging when decoding MPEG-2
+      - MPEG-2 is now decoded in software with AMF
+  - Fix output being tagged with the source's non-square sample aspect ratio in some cases
+    - Players showed the whole stream, watermark included, at the wrong aspect ratio (e.g. 16:9 squished to 4:3)
 - Fix Trakt list refresh failing to match items when `Generate Playlist` is enabled
 - Fix Trakt list `Generated Playlist` so it also removes items that are no longer present in Trakt
 - Fix aspect ratio detection for new items in local libraries
