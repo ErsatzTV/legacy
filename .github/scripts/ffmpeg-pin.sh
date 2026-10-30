@@ -1,11 +1,39 @@
 #!/usr/bin/env bash
-# usage: ffmpeg-pin.sh [check]
+# usage: ffmpeg-pin.sh [check | update <tag>]
 # prints "<tag> <repo> <image>" for the ErsatzTV-ffmpeg build pinned in .github/ffmpeg.json
 # check: also verifies the pin against GitHub and GHCR, and that every Dockerfile defaults to it
+# update: pins <tag> (X.Y.Z-N or X.Y.Z-<sha8>-develop) in .github/ffmpeg.json and every Dockerfile, then checks
 set -euo pipefail
 
 root="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
 pin="$root/.github/ffmpeg.json"
+
+if [[ "${1:-}" == update ]]; then
+  tag="${2:?usage: ffmpeg-pin.sh update <tag>}"
+  if [[ "$tag" =~ ^[0-9]+\.[0-9]+\.[0-9]+-[0-9]+$ ]]; then
+    repo=ErsatzTV/ErsatzTV-ffmpeg image=ghcr.io/ersatztv/ersatztv-ffmpeg last_release=''
+  elif [[ "$tag" =~ ^[0-9]+\.[0-9]+\.[0-9]+-[0-9a-f]{8}-develop$ ]]; then
+    repo=ErsatzTV/ffmpeg-develop-builds image=ghcr.io/ersatztv/ersatztv-ffmpeg-develop
+    last_release="$(gh release view "$tag" --repo "$repo" --json body --jq .body |
+      sed -n 's/^## Commits since `\([^`]*\)`.*/\1/p' | head -n 1)"
+    [[ -n "$last_release" ]] || { echo "the $tag release notes have no 'Commits since' release" >&2; exit 1; }
+  else
+    echo "unrecognized ffmpeg tag '$tag'; expected X.Y.Z-N or X.Y.Z-<sha8>-develop" >&2
+    exit 1
+  fi
+  digest="$(docker buildx imagetools inspect "$image:$tag" --format '{{json .Manifest}}' | jq -er .digest)"
+  # a release can't publish the hash of its own SHA256SUMS, so it is computed here
+  sums="$(gh release download "$tag" --repo "$repo" --pattern SHA256SUMS --output - | sha256sum | cut -d' ' -f1)"
+  jq -n --arg tag "$tag" --arg digest "$digest" --arg sums "$sums" --arg last "$last_release" \
+    '{tag: $tag, digest: $digest, sha256sums: $sums} + (if $last == "" then {} else {last_release: $last} end)' > "$pin"
+  while read -r f; do
+    grep -q '^ARG FFMPEG_IMAGE=' "$root/$f" || continue
+    sed "s|^ARG FFMPEG_IMAGE=.*|ARG FFMPEG_IMAGE=$image:$tag@$digest|" "$root/$f" > "$root/$f.tmp"
+    mv "$root/$f.tmp" "$root/$f"
+  done <<< "$(git -C "$root" ls-files '*Dockerfile')"
+  set -- check
+fi
+
 tag="$(jq -er .tag "$pin")"
 digest="$(jq -er .digest "$pin")"
 sums="$(jq -er .sha256sums "$pin")"
