@@ -11,7 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Use default legacy background (`background.png`) for offline and error streams
 
 ### Changed
-- Use an ErsatzTV-ffmpeg develop build (`8.1.2-411d3241-develop`, newer than `8.1.2-6`) in docker images, Windows packages and macOS packages
+- Use ErsatzTV-ffmpeg `8.1.2-7` in docker images, Windows packages and macOS packages
   - Fix Vulkan to VAAPI reverse mapping synchronization
   - Fix `av1_qsv` decoder exporting duplicate HDR side data
   - Fix macOS VideoToolbox `h264` decoding failure on content with many reference frames
@@ -39,6 +39,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Fix AMF streams hanging with loudness normalization when video is not scaled or converted on the GPU
   - Fix AMF streams failing or hanging when decoding MPEG-2
       - MPEG-2 is now decoded in software with AMF
+  - Fix AMF channels crashing on Windows before producing any output with some AMD drivers (e.g. RX 9000 series)
+  - Fix AMF washed-out colors in 10-bit output with some AMD drivers
   - Fix output being tagged with the source's non-square sample aspect ratio in some cases
     - Players showed the whole stream, watermark included, at the wrong aspect ratio (e.g. 16:9 squished to 4:3)
 - Fix Trakt list refresh failing to match items when `Generate Playlist` is enabled
