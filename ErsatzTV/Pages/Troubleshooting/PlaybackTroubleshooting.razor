@@ -80,6 +80,15 @@
                     <MudSelectItem Value="StreamingEngine.Next">Next</MudSelectItem>
                 </MudSelect>
             </MudStack>
+            @if (!LegacyStreamingEngine.Enabled && _streamingEngine is StreamingEngine.Legacy)
+            {
+                <MudAlert Severity="Severity.Warning" Class="mb-5">
+                    The legacy streaming engine is only available here for comparison; channels always stream using the
+                    the next engine. If something works on legacy but not on next, please
+                    <MudLink Href="@NextIssueUrl.Get()" Target="_blank">report the problem</MudLink>
+                    with the ID from <b>Upload Results</b> after troubleshooting with the next engine.
+                </MudAlert>
+            }
             <MudStack Row="true" Breakpoint="Breakpoint.SmAndDown" Class="form-field-stack gap-md-8 mb-5">
                 <div class="d-flex">
                     <MudText>FFmpeg Profile</MudText>

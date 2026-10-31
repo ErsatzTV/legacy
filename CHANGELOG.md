@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
+### Removed
+- Remove the legacy streaming engine; all channels now stream with the next engine
+  - Channels still using the legacy engine are moved to the next engine on startup
+  - `MPEG-TS (Legacy)` channels are moved to `MPEG-TS`, and `HLS Direct` channels are moved to `HLS Segmenter`
+  - Existing `ts-legacy` and `hls-direct` playlist and lineup URLs are redirected to the next engine
+  - Playback troubleshooting can still use the legacy engine for comparison; if a channel works on legacy but not on next, please report it with the ID from `Upload Results`
 
 ## [26.11.6] - 2026-10-31
 ### Added
