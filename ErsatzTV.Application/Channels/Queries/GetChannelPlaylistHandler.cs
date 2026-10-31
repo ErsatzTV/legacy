@@ -1,3 +1,4 @@
+using ErsatzTV.Core;
 using ErsatzTV.Core.Domain;
 using ErsatzTV.Core.Interfaces.Repositories;
 using ErsatzTV.Core.Iptv;
@@ -35,11 +36,15 @@ public class GetChannelPlaylistHandler(IChannelRepository channelRepository)
                     result.Add(channel);
                     break;
                 case "hls-direct":
-                    channel.StreamingMode = StreamingMode.HttpLiveStreamingDirect;
+                    channel.StreamingMode = LegacyStreamingEngine.Enabled
+                        ? StreamingMode.HttpLiveStreamingDirect
+                        : StreamingMode.HttpLiveStreamingSegmenter;
                     result.Add(channel);
                     break;
                 case "ts-legacy":
-                    channel.StreamingMode = StreamingMode.TransportStream;
+                    channel.StreamingMode = LegacyStreamingEngine.Enabled
+                        ? StreamingMode.TransportStream
+                        : StreamingMode.TransportStreamHybrid;
                     result.Add(channel);
                     break;
                 case "ts":

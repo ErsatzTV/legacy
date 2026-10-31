@@ -61,13 +61,28 @@ public class InternalController : StreamingControllerBase
     }
 
     [HttpGet("ffmpeg/concat/{channelNumber}")]
-    public Task<IActionResult> GetConcatPlaylist(string channelNumber, [FromQuery] string mode = "ts-legacy") =>
-        _mediator.Send(
+    public Task<IActionResult> GetConcatPlaylist(string channelNumber, [FromQuery] string mode = "ts-legacy")
+    {
+        if (!LegacyStreamingEngine.Enabled)
+        {
+            return Task.FromResult<IActionResult>(NotFound());
+        }
+
+        return _mediator.Send(
                 new GetConcatPlaylistByChannelNumber(Request.Scheme, Request.Host.ToString(), channelNumber, mode))
             .ToActionResult();
+    }
 
     [HttpGet("ffmpeg/stream/{channelNumber}")]
-    public Task<IActionResult> GetStream(string channelNumber) => GetTsLegacyStream(channelNumber);
+    public Task<IActionResult> GetStream(string channelNumber)
+    {
+        if (!LegacyStreamingEngine.Enabled)
+        {
+            return Task.FromResult<IActionResult>(NotFound());
+        }
+
+        return GetTsLegacyStream(channelNumber);
+    }
 
     [HttpGet("ffmpeg/music-video-credits/{playoutItemId:int}")]
     public async Task<IActionResult> GetMusicVideoCredits(

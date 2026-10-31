@@ -131,15 +131,18 @@ else
     </div>
     <MudCheckBox @bind-Value="_model.ShowInEpg" For="@(() => _model.ShowInEpg)" Dense="true"/>
 </MudStack>
-<MudStack Row="true" Breakpoint="Breakpoint.SmAndDown" Class="form-field-stack gap-md-8 mb-5">
-    <div class="d-flex">
-        <MudText>Streaming Engine</MudText>
-    </div>
-    <MudSelect @bind-Value="_model.StreamingEngine" For="@(() => _model.StreamingEngine)">
-        <MudSelectItem Value="@(StreamingEngine.Legacy)">Legacy</MudSelectItem>
-        <MudSelectItem Value="@(StreamingEngine.Next)">Next</MudSelectItem>
-    </MudSelect>
-</MudStack>
+@if (LegacyStreamingEngine.Enabled)
+{
+    <MudStack Row="true" Breakpoint="Breakpoint.SmAndDown" Class="form-field-stack gap-md-8 mb-5">
+        <div class="d-flex">
+            <MudText>Streaming Engine</MudText>
+        </div>
+        <MudSelect @bind-Value="_model.StreamingEngine" For="@(() => _model.StreamingEngine)">
+            <MudSelectItem Value="@(StreamingEngine.Legacy)">Legacy</MudSelectItem>
+            <MudSelectItem Value="@(StreamingEngine.Next)">Next</MudSelectItem>
+        </MudSelect>
+    </MudStack>
+}
 @if (_model.StreamingEngine is StreamingEngine.Legacy)
 {
     <MudAlert Severity="Severity.Warning" Class="mb-5">

@@ -139,7 +139,7 @@ public class UpdateChannelHandler(
 
         c.MirrorSourceChannelId = update.MirrorSourceChannelId;
         c.PlayoutOffset = update.PlayoutOffset;
-        c.StreamingEngine = update.StreamingEngine;
+        c.StreamingEngine = LegacyStreamingEngine.Enabled ? update.StreamingEngine : StreamingEngine.Next;
         c.NextEngineTextSubtitleMode = update.NextEngineTextSubtitleMode;
         c.StreamingMode = update.StreamingMode;
         c.WatermarkId = update.WatermarkId;

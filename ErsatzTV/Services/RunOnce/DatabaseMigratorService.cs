@@ -88,9 +88,36 @@ public class DatabaseMigratorService : BackgroundService
         _logger.LogInformation("Initializing database");
         await DbInitializer.Initialize(dbContext, stoppingToken);
 
+        if (!LegacyStreamingEngine.Enabled)
+        {
+            await MoveLegacyChannelsToNext(dbContext, stoppingToken);
+        }
+
         _systemStartup.DatabaseIsReady();
 
         _logger.LogInformation("Done applying database migrations");
+    }
+
+    // not an ef migration: a hotfix build with legacy enabled must not move channels
+    private async Task MoveLegacyChannelsToNext(TvContext dbContext, CancellationToken cancellationToken)
+    {
+        // next only supports TransportStreamHybrid (5) and HttpLiveStreamingSegmenter (4)
+        int count = await dbContext.Connection.ExecuteAsync(
+            new CommandDefinition(
+                """
+                UPDATE `Channel`
+                SET `StreamingEngine` = 1,
+                    `StreamingMode` = CASE `StreamingMode` WHEN 1 THEN 5 WHEN 2 THEN 4 ELSE `StreamingMode` END
+                WHERE `StreamingEngine` = 0
+                """,
+                cancellationToken: cancellationToken));
+
+        if (count > 0)
+        {
+            _logger.LogWarning(
+                "The legacy streaming engine has been removed; moved {Count} channel(s) to the next streaming engine",
+                count);
+        }
     }
 
     private async Task PopulatePathHashes(TvContext dbContext)
