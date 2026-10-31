@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
+
+## [26.11.6] - 2026-10-31
 ### Added
 - Next engine:
   - VAAPI: tonemap with `libplacebo` when a Vulkan device on the same GPU (Intel or AMD) is available
@@ -25,6 +27,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Fix AMF HEVC encoding failing on some AMD GPUs whose driver writes the HEVC headers out of order
 
 ### Fixed
+- Fix GHSA-qrh2-626h-76m2 (CVE-PENDING)
+  - All users of ErsatzTV on Windows should upgrade as soon as possible
 - Next engine:
   - Fix VAAPI stream failing to start on AMD when an OpenCL runtime (e.g. NVIDIA, rusticl) is installed
   - Fix burning the wrong embedded text subtitle when a file has more than one subtitle stream
@@ -3735,7 +3739,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Initial release to facilitate testing outside of Docker.
 
 
-[Unreleased]: https://github.com/ErsatzTV/legacy/compare/v26.11.5...HEAD
+[Unreleased]: https://github.com/ErsatzTV/legacy/compare/v26.11.6...HEAD
+[26.11.6]: https://github.com/ErsatzTV/legacy/compare/v26.11.5...v26.11.6
 [26.11.5]: https://github.com/ErsatzTV/legacy/compare/v26.11.4...v26.11.5
 [26.11.4]: https://github.com/ErsatzTV/legacy/compare/v26.11.3...v26.11.4
 [26.11.3]: https://github.com/ErsatzTV/legacy/compare/v26.11.2...v26.11.3
