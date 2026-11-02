@@ -1,11 +1,12 @@
 using System.IO.Abstractions;
 using System.IO.Compression;
+using System.Text.RegularExpressions;
 using ErsatzTV.Core;
 using ErsatzTV.Core.Interfaces.Metadata;
 
 namespace ErsatzTV.Application.Troubleshooting;
 
-public class ArchiveTroubleshootingResultsHandler(IFileSystem fileSystem, ILocalFileSystem localFileSystem)
+public partial class ArchiveTroubleshootingResultsHandler(IFileSystem fileSystem, ILocalFileSystem localFileSystem)
     : IRequestHandler<ArchiveTroubleshootingResults, Option<string>>
 {
     public Task<Option<string>> Handle(ArchiveTroubleshootingResults request, CancellationToken cancellationToken)
@@ -75,13 +76,14 @@ public class ArchiveTroubleshootingResultsHandler(IFileSystem fileSystem, ILocal
                     {
                         // next duplicates media_info.json, but we don't want to bury everything in a subfolder,
                         // so specifically handle this case and let any unexpected conflicts end up in a subfolder
-                        if (relativePath.StartsWith(".troubleshooting_", StringComparison.OrdinalIgnoreCase))
+                        if (NextDossierFolder().IsMatch(fileSystem.Path.GetFileName(directory)))
                         {
                             fileName = $"next_{fileName}";
                         }
                         else
                         {
-                            fileName = relativePath;
+                            // zip entries always use forward slashes
+                            fileName = relativePath.Replace('\\', '/');
                         }
                     }
 
@@ -92,4 +94,9 @@ public class ArchiveTroubleshootingResultsHandler(IFileSystem fileSystem, ILocal
 
         return hasReport;
     }
+
+    // <channel number>_<timestamp>[_<playout item id>];
+    // the item troubleshooter's channel number is .troubleshooting
+    [GeneratedRegex(@"^[^_]+_\d{8}T\d{6}")]
+    private static partial Regex NextDossierFolder();
 }
