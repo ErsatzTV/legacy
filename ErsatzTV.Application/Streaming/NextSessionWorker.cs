@@ -121,7 +121,7 @@ public class NextSessionWorker(
         {
             _channelNumber = channelNumber;
             _workingDirectory = fileSystem.Path.Combine(FileSystemLayout.TranscodeFolder, _channelNumber);
-            _heartbeatFileName = fileSystem.Path.Combine(_workingDirectory, ".heartbeat");
+            _heartbeatFileName = fileSystem.Path.Combine(_workingDirectory, NextContract.HeartbeatFileName);
 
             Option<PlayoutModeViewModel> maybePlayout = await Mediator.Send(
                 new GetPlayoutModeByChannelNumber(_channelNumber),
@@ -231,7 +231,7 @@ public class NextSessionWorker(
 
     public async Task WaitForPlaylistSegments(int initialSegmentCount, CancellationToken cancellationToken)
     {
-        string readyFileName = fileSystem.Path.Combine(_workingDirectory, ".ready");
+        string readyFileName = fileSystem.Path.Combine(_workingDirectory, NextContract.ReadyFileName);
 
         logger.LogDebug("Waiting for ErsatzTV Next channel to be ready");
         while (!fileSystem.File.Exists(readyFileName))

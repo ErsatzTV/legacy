@@ -7,13 +7,11 @@
     <MudDialog>
         <DialogContent>
             <div class="overflow-y-scroll" style="max-height: 500px">
-                <pre>
-                    <code @ref="_infoView">@_info</code>
-                </pre>
+                <JsonView @ref="_infoView" Json="@_info"/>
             </div>
         </DialogContent>
         <DialogActions>
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@(() => CopyToClipboard(_infoView))">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@(() => CopyToClipboard(_infoView.CodeElement))">
                 Copy
             </MudButton>
             <MudButton Color="Color.Primary" OnClick="@Close">Close</MudButton>
@@ -33,7 +31,7 @@
     public List<ProgramScheduleItemViewModel> Items { get; set; }
 
     private string _info;
-    private ElementReference _infoView;
+    private JsonView _infoView;
 
     protected override Task OnParametersSetAsync()
     {

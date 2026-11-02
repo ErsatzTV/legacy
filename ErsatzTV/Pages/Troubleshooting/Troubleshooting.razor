@@ -1,5 +1,6 @@
 ﻿@page "/system/troubleshooting"
 @using System.Runtime.InteropServices
+@using System.Text.Encodings.Web
 @using System.Text.Json
 @using System.Text.Json.Serialization
 @using ErsatzTV.Application.Troubleshooting
@@ -50,11 +51,9 @@
                 <MudTabPanel Text="General">
                     <MudPaper Class="pa-6">
                         <div class="overflow-y-scroll" style="max-height: 500px">
-                            <pre class="wrap-pre">
-                                <code @ref="_troubleshootingView">@_troubleshootingInfo</code>
-                            </pre>
+                            <JsonView @ref="_troubleshootingView" Json="@_troubleshootingInfo" Class="wrap-pre"/>
                         </div>
-                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-4" OnClick="@(() => CopyToClipboard(_troubleshootingView))">
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-4" OnClick="@(() => CopyToClipboard(_troubleshootingView.CodeElement))">
                             Copy
                         </MudButton>
                     </MudPaper>
@@ -64,9 +63,7 @@
                     <MudTabPanel Text="VideoToolbox">
                         <MudPaper Class="pa-6">
                             <div class="overflow-y-scroll" style="max-height: 500px">
-                                <pre class="wrap-pre">
-                                  <code @ref="_videoToolboxView">@_videoToolboxCapabilities</code>
-                                </pre>
+                                <pre class="wrap-pre"><code @ref="_videoToolboxView">@_videoToolboxCapabilities</code></pre>
                             </div>
                             <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-4" OnClick="@(() => CopyToClipboard(_videoToolboxView))">
                                 Copy
@@ -79,9 +76,7 @@
                     <MudTabPanel Text="NVIDIA">
                         <MudPaper Class="pa-6">
                             <div class="overflow-y-scroll" style="max-height: 500px">
-                                <pre class="wrap-pre">
-                                    <code @ref="_nvidiaView">@_nvidiaCapabilities</code>
-                                </pre>
+                                <pre class="wrap-pre"><code @ref="_nvidiaView">@_nvidiaCapabilities</code></pre>
                             </div>
                             <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-4" OnClick="@(() => CopyToClipboard(_nvidiaView))">
                                 Copy
@@ -91,9 +86,7 @@
                     <MudTabPanel Text="QSV">
                         <MudPaper Class="pa-6">
                             <div class="overflow-y-scroll" style="max-height: 500px">
-                                <pre class="wrap-pre">
-                                    <code @ref="_qsvView">@_qsvCapabilities</code>
-                                </pre>
+                                <pre class="wrap-pre"><code @ref="_qsvView">@_qsvCapabilities</code></pre>
                             </div>
                             <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-4" OnClick="@(() => CopyToClipboard(_qsvView))">
                                 Copy
@@ -106,9 +99,7 @@
                     <MudTabPanel Text="VAAPI">
                         <MudPaper Class="pa-6">
                             <div class="overflow-y-scroll" style="max-height: 500px">
-                                <pre class="wrap-pre">
-                                    <code @ref="_vaapiView">@_vaapiCapabilities</code>
-                                </pre>
+                                <pre class="wrap-pre"><code @ref="_vaapiView">@_vaapiCapabilities</code></pre>
                             </div>
                             <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-4" OnClick="@(() => CopyToClipboard(_vaapiView))">
                                 Copy
@@ -128,7 +119,7 @@
     private string _qsvCapabilities;
     private string _vaapiCapabilities;
     private string _videoToolboxCapabilities;
-    private ElementReference _troubleshootingView;
+    private JsonView _troubleshootingView;
     private ElementReference _nvidiaView;
     private ElementReference _qsvView;
     private ElementReference _vaapiView;
@@ -156,6 +147,7 @@
                 {
                     LegacyVersion = info.Version,
                     info.NextVersion,
+                    info.NextDescribe,
                     info.FFmpegVersion,
                     Environment = info.Environment.OrderBy(x => x.Key).ToDictionary(x => x.Key, x => x.Value),
                     info.Cpus,
@@ -174,6 +166,8 @@
                 {
                     Converters = { new JsonStringEnumConverter() },
                     DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+                    // Blazor HTML-encodes output, so JSON escaping only hurts readability
+                    Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
                     WriteIndented = true
                 });
 

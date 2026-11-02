@@ -12,6 +12,7 @@ using ErsatzTV.Core.Interfaces.FFmpeg;
 using ErsatzTV.Core.Interfaces.Metadata;
 using ErsatzTV.Core.Interfaces.Repositories;
 using ErsatzTV.Core.Next.Config;
+using ErsatzTV.Core.Next.Description;
 using ErsatzTV.FFmpeg;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -66,6 +67,19 @@ public class StartFFmpegNextSessionHandler(
         }
 
         string channelBinary = maybeChannelBinary.SuccessToSeq().Head();
+
+        Option<Describe> maybeDescribe = await mediator.Send(new GetNextDescribe(), cancellationToken);
+        if (maybeDescribe.IsNone)
+        {
+            return BaseError.New("Unable to describe ersatztv-channel; it may be older than this version of ErsatzTV");
+        }
+
+        List<string> problems = NextContract.Check(maybeDescribe.Head());
+        if (problems.Count > 0)
+        {
+            return BaseError.New(
+                $"ersatztv-channel is not compatible with this version of ErsatzTV: {string.Join("; ", problems)}");
+        }
 
         Option<TimeSpan> idleTimeout = Option<TimeSpan>.None;
 
@@ -159,10 +173,10 @@ public class StartFFmpegNextSessionHandler(
     private async Task<string> GetMultiVariantPlaylist(StartFFmpegNextSession request)
     {
         var variantPlaylist =
-            $"{request.Scheme}://{request.Host}{request.PathBase}/iptv/session/{request.ChannelNumber}/live.m3u8{request.AccessTokenQuery}";
+            $"{request.Scheme}://{request.Host}{request.PathBase}/iptv/session/{request.ChannelNumber}/{NextContract.PlaylistFileName}{request.AccessTokenQuery}";
 
         var subtitlePlaylist =
-            $"{request.Scheme}://{request.Host}{request.PathBase}/iptv/session/{request.ChannelNumber}/live_sub.m3u8{request.AccessTokenQuery}";
+            $"{request.Scheme}://{request.Host}{request.PathBase}/iptv/session/{request.ChannelNumber}/{NextContract.SubtitlePlaylistFileName}{request.AccessTokenQuery}";
 
         Option<ChannelStreamingSpecsViewModel> maybeStreamingSpecs =
             await mediator.Send(new GetChannelStreamingSpecs(request.ChannelNumber));

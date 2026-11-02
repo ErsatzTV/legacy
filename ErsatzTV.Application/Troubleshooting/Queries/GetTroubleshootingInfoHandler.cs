@@ -4,10 +4,12 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
 using ErsatzTV.Application.FFmpegProfiles;
+using ErsatzTV.Application.Streaming;
 using ErsatzTV.Core.Domain;
 using ErsatzTV.Core.FFmpeg;
 using ErsatzTV.Core.Health;
 using ErsatzTV.Core.Interfaces.Repositories;
+using ErsatzTV.Core.Next.Description;
 using ErsatzTV.FFmpeg.Capabilities;
 using ErsatzTV.FFmpeg.Capabilities.Qsv;
 using ErsatzTV.FFmpeg.Runtime;
@@ -204,9 +206,12 @@ public class GetTroubleshootingInfoHandler : IRequestHandler<GetTroubleshootingI
         List<CpuModel> cpuList = _hardwareCapabilitiesFactory.GetCpuList();
         List<VideoControllerModel> videoControllerList = _hardwareCapabilitiesFactory.GetVideoControllerList();
 
+        Option<Describe> nextDescribe = await _mediator.Send(new GetNextDescribe(), cancellationToken);
+
         return new TroubleshootingInfo(
             version,
             request.NextVersion,
+            nextDescribe.MatchUnsafe(identity, () => null),
             ffmpegVersion,
             environment,
             cpuList,
