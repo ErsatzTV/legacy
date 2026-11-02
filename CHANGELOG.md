@@ -6,7 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 ### Changed
 - Use an ErsatzTV-ffmpeg develop build (`8.1.2-8115e89c-develop`, newer than `8.1.2-7`) in docker images, Windows packages and macOS packages
-  - Fix video piling up in memory (or exhausting QSV surfaces) when audio is read from a separate input
+  - Fix QSV streams failing about 10 seconds in with `Can't allocate a surface` or `Failed to query an output frame` on pre-Tiger Lake Intel GPUs (regression in 26.11.6)
 
 ### Removed
 - Remove the legacy streaming engine; all channels now stream with the next engine
@@ -17,7 +17,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 - Next engine:
-  - Fix QSV streams failing about 10 seconds in with `Can't allocate a surface` or `Failed to query an output frame` on pre-Tiger Lake Intel GPUs (regression in 26.11.6)
+  - Fix NVENC failing to start (`Gop Length should be greater than number of B frames + 1`) on very low frame rate sources, such as 1 fps slideshows
+  - VAAPI: fix `tonemap_opencl` and `pad_opencl` never being used on Intel GPUs when only the OpenCL runtime (`libOpenCL.so.1`) is installed, such as in docker
 
 ## [26.11.6] - 2026-10-31
 ### Added
