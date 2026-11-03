@@ -533,6 +533,42 @@ public class PlayoutItemConverterTests
         result.Tracks.ShouldBeNull();
     }
 
+    [Test]
+    public async Task Dynamic_item_id_is_derived_from_its_window()
+    {
+        var gap = new DynamicPlayoutItem { Start = _start.UtcDateTime, Finish = _start.AddMinutes(5).UtcDateTime };
+
+        Option<Next.PlayoutItem> first = await _converter.ToNext(
+            Some(_channel), None, TimeSpan.Zero, gap, None, false, CancellationToken.None);
+        Option<Next.PlayoutItem> second = await _converter.ToNext(
+            Some(_channel), None, TimeSpan.Zero, gap, None, false, CancellationToken.None);
+
+        string expected =
+            $"dynamic-{_start.ToUnixTimeMilliseconds()}-{_start.AddMinutes(5).ToUnixTimeMilliseconds()}";
+        first.Map(i => i.Id).ShouldBe(Some(expected));
+        second.Map(i => i.Id).ShouldBe(Some(expected));
+    }
+
+    [Test]
+    public async Task Finished_item_serializes_identically_and_keeps_valid_signed_urls()
+    {
+        _start = DateTimeOffset.UtcNow.AddHours(-3);
+        _channel.Id = 7;
+
+        Next.PlayoutItem first = await Convert(new Song(), [], hasVideo: false);
+        Next.PlayoutItem second = await Convert(new Song(), [], hasVideo: false);
+
+        JsonSerializer.Serialize(first).ShouldBe(JsonSerializer.Serialize(second));
+
+        var uri = new Uri(first.Tracks!.Video!.Source!.Uri!);
+        var query = uri.Query.TrimStart('?').Split('&')
+            .Select(part => part.Split('=', 2)).ToDictionary(part => part[0], part => part[1]);
+        InternalUrlSigner.Verify(query["exp"], query["sig"], "song-background", "7", "42").ShouldBeTrue();
+        // a now-based expiry would also serialize identically within one second, so pin the day-stable value
+        var expectedExpiry = new DateTimeOffset(DateTime.UtcNow.Date.AddDays(1).AddHours(2), TimeSpan.Zero);
+        DateTimeOffset.FromUnixTimeSeconds(long.Parse(query["exp"])).ShouldBe(expectedExpiry);
+    }
+
     private async Task<Next.PlayoutItem> Convert(
         MediaItem mediaItem,
         List<Subtitle> subtitles,

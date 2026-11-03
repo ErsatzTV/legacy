@@ -106,10 +106,13 @@ public class PlayoutItemConverter(
         playoutItem.Start += playoutOffset;
         playoutItem.Finish += playoutOffset;
 
+        // ids must be stable so re-synced playout files are byte-identical when nothing changed
         var nextPlayoutItem = new Core.Next.PlayoutItem
         {
             Id = playoutItem is DynamicPlayoutItem
-                ? Guid.NewGuid().ToString()
+                ? string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"dynamic-{playoutItem.StartOffset.ToUnixTimeMilliseconds()}-{playoutItem.FinishOffset.ToUnixTimeMilliseconds()}")
                 : playoutItem.Id.ToString(CultureInfo.InvariantCulture),
             Start = playoutItem.StartOffset,
             Finish = playoutItem.FinishOffset
@@ -903,11 +906,12 @@ public class PlayoutItemConverter(
         return [MusicVideoCreditsSubtitle.ForPlayoutItem(playoutItemId, playoutItemInPoint)];
     }
 
-    // troubleshooting uses items that already finished; their urls must still be valid
+    // troubleshooting uses items that already finished; their urls must still be valid.
+    // the floor moves once per utc day (not with now) so re-synced playout files stay byte-identical
     private static DateTimeOffset UrlExpiry(PlayoutItem playoutItem)
     {
-        DateTimeOffset now = DateTimeOffset.Now;
-        return (playoutItem.FinishOffset > now ? playoutItem.FinishOffset : now) + TimeSpan.FromHours(2);
+        var floor = new DateTimeOffset(DateTime.UtcNow.Date.AddDays(1), TimeSpan.Zero);
+        return (playoutItem.FinishOffset > floor ? playoutItem.FinishOffset : floor) + TimeSpan.FromHours(2);
     }
 
     private static void SetInOutPoints(PlayoutItem playoutItem, Core.Next.Source source)

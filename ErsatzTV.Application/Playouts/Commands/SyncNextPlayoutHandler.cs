@@ -198,7 +198,9 @@ public partial class SyncNextPlayoutHandler(
         if (playoutItems.Count > 0)
         {
             List<PlayoutItem> newPlayoutItems = [];
-            DateTimeOffset finish = DateTimeOffset.Now;
+
+            // a leading gap starts at utc midnight rather than now, so its item stays stable between syncs
+            var finish = new DateTimeOffset(DateTime.UtcNow.Date, TimeSpan.Zero);
             foreach (var playoutItem in playoutItems)
             {
                 if (finish < playoutItem.StartOffset)
