@@ -1,3 +1,5 @@
+using System.Threading.Channels;
+using ErsatzTV.Application.Playouts;
 using ErsatzTV.Core;
 using ErsatzTV.Core.Domain;
 using ErsatzTV.Core.Domain.Scheduling;
@@ -7,7 +9,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ErsatzTV.Application.Scheduling;
 
-public class UpdateDecoHandler(IDbContextFactory<TvContext> dbContextFactory)
+public class UpdateDecoHandler(
+    IDbContextFactory<TvContext> dbContextFactory,
+    ChannelWriter<IBackgroundServiceRequest> workerChannel)
     : IRequestHandler<UpdateDeco, Either<BaseError, Unit>>
 {
     public async Task<Either<BaseError, Unit>> Handle(UpdateDeco request, CancellationToken cancellationToken)
@@ -17,7 +21,7 @@ public class UpdateDecoHandler(IDbContextFactory<TvContext> dbContextFactory)
         return await validation.Apply(ps => ApplyUpdateRequest(dbContext, ps, request, cancellationToken));
     }
 
-    private static async Task<Unit> ApplyUpdateRequest(
+    private async Task<Unit> ApplyUpdateRequest(
         TvContext dbContext,
         Deco existing,
         UpdateDeco request,
@@ -174,6 +178,9 @@ public class UpdateDecoHandler(IDbContextFactory<TvContext> dbContextFactory)
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);
+
+        List<string> channelNumbers = await NextPlayoutDependents.ForDeco(dbContext, existing.Id, cancellationToken);
+        await workerChannel.QueueSyncNextPlayouts(channelNumbers, cancellationToken);
 
         return Unit.Default;
     }

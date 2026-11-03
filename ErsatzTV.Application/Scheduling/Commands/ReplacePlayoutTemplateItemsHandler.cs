@@ -1,3 +1,5 @@
+using System.Threading.Channels;
+using ErsatzTV.Application.Playouts;
 using ErsatzTV.Core;
 using ErsatzTV.Core.Domain;
 using ErsatzTV.Core.Domain.Scheduling;
@@ -10,6 +12,7 @@ namespace ErsatzTV.Application.Scheduling;
 
 public class ReplacePlayoutTemplateItemsHandler(
     IDbContextFactory<TvContext> dbContextFactory,
+    ChannelWriter<IBackgroundServiceRequest> workerChannel,
     ILogger<ReplacePlayoutTemplateItemsHandler> logger)
     : IRequestHandler<ReplacePlayoutTemplateItems, Option<BaseError>>
 {
@@ -89,6 +92,13 @@ public class ReplacePlayoutTemplateItemsHandler(
                 }
 
                 await dbContext.SaveChangesAsync(cancellationToken);
+
+                // deco templates apply at serialization, not at build
+                List<string> channelNumbers = await NextPlayoutDependents.ForPlayout(
+                    dbContext,
+                    playout.Id,
+                    cancellationToken);
+                await workerChannel.QueueSyncNextPlayouts(channelNumbers, cancellationToken);
             }
 
             return Option<BaseError>.None;

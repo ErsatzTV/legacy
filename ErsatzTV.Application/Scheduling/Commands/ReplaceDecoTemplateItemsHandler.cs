@@ -1,3 +1,5 @@
+using System.Threading.Channels;
+using ErsatzTV.Application.Playouts;
 using ErsatzTV.Core;
 using ErsatzTV.Core.Domain.Scheduling;
 using ErsatzTV.Infrastructure.Data;
@@ -6,7 +8,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ErsatzTV.Application.Scheduling;
 
-public class ReplaceDecoTemplateItemsHandler(IDbContextFactory<TvContext> dbContextFactory)
+public class ReplaceDecoTemplateItemsHandler(
+    IDbContextFactory<TvContext> dbContextFactory,
+    ChannelWriter<IBackgroundServiceRequest> workerChannel)
     : IRequestHandler<ReplaceDecoTemplateItems, Either<BaseError, List<DecoTemplateItemViewModel>>>
 {
     public async Task<Either<BaseError, List<DecoTemplateItemViewModel>>> Handle(
@@ -18,7 +22,7 @@ public class ReplaceDecoTemplateItemsHandler(IDbContextFactory<TvContext> dbCont
         return await validation.Apply(ps => Persist(dbContext, request, ps, cancellationToken));
     }
 
-    private static async Task<List<DecoTemplateItemViewModel>> Persist(
+    private async Task<List<DecoTemplateItemViewModel>> Persist(
         TvContext dbContext,
         ReplaceDecoTemplateItems request,
         DecoTemplate decoTemplate,
@@ -42,6 +46,12 @@ public class ReplaceDecoTemplateItemsHandler(IDbContextFactory<TvContext> dbCont
         // {
         //     await _channel.WriteAsync(new BuildPlayout(playout.Id, PlayoutBuildMode.Refresh));
         // }
+
+        List<string> channelNumbers = await NextPlayoutDependents.ForDecoTemplate(
+            dbContext,
+            decoTemplate.Id,
+            cancellationToken);
+        await workerChannel.QueueSyncNextPlayouts(channelNumbers, cancellationToken);
 
         await dbContext.Entry(decoTemplate)
             .Collection(t => t.Items)

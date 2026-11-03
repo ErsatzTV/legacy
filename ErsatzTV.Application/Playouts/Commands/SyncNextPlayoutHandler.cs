@@ -35,19 +35,31 @@ public partial class SyncNextPlayoutHandler(
 
     public async Task Handle(SyncNextPlayout request, CancellationToken cancellationToken)
     {
+        string channelFolder = fileSystem.Path.Combine(FileSystemLayout.NextPlayoutsFolder, request.ChannelNumber);
+        string currentFolder = fileSystem.Path.Combine(channelFolder, "current");
+
+        Dictionary<string, string> playoutFiles = await BuildPlayoutFiles(request.ChannelNumber, cancellationToken);
+
+        if (await TryUpdateCurrentFolder(request.ChannelNumber, currentFolder, playoutFiles, cancellationToken))
+        {
+            return;
+        }
+
         // gen new folder name
         string versionFolderName = DateTimeOffset.Now.ToUnixTimeMilliseconds().ToString(CultureInfo.InvariantCulture);
-
-        string channelFolder = fileSystem.Path.Combine(FileSystemLayout.NextPlayoutsFolder, request.ChannelNumber);
         string versionFolder = fileSystem.Path.Combine(channelFolder, versionFolderName);
 
         logger.LogDebug("versioned playout folder is {Folder}", versionFolder);
 
         localFileSystem.EnsureFolderExists(versionFolder);
 
-        await WriteAllJsonTo(request.ChannelNumber, versionFolder, cancellationToken);
-
-        string currentFolder = fileSystem.Path.Combine(channelFolder, "current");
+        foreach ((string fileName, string json) in playoutFiles)
+        {
+            await fileSystem.File.WriteAllTextAsync(
+                fileSystem.Path.Combine(versionFolder, fileName),
+                json,
+                cancellationToken);
+        }
 
         try
         {
@@ -164,8 +176,103 @@ public partial class SyncNextPlayoutHandler(
         }
     }
 
-    private async Task WriteAllJsonTo(string channelNumber, string targetFolder, CancellationToken cancellationToken)
+    private async Task<bool> TryUpdateCurrentFolder(
+        string channelNumber,
+        string currentFolder,
+        Dictionary<string, string> playoutFiles,
+        CancellationToken cancellationToken)
     {
+        var currentInfo = new DirectoryInfo(currentFolder);
+        if (!currentInfo.Exists || !currentInfo.Attributes.HasFlag(FileAttributes.ReparsePoint))
+        {
+            return false;
+        }
+
+        DateTimeOffset now = DateTimeOffset.Now;
+        DateTimeOffset cutoff = NextPlayoutFolderPlanner.Cutoff(now);
+
+        List<NextPlayoutFileState> existing = [];
+        foreach (string path in fileSystem.Directory.EnumerateFiles(currentFolder, "*.json"))
+        {
+            string json = await fileSystem.File.ReadAllTextAsync(path, cancellationToken);
+            Option<NextPlayoutFileState> maybeState =
+                NextPlayoutFileState.FromJson(fileSystem.Path.GetFileName(path), json, cutoff);
+            if (maybeState.IsNone)
+            {
+                return false;
+            }
+
+            existing.AddRange(maybeState);
+        }
+
+        List<NextPlayoutFileState> desired = [];
+        foreach ((string fileName, string json) in playoutFiles)
+        {
+            Option<NextPlayoutFileState> maybeState = NextPlayoutFileState.FromJson(fileName, json, cutoff);
+            if (maybeState.IsNone)
+            {
+                return false;
+            }
+
+            desired.AddRange(maybeState);
+        }
+
+        NextPlayoutFolderPlan plan = NextPlayoutFolderPlanner.Plan(existing, desired, now);
+        switch (plan.Kind)
+        {
+            case NextPlayoutFolderPlanKind.NoChange:
+                logger.LogDebug("Playout for channel {Channel} is unchanged", channelNumber);
+                return true;
+            case NextPlayoutFolderPlanKind.FullSwap:
+                return false;
+        }
+
+        try
+        {
+            // write before delete; temp names must not parse as playout windows
+            foreach (string fileName in plan.FilesToWrite)
+            {
+                string tempFile = fileSystem.Path.Combine(currentFolder, $".sync-{fileSystem.Path.GetRandomFileName()}");
+                try
+                {
+                    await fileSystem.File.WriteAllTextAsync(tempFile, playoutFiles[fileName], cancellationToken);
+                    fileSystem.File.Move(tempFile, fileSystem.Path.Combine(currentFolder, fileName), overwrite: true);
+                }
+                finally
+                {
+                    if (fileSystem.File.Exists(tempFile))
+                    {
+                        fileSystem.File.Delete(tempFile);
+                    }
+                }
+            }
+
+            foreach (string fileName in plan.FilesToDelete)
+            {
+                fileSystem.File.Delete(fileSystem.Path.Combine(currentFolder, fileName));
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            logger.LogWarning(ex, "Failed to update playout for channel {Channel} in place", channelNumber);
+            return false;
+        }
+
+        logger.LogDebug(
+            "Updated playout for channel {Channel} in place: wrote {Written}, deleted {Deleted}",
+            channelNumber,
+            plan.FilesToWrite.Count,
+            plan.FilesToDelete.Count);
+
+        return true;
+    }
+
+    private async Task<Dictionary<string, string>> BuildPlayoutFiles(
+        string channelNumber,
+        CancellationToken cancellationToken)
+    {
+        Dictionary<string, string> result = [];
+
         await using TvContext dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
 
         TimeSpan playoutOffset = TimeSpan.Zero;
@@ -198,7 +305,9 @@ public partial class SyncNextPlayoutHandler(
         if (playoutItems.Count > 0)
         {
             List<PlayoutItem> newPlayoutItems = [];
-            DateTimeOffset finish = DateTimeOffset.Now;
+
+            // utc midnight, not now, keeps the leading gap stable between syncs
+            var finish = new DateTimeOffset(DateTime.UtcNow.Date, TimeSpan.Zero);
             foreach (var playoutItem in playoutItems)
             {
                 if (finish < playoutItem.StartOffset)
@@ -238,9 +347,10 @@ public partial class SyncNextPlayoutHandler(
             var first = group.First();
             var last = group.Last();
 
-            string fileName = fileSystem.Path.Combine(
-                targetFolder,
-                $"{first.StartOffset.ToUnixTimeMilliseconds()}_{last.FinishOffset.ToUnixTimeMilliseconds()}.json");
+            // ToNext shifts mirror items; the file window must match
+            string fileName = string.Create(
+                CultureInfo.InvariantCulture,
+                $"{(first.StartOffset + playoutOffset).ToUnixTimeMilliseconds()}_{(last.FinishOffset + playoutOffset).ToUnixTimeMilliseconds()}.json");
 
             var playout = new Core.Next.Playout { Version = PlayoutItemConverter.PlayoutVersion, Items = [] };
             foreach (PlayoutItem playoutItem in group)
@@ -260,8 +370,10 @@ public partial class SyncNextPlayoutHandler(
                 }
             }
 
-            await fileSystem.File.WriteAllTextAsync(fileName, Core.Next.Serialize.ToJson(playout), cancellationToken);
+            result[fileName] = Core.Next.Serialize.ToJson(playout);
         }
+
+        return result;
     }
 
     private void CleanOldVersions(

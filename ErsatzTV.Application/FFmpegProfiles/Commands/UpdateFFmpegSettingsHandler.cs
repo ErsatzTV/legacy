@@ -3,16 +3,20 @@ using System.Globalization;
 using System.IO.Abstractions;
 using System.Threading.Channels;
 using ErsatzTV.Application.FFmpeg;
+using ErsatzTV.Application.Playouts;
 using ErsatzTV.Application.Subtitles;
 using ErsatzTV.Core;
 using ErsatzTV.Core.Domain;
 using ErsatzTV.Core.Interfaces.Repositories;
+using ErsatzTV.Infrastructure.Data;
+using Microsoft.EntityFrameworkCore;
 
 namespace ErsatzTV.Application.FFmpegProfiles;
 
 public class UpdateFFmpegSettingsHandler(
     IConfigElementRepository configElementRepository,
     IFileSystem fileSystem,
+    IDbContextFactory<TvContext> dbContextFactory,
     ChannelWriter<IBackgroundServiceRequest> workerChannel)
     : IRequestHandler<UpdateFFmpegSettings, Either<BaseError, Unit>>
 {
@@ -118,6 +122,10 @@ public class UpdateFFmpegSettingsHandler(
             request.Settings.ProbeForInterlacedFrames,
             cancellationToken);
 
+        Option<int> maybeOldGlobalWatermarkId = await configElementRepository.GetValue<int>(
+            ConfigElementKey.FFmpegGlobalWatermarkId,
+            cancellationToken);
+
         if (request.Settings.GlobalWatermarkId is not null)
         {
             await configElementRepository.Upsert(
@@ -128,6 +136,13 @@ public class UpdateFFmpegSettingsHandler(
         else
         {
             await configElementRepository.Delete(ConfigElementKey.FFmpegGlobalWatermarkId, cancellationToken);
+        }
+
+        if (maybeOldGlobalWatermarkId != Optional(request.Settings.GlobalWatermarkId))
+        {
+            await using TvContext dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+            List<string> channelNumbers = await NextPlayoutDependents.All(dbContext, cancellationToken);
+            await workerChannel.QueueSyncNextPlayouts(channelNumbers, cancellationToken);
         }
 
         if (request.Settings.GlobalFallbackFillerId is not null)
