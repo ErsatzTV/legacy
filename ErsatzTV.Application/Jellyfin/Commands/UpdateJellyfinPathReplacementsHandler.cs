@@ -1,6 +1,10 @@
-﻿using ErsatzTV.Core;
+﻿using System.Threading.Channels;
+using ErsatzTV.Application.Playouts;
+using ErsatzTV.Core;
 using ErsatzTV.Core.Domain;
 using ErsatzTV.Core.Interfaces.Repositories;
+using ErsatzTV.Infrastructure.Data;
+using Microsoft.EntityFrameworkCore;
 
 namespace ErsatzTV.Application.Jellyfin;
 
@@ -8,20 +12,30 @@ public class UpdateJellyfinPathReplacementsHandler : IRequestHandler<UpdateJelly
     Either<BaseError, Unit>>
 {
     private readonly IMediaSourceRepository _mediaSourceRepository;
+    private readonly IDbContextFactory<TvContext> _dbContextFactory;
+    private readonly ChannelWriter<IBackgroundServiceRequest> _workerChannel;
 
-    public UpdateJellyfinPathReplacementsHandler(IMediaSourceRepository mediaSourceRepository) =>
+    public UpdateJellyfinPathReplacementsHandler(
+        IMediaSourceRepository mediaSourceRepository,
+        IDbContextFactory<TvContext> dbContextFactory,
+        ChannelWriter<IBackgroundServiceRequest> workerChannel)
+    {
         _mediaSourceRepository = mediaSourceRepository;
+        _dbContextFactory = dbContextFactory;
+        _workerChannel = workerChannel;
+    }
 
     public Task<Either<BaseError, Unit>> Handle(
         UpdateJellyfinPathReplacements request,
         CancellationToken cancellationToken) =>
         Validate(request)
-            .MapT(pms => MergePathReplacements(request, pms))
+            .MapT(pms => MergePathReplacements(request, pms, cancellationToken))
             .Bind(v => v.ToEitherAsync());
 
-    private Task<Unit> MergePathReplacements(
+    private async Task<Unit> MergePathReplacements(
         UpdateJellyfinPathReplacements request,
-        JellyfinMediaSource jellyfinMediaSource)
+        JellyfinMediaSource jellyfinMediaSource,
+        CancellationToken cancellationToken)
     {
         jellyfinMediaSource.PathReplacements ??= new List<JellyfinPathReplacement>();
 
@@ -31,7 +45,16 @@ public class UpdateJellyfinPathReplacementsHandler : IRequestHandler<UpdateJelly
         var toRemove = jellyfinMediaSource.PathReplacements.Filter(r => incoming.All(pr => pr.Id != r.Id)).ToList();
         var toUpdate = incoming.Except(toAdd).ToList();
 
-        return _mediaSourceRepository.UpdatePathReplacements(jellyfinMediaSource.Id, toAdd, toUpdate, toRemove);
+        await _mediaSourceRepository.UpdatePathReplacements(jellyfinMediaSource.Id, toAdd, toUpdate, toRemove);
+
+        await using TvContext dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        List<string> channelNumbers = await NextPlayoutDependents.ForMediaSource(
+            dbContext,
+            jellyfinMediaSource.Id,
+            cancellationToken);
+        await _workerChannel.QueueSyncNextPlayouts(channelNumbers, cancellationToken);
+
+        return Unit.Default;
     }
 
     private static JellyfinPathReplacement Project(JellyfinPathReplacementItem vm) =>

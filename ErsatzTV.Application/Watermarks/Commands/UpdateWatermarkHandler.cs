@@ -1,4 +1,6 @@
-﻿using ErsatzTV.Core;
+﻿using System.Threading.Channels;
+using ErsatzTV.Application.Playouts;
+using ErsatzTV.Core;
 using ErsatzTV.Core.Domain;
 using ErsatzTV.Core.Interfaces.Search;
 using ErsatzTV.Infrastructure.Data;
@@ -11,11 +13,16 @@ public class UpdateWatermarkHandler : IRequestHandler<UpdateWatermark, Either<Ba
 {
     private readonly IDbContextFactory<TvContext> _dbContextFactory;
     private readonly ISearchTargets _searchTargets;
+    private readonly ChannelWriter<IBackgroundServiceRequest> _workerChannel;
 
-    public UpdateWatermarkHandler(IDbContextFactory<TvContext> dbContextFactory, ISearchTargets searchTargets)
+    public UpdateWatermarkHandler(
+        IDbContextFactory<TvContext> dbContextFactory,
+        ISearchTargets searchTargets,
+        ChannelWriter<IBackgroundServiceRequest> workerChannel)
     {
         _dbContextFactory = dbContextFactory;
         _searchTargets = searchTargets;
+        _workerChannel = workerChannel;
     }
 
     public async Task<Either<BaseError, UpdateWatermarkResult>> Handle(
@@ -24,13 +31,14 @@ public class UpdateWatermarkHandler : IRequestHandler<UpdateWatermark, Either<Ba
     {
         await using TvContext dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
         Validation<BaseError, ChannelWatermark> validation = await Validate(dbContext, request, cancellationToken);
-        return await validation.Apply(p => ApplyUpdateRequest(dbContext, p, request));
+        return await validation.Apply(p => ApplyUpdateRequest(dbContext, p, request, cancellationToken));
     }
 
     private async Task<UpdateWatermarkResult> ApplyUpdateRequest(
         TvContext dbContext,
         ChannelWatermark p,
-        UpdateWatermark update)
+        UpdateWatermark update,
+        CancellationToken cancellationToken)
     {
         p.Name = update.Name;
 
@@ -56,8 +64,12 @@ public class UpdateWatermarkHandler : IRequestHandler<UpdateWatermark, Either<Ba
         p.OpacityExpression = update.Mode is ChannelWatermarkMode.OpacityExpression ? update.OpacityExpression : null;
         p.ZIndex = update.ZIndex;
 
-        await dbContext.SaveChangesAsync();
+        await dbContext.SaveChangesAsync(cancellationToken);
         _searchTargets.SearchTargetsChanged();
+
+        List<string> channelNumbers = await NextPlayoutDependents.ForWatermark(dbContext, p.Id, cancellationToken);
+        await _workerChannel.QueueSyncNextPlayouts(channelNumbers, cancellationToken);
+
         return new UpdateWatermarkResult(p.Id);
     }
 

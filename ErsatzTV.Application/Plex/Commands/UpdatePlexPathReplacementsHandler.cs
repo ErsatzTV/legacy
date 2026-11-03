@@ -1,6 +1,10 @@
-﻿using ErsatzTV.Core;
+﻿using System.Threading.Channels;
+using ErsatzTV.Application.Playouts;
+using ErsatzTV.Core;
 using ErsatzTV.Core.Domain;
 using ErsatzTV.Core.Interfaces.Repositories;
+using ErsatzTV.Infrastructure.Data;
+using Microsoft.EntityFrameworkCore;
 
 namespace ErsatzTV.Application.Plex;
 
@@ -8,18 +12,30 @@ public class
     UpdatePlexPathReplacementsHandler : IRequestHandler<UpdatePlexPathReplacements, Either<BaseError, Unit>>
 {
     private readonly IMediaSourceRepository _mediaSourceRepository;
+    private readonly IDbContextFactory<TvContext> _dbContextFactory;
+    private readonly ChannelWriter<IBackgroundServiceRequest> _workerChannel;
 
-    public UpdatePlexPathReplacementsHandler(IMediaSourceRepository mediaSourceRepository) =>
+    public UpdatePlexPathReplacementsHandler(
+        IMediaSourceRepository mediaSourceRepository,
+        IDbContextFactory<TvContext> dbContextFactory,
+        ChannelWriter<IBackgroundServiceRequest> workerChannel)
+    {
         _mediaSourceRepository = mediaSourceRepository;
+        _dbContextFactory = dbContextFactory;
+        _workerChannel = workerChannel;
+    }
 
     public Task<Either<BaseError, Unit>> Handle(
         UpdatePlexPathReplacements request,
         CancellationToken cancellationToken) =>
         Validate(request, cancellationToken)
-            .MapT(pms => MergePathReplacements(request, pms))
+            .MapT(pms => MergePathReplacements(request, pms, cancellationToken))
             .Bind(v => v.ToEitherAsync());
 
-    private Task<Unit> MergePathReplacements(UpdatePlexPathReplacements request, PlexMediaSource plexMediaSource)
+    private async Task<Unit> MergePathReplacements(
+        UpdatePlexPathReplacements request,
+        PlexMediaSource plexMediaSource,
+        CancellationToken cancellationToken)
     {
         plexMediaSource.PathReplacements ??= [];
 
@@ -29,7 +45,16 @@ public class
         var toRemove = plexMediaSource.PathReplacements.Filter(r => incoming.All(pr => pr.Id != r.Id)).ToList();
         var toUpdate = incoming.Except(toAdd).ToList();
 
-        return _mediaSourceRepository.UpdatePathReplacements(plexMediaSource.Id, toAdd, toUpdate, toRemove);
+        await _mediaSourceRepository.UpdatePathReplacements(plexMediaSource.Id, toAdd, toUpdate, toRemove);
+
+        await using TvContext dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        List<string> channelNumbers = await NextPlayoutDependents.ForMediaSource(
+            dbContext,
+            plexMediaSource.Id,
+            cancellationToken);
+        await _workerChannel.QueueSyncNextPlayouts(channelNumbers, cancellationToken);
+
+        return Unit.Default;
     }
 
     private static PlexPathReplacement Project(PlexPathReplacementItem vm) =>

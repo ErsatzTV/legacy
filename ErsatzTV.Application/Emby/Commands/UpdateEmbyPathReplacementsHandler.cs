@@ -1,6 +1,10 @@
-﻿using ErsatzTV.Core;
+﻿using System.Threading.Channels;
+using ErsatzTV.Application.Playouts;
+using ErsatzTV.Core;
 using ErsatzTV.Core.Domain;
 using ErsatzTV.Core.Interfaces.Repositories;
+using ErsatzTV.Infrastructure.Data;
+using Microsoft.EntityFrameworkCore;
 
 namespace ErsatzTV.Application.Emby;
 
@@ -8,20 +12,30 @@ public class UpdateEmbyPathReplacementsHandler : IRequestHandler<UpdateEmbyPathR
     Either<BaseError, Unit>>
 {
     private readonly IMediaSourceRepository _mediaSourceRepository;
+    private readonly IDbContextFactory<TvContext> _dbContextFactory;
+    private readonly ChannelWriter<IBackgroundServiceRequest> _workerChannel;
 
-    public UpdateEmbyPathReplacementsHandler(IMediaSourceRepository mediaSourceRepository) =>
+    public UpdateEmbyPathReplacementsHandler(
+        IMediaSourceRepository mediaSourceRepository,
+        IDbContextFactory<TvContext> dbContextFactory,
+        ChannelWriter<IBackgroundServiceRequest> workerChannel)
+    {
         _mediaSourceRepository = mediaSourceRepository;
+        _dbContextFactory = dbContextFactory;
+        _workerChannel = workerChannel;
+    }
 
     public Task<Either<BaseError, Unit>> Handle(
         UpdateEmbyPathReplacements request,
         CancellationToken cancellationToken) =>
         Validate(request, cancellationToken)
-            .MapT(pms => MergePathReplacements(request, pms))
+            .MapT(pms => MergePathReplacements(request, pms, cancellationToken))
             .Bind(v => v.ToEitherAsync());
 
-    private Task<Unit> MergePathReplacements(
+    private async Task<Unit> MergePathReplacements(
         UpdateEmbyPathReplacements request,
-        EmbyMediaSource embyMediaSource)
+        EmbyMediaSource embyMediaSource,
+        CancellationToken cancellationToken)
     {
         embyMediaSource.PathReplacements ??= new List<EmbyPathReplacement>();
 
@@ -31,7 +45,16 @@ public class UpdateEmbyPathReplacementsHandler : IRequestHandler<UpdateEmbyPathR
         var toRemove = embyMediaSource.PathReplacements.Filter(r => incoming.All(pr => pr.Id != r.Id)).ToList();
         var toUpdate = incoming.Except(toAdd).ToList();
 
-        return _mediaSourceRepository.UpdatePathReplacements(embyMediaSource.Id, toAdd, toUpdate, toRemove);
+        await _mediaSourceRepository.UpdatePathReplacements(embyMediaSource.Id, toAdd, toUpdate, toRemove);
+
+        await using TvContext dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        List<string> channelNumbers = await NextPlayoutDependents.ForMediaSource(
+            dbContext,
+            embyMediaSource.Id,
+            cancellationToken);
+        await _workerChannel.QueueSyncNextPlayouts(channelNumbers, cancellationToken);
+
+        return Unit.Default;
     }
 
     private static EmbyPathReplacement Project(EmbyPathReplacementItem vm) =>

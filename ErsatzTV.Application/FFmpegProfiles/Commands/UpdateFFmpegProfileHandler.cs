@@ -32,8 +32,8 @@ public class UpdateFFmpegProfileHandler(
         UpdateFFmpegProfile update,
         CancellationToken cancellationToken)
     {
-        // next playouts carry graphics, which depend on video copy and the canvas resolution
-        var nextPlayoutSettings = (p.VideoFormat is FFmpegProfileVideoFormat.Copy, p.ResolutionId);
+        // next playouts carry graphics, which depend on video copy, canvas resolution and scaling behavior
+        var nextPlayoutSettings = (p.VideoFormat is FFmpegProfileVideoFormat.Copy, p.ResolutionId, p.ScalingBehavior);
 
         var hwAccel = update.NormalizeVideo
             ? update.HardwareAcceleration
@@ -110,18 +110,13 @@ public class UpdateFFmpegProfileHandler(
 
         searchTargets.SearchTargetsChanged();
 
-        if (nextPlayoutSettings != (p.VideoFormat is FFmpegProfileVideoFormat.Copy, p.ResolutionId))
+        if (nextPlayoutSettings != (p.VideoFormat is FFmpegProfileVideoFormat.Copy, p.ResolutionId, p.ScalingBehavior))
         {
-            List<string> channelNumbers = await dbContext.Channels
-                .AsNoTracking()
-                .Where(c => c.FFmpegProfileId == p.Id)
-                .Select(c => c.Number)
-                .ToListAsync(cancellationToken);
-
-            foreach (string channelNumber in channelNumbers)
-            {
-                await workerChannel.WriteAsync(new SyncNextPlayout(channelNumber), cancellationToken);
-            }
+            List<string> channelNumbers = await NextPlayoutDependents.ForFFmpegProfile(
+                dbContext,
+                p.Id,
+                cancellationToken);
+            await workerChannel.QueueSyncNextPlayouts(channelNumbers, cancellationToken);
         }
 
         return new UpdateFFmpegProfileResult(p.Id);
