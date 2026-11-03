@@ -32,7 +32,7 @@ public class UpdateFFmpegProfileHandler(
         UpdateFFmpegProfile update,
         CancellationToken cancellationToken)
     {
-        // next playouts carry graphics, which depend on video copy, canvas resolution and scaling behavior
+        // these fields change graphics in next playouts
         var nextPlayoutSettings = (p.VideoFormat is FFmpegProfileVideoFormat.Copy, p.ResolutionId, p.ScalingBehavior);
 
         var hwAccel = update.NormalizeVideo

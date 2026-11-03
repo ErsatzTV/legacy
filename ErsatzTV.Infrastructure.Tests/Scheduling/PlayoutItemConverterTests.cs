@@ -564,7 +564,7 @@ public class PlayoutItemConverterTests
         var query = uri.Query.TrimStart('?').Split('&')
             .Select(part => part.Split('=', 2)).ToDictionary(part => part[0], part => part[1]);
         InternalUrlSigner.Verify(query["exp"], query["sig"], "song-background", "7", "42").ShouldBeTrue();
-        // a now-based expiry would also serialize identically within one second, so pin the day-stable value
+        // a now-based expiry also matches within one second; check the exact value
         var expectedExpiry = new DateTimeOffset(DateTime.UtcNow.Date.AddDays(1).AddHours(2), TimeSpan.Zero);
         DateTimeOffset.FromUnixTimeSeconds(long.Parse(query["exp"])).ShouldBe(expectedExpiry);
     }

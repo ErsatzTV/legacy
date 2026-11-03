@@ -106,7 +106,7 @@ public class PlayoutItemConverter(
         playoutItem.Start += playoutOffset;
         playoutItem.Finish += playoutOffset;
 
-        // ids must be stable so re-synced playout files are byte-identical when nothing changed
+        // stable ids keep unchanged re-synced files identical
         var nextPlayoutItem = new Core.Next.PlayoutItem
         {
             Id = playoutItem is DynamicPlayoutItem
@@ -906,8 +906,8 @@ public class PlayoutItemConverter(
         return [MusicVideoCreditsSubtitle.ForPlayoutItem(playoutItemId, playoutItemInPoint)];
     }
 
-    // troubleshooting uses items that already finished; their urls must still be valid.
-    // the floor moves once per utc day (not with now) so re-synced playout files stay byte-identical
+    // troubleshooting plays finished items, so their urls must stay valid.
+    // the floor moves once per utc day so re-synced files stay identical
     private static DateTimeOffset UrlExpiry(PlayoutItem playoutItem)
     {
         var floor = new DateTimeOffset(DateTime.UtcNow.Date.AddDays(1), TimeSpan.Zero);

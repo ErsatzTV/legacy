@@ -6,9 +6,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ErsatzTV.Application.Playouts;
 
-// next reads serialized playout files, so edits to anything those files embed must re-sync the
-// affected channels; playout lookups must stay in step with IncludeForNextPlayout. Deletes must
-// resolve before removing rows, since cascades remove the references these lookups follow.
+// next reads serialized playout files, so edits to anything they embed must re-sync channels.
+// keep playout lookups in step with IncludeForNextPlayout. resolve deletes before removing rows;
+// cascades remove the references these lookups follow.
 public static class NextPlayoutDependents
 {
     public static async Task<List<string>> ForWatermark(
@@ -128,7 +128,7 @@ public static class NextPlayoutDependents
             .Select(p => p.ChannelId)
             .ToListAsync(cancellationToken);
 
-    // mirror channels serialize their source channel's playout items
+    // mirrors serialize their source channel's items
     private static async Task<List<string>> WithMirrors(
         TvContext dbContext,
         List<int> channelIds,

@@ -93,7 +93,7 @@ public class ReplacePlayoutTemplateItemsHandler(
 
                 await dbContext.SaveChangesAsync(cancellationToken);
 
-                // deco templates apply when next playouts are serialized, not when items are built
+                // deco templates apply at serialization, not at build
                 List<string> channelNumbers = await NextPlayoutDependents.ForPlayout(
                     dbContext,
                     playout.Id,

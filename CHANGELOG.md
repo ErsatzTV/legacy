@@ -24,6 +24,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
     - This happened when the source's video parameters change mid-stream, such as spliced or smart-cut files
   - Fix 4:2:2, 4:4:4 and 12-bit sources (such as ProRes, or HEVC/H.264 from cameras)
     - Hardware decode is no longer attempted; they are converted to 4:2:0 after deinterlacing and scaling
+  - Fix changes to watermarks, decos, etc. not reaching channels until the next hourly playout build
+  - Reduce disk writes when syncing playouts; unchanged days are no longer rewritten every hour
 
 ## [26.11.6] - 2026-10-31
 ### Added
