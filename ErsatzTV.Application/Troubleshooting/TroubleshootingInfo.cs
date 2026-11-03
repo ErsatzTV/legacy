@@ -1,5 +1,6 @@
 using ErsatzTV.Application.FFmpegProfiles;
 using ErsatzTV.Core.Domain;
+using ErsatzTV.Core.Next.Description;
 using ErsatzTV.FFmpeg.Capabilities;
 
 namespace ErsatzTV.Application.Troubleshooting;
@@ -7,6 +8,7 @@ namespace ErsatzTV.Application.Troubleshooting;
 public record TroubleshootingInfo(
     string Version,
     string NextVersion,
+    Describe NextDescribe,
     string FFmpegVersion,
     Dictionary<string, string> Environment,
     List<CpuModel> Cpus,

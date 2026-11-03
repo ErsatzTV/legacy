@@ -1,6 +1,7 @@
 ﻿using System.Runtime.InteropServices;
 using ErsatzTV.Application.Streaming;
 using ErsatzTV.Core.Interfaces.Metadata;
+using ErsatzTV.Core.Next.Description;
 using ErsatzTV.FFmpeg.Capabilities;
 using ErsatzTV.FFmpeg.Capabilities.Nvidia;
 using ErsatzTV.FFmpeg.Runtime;
@@ -62,9 +63,28 @@ public class PlatformSettingsService(IServiceScopeFactory serviceScopeFactory) :
             }
 
             var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
-            NextVersion.Version = await mediator.Send(new GetNextVersion(), stoppingToken);
+            Option<Describe> maybeDescribe = await mediator.Send(new GetNextDescribe(), stoppingToken);
+            foreach (Describe describe in maybeDescribe)
+            {
+                NextVersion.Version = describe.Binary.Version;
+                Serilog.Log.Logger.Information(
+                    "ErsatzTV Next version {Version} ({Commit})",
+                    NextVersion.Version,
+                    describe.Binary.Commit ?? "unknown commit");
 
-            Serilog.Log.Logger.Information("ErsatzTV Next version {Version}", NextVersion.Version);
+                foreach (string problem in NextContract.Check(describe))
+                {
+                    Serilog.Log.Logger.Warning("ErsatzTV Next is not compatible: {Problem}", problem);
+                }
+            }
+
+            if (maybeDescribe.IsNone)
+            {
+                NextVersion.Version = await mediator.Send(new GetNextVersion(), stoppingToken);
+                Serilog.Log.Logger.Information("ErsatzTV Next version {Version}", NextVersion.Version);
+                Serilog.Log.Logger.Warning(
+                    "Unable to describe ErsatzTV Next; channels using the next streaming engine will not start");
+            }
         }
     }
 }

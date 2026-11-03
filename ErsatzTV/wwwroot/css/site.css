@@ -212,6 +212,23 @@ div.ersatztv-light {
     overflow-wrap: break-word;
 }
 
+/* scoped css can't reach JsonView's MarkupString spans */
+.json-key {
+    color: var(--mud-palette-info);
+}
+
+.json-string {
+    color: var(--mud-palette-success);
+}
+
+.json-number {
+    color: var(--mud-palette-warning);
+}
+
+.json-literal {
+    color: var(--mud-palette-secondary);
+}
+
 .playout-filler-guidemode {
     background-color: #002e00;
 }
