@@ -5,8 +5,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 ### Changed
-- Use an ErsatzTV-ffmpeg develop build (`8.1.2-8115e89c-develop`, newer than `8.1.2-7`) in docker images, Windows packages and macOS packages
+- Use an ErsatzTV-ffmpeg develop build (`8.1.2-4089c130-develop`, newer than `8.1.2-7`) in docker images, Windows packages and macOS packages
   - Fix QSV streams failing about 10 seconds in with `Can't allocate a surface` or `Failed to query an output frame` on pre-Tiger Lake Intel GPUs (regression in 26.11.6)
+  - Fix QSV, VAAPI and CUDA items failing when the source's color tags change mid-stream
 
 ### Removed
 - Remove the legacy streaming engine; all channels now stream with the next engine
@@ -19,6 +20,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Next engine:
   - Fix NVENC failing to start (`Gop Length should be greater than number of B frames + 1`) on very low frame rate sources, such as 1 fps slideshows
   - VAAPI: fix `tonemap_opencl` and `pad_opencl` never being used on Intel GPUs when only the OpenCL runtime (`libOpenCL.so.1`) is installed, such as in docker
+  - Fix still-image watermarks disappearing partway through an item, or (QSV) the item ending early
+    - This happened when the source's video parameters change mid-stream, such as spliced or smart-cut files
 
 ## [26.11.6] - 2026-10-31
 ### Added
