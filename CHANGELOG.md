@@ -30,6 +30,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
     - This happens when the playout includes a file with a stream ffprobe can't identify (e.g. spatial audio in some phone videos)
   - Fix one invalid playout item failing the whole playout file, so the channel showed `failed to load playout JSON file` for every item
     - An invalid item now shows the fallback for its own time only, naming the item and the invalid field
+  - Fix fallback filler showing the previous clip's subtitles, or the fallback error screen for the rest of a gap after one clip ended early
 
 ## [26.11.6] - 2026-10-31
 ### Added
