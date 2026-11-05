@@ -432,6 +432,16 @@ public class PlayoutItemConverterTests
         hint.Video.ShouldHaveSingleItem().Codec.ShouldBe(codec);
     }
 
+    [TestCase(null)]
+    [TestCase("")]
+    public async Task Hint_streams_without_a_codec_are_unknown(string? codec)
+    {
+        Next.PlayoutItem result = await Convert(new Movie(), [], videoCodec: codec);
+        Next.ProbeHint hint = result.Source!.ProbeHint!;
+        hint.Video.ShouldHaveSingleItem().Codec.ShouldBe("unknown");
+        hint.Audio.ShouldHaveSingleItem().Codec.ShouldBe("unknown");
+    }
+
     [TestCase("/media/movie.avi", "avi")]
     [TestCase("/media/movie.AVI", "avi")]
     [TestCase(VideoPath, "matroska,webm")]

@@ -26,6 +26,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
     - Hardware decode is no longer attempted; they are converted to 4:2:0 after deinterlacing and scaling
   - Fix changes to watermarks, decos, etc. not reaching channels until the next hourly playout build
   - Reduce disk writes when syncing playouts; unchanged days are no longer rewritten every hour
+  - Fix channels failing with `failed to load playout JSON file: missing field codec`
+    - This happens when the playout includes a file with a stream ffprobe can't identify (e.g. spatial audio in some phone videos)
 
 ## [26.11.6] - 2026-10-31
 ### Added
