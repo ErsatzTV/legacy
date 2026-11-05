@@ -560,6 +560,18 @@ public class PlayoutItemConverterTests
     }
 
     [Test]
+    public async Task Unsaved_item_id_is_derived_from_its_start_and_media_item()
+    {
+        Next.PlayoutItem first = await Convert(new Movie { Id = 7 }, [], playoutItemId: 0);
+        Next.PlayoutItem other = await Convert(new Movie { Id = 8 }, [], playoutItemId: 0);
+        Next.PlayoutItem saved = await Convert(new Movie { Id = 7 }, []);
+
+        first.Id.ShouldBe($"unsaved-{_start.ToUnixTimeMilliseconds()}-7");
+        other.Id.ShouldBe($"unsaved-{_start.ToUnixTimeMilliseconds()}-8");
+        saved.Id.ShouldBe("42");
+    }
+
+    [Test]
     public async Task Finished_item_serializes_identically_and_keeps_valid_signed_urls()
     {
         _start = DateTimeOffset.UtcNow.AddHours(-3);
@@ -587,7 +599,8 @@ public class PlayoutItemConverterTests
         string path = VideoPath,
         string? videoCodec = null,
         bool hasVideo = true,
-        bool attachedPic = false)
+        bool attachedPic = false,
+        int playoutItemId = 42)
     {
         var version = new MediaVersion
         {
@@ -634,8 +647,9 @@ public class PlayoutItemConverterTests
 
         var playoutItem = new PlayoutItem
         {
-            Id = 42,
+            Id = playoutItemId,
             MediaItem = mediaItem,
+            MediaItemId = mediaItem.Id,
             Start = _start.UtcDateTime,
             Finish = _start.AddSeconds(30).UtcDateTime,
             InPoint = TimeSpan.FromSeconds(10),

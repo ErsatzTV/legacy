@@ -109,11 +109,19 @@ public class PlayoutItemConverter(
         // stable ids keep unchanged re-synced files identical
         var nextPlayoutItem = new Core.Next.PlayoutItem
         {
-            Id = playoutItem is DynamicPlayoutItem
-                ? string.Create(
+            Id = playoutItem switch
+            {
+                DynamicPlayoutItem => string.Create(
                     CultureInfo.InvariantCulture,
-                    $"dynamic-{playoutItem.StartOffset.ToUnixTimeMilliseconds()}-{playoutItem.FinishOffset.ToUnixTimeMilliseconds()}")
-                : playoutItem.Id.ToString(CultureInfo.InvariantCulture),
+                    $"dynamic-{playoutItem.StartOffset.ToUnixTimeMilliseconds()}-{playoutItem.FinishOffset.ToUnixTimeMilliseconds()}"),
+
+                // unsaved, e.g. fallback filler; next reuses subtitles and copy position for an equal id
+                { Id: 0 } => string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"unsaved-{playoutItem.StartOffset.ToUnixTimeMilliseconds()}-{playoutItem.MediaItemId}"),
+
+                _ => playoutItem.Id.ToString(CultureInfo.InvariantCulture)
+            },
             Start = playoutItem.StartOffset,
             Finish = playoutItem.FinishOffset
         };
