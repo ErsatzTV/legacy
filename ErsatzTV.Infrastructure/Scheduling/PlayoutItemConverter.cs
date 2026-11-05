@@ -138,7 +138,7 @@ public class PlayoutItemConverter(
                 .Select(s => new Core.Next.VideoHint
                 {
                     StreamIndex = s.Index,
-                    Codec = s.Codec,
+                    Codec = CodecHint(s.Codec),
                     Height = headVersion.Height,
                     Width = headVersion.Width,
                     Profile = s.Profile,
@@ -162,7 +162,7 @@ public class PlayoutItemConverter(
                 .Select(s => new Core.Next.AudioHint
                 {
                     StreamIndex = s.Index,
-                    Codec = s.Codec,
+                    Codec = CodecHint(s.Codec),
                     Channels = s.Channels
                 }).ToList();
             var sourceSubtitleHints = headVersion.Streams
@@ -170,7 +170,7 @@ public class PlayoutItemConverter(
                 .Select(s => new Core.Next.SubtitleHint
                 {
                     StreamIndex = s.Index,
-                    Codec = s.Codec
+                    Codec = CodecHint(s.Codec)
                 }).ToList();
 
             var durationForPlayout = playoutItem.MediaItem.GetDurationForPlayout();
@@ -316,6 +316,10 @@ public class PlayoutItemConverter(
                 ]
             }
         };
+
+    // next requires a codec in each hint stream; "unknown" is what its own probe uses when ffprobe
+    // can't name the codec
+    private static string CodecHint(string codec) => string.IsNullOrWhiteSpace(codec) ? "unknown" : codec;
 
     // next defaults a missing format_name to mpegts, which hides still images and the container
     // from it; legacy doesn't store ffprobe's format_name, so the extension stands in for it
