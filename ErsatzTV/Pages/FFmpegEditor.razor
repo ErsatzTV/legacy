@@ -34,12 +34,15 @@
             </div>
             <MudTextField @bind-Value="_model.Name" For="@(() => _model.Name)" Immediate="true"/>
         </MudStack>
-        <MudStack Row="true" Breakpoint="Breakpoint.SmAndDown" Class="form-field-stack gap-md-8 mb-5">
-            <div class="d-flex">
-                <MudText>Thread Count</MudText>
-            </div>
-            <MudTextField @bind-Value="@_model.ThreadCount" For="@(() => _model.ThreadCount)" HelperText="Legacy engine only"/>
-        </MudStack>
+        @if (LegacyStreamingEngine.Enabled)
+        {
+            <MudStack Row="true" Breakpoint="Breakpoint.SmAndDown" Class="form-field-stack gap-md-8 mb-5">
+                <div class="d-flex">
+                    <MudText>Thread Count</MudText>
+                </div>
+                <MudTextField @bind-Value="@_model.ThreadCount" For="@(() => _model.ThreadCount)" HelperText="Legacy engine only"/>
+            </MudStack>
+        }
         <MudStack Row="true" Breakpoint="Breakpoint.SmAndDown" Class="form-field-stack gap-md-8 mb-5">
             <div class="d-flex">
                 <MudText>Normalize Audio</MudText>
@@ -75,18 +78,21 @@
                     <MudSelectItem Value="@ScalingBehavior.Crop">Crop</MudSelectItem>
                 </MudSelect>
             </MudStack>
-            <MudStack Row="true" Breakpoint="Breakpoint.SmAndDown" Class="form-field-stack gap-md-8 mb-5">
-                <div class="d-flex">
-                    <MudText>Pad Mode</MudText>
-                </div>
-                <MudSelect @bind-Value="_model.PadMode"
-                           For="@(() => _model.PadMode)"
-                           Disabled="_model.HardwareAcceleration is not HardwareAccelerationKind.Vaapi"
-                           HelperText="Legacy engine only. If hardware padding is green, software padding should be used instead">
-                    <MudSelectItem Value="@FilterMode.HardwareIfPossible">Hardware If Possible</MudSelectItem>
-                    <MudSelectItem Value="@FilterMode.Software">Software</MudSelectItem>
-                </MudSelect>
-            </MudStack>
+            @if (LegacyStreamingEngine.Enabled)
+            {
+                <MudStack Row="true" Breakpoint="Breakpoint.SmAndDown" Class="form-field-stack gap-md-8 mb-5">
+                    <div class="d-flex">
+                        <MudText>Pad Mode</MudText>
+                    </div>
+                    <MudSelect @bind-Value="_model.PadMode"
+                               For="@(() => _model.PadMode)"
+                               Disabled="_model.HardwareAcceleration is not HardwareAccelerationKind.Vaapi"
+                               HelperText="Legacy engine only. If hardware padding is green, software padding should be used instead">
+                        <MudSelectItem Value="@FilterMode.HardwareIfPossible">Hardware If Possible</MudSelectItem>
+                        <MudSelectItem Value="@FilterMode.Software">Software</MudSelectItem>
+                    </MudSelect>
+                </MudStack>
+            }
         }
         <MudText Typo="Typo.h5" Class="mt-10 mb-2">Video</MudText>
         <MudDivider Class="mb-6"/>
@@ -102,59 +108,62 @@
                     <MudSelectItem Value="@FFmpegProfileVideoFormat.Mpeg2Video">mpeg-2</MudSelectItem>
                 </MudSelect>
             </MudStack>
-            <MudStack Row="true" Breakpoint="Breakpoint.SmAndDown" Class="form-field-stack gap-md-8 mb-5">
-                <div class="d-flex">
-                    <MudText>Profile</MudText>
-                </div>
-                <MudSelect @bind-Value="_model.VideoProfile"
-                           For="@(() => _model.VideoProfile)"
-                           Disabled="@(_model.VideoFormat != FFmpegProfileVideoFormat.H264 || !HardwareAccelSupportsH264Profile(_model.HardwareAcceleration))"
-                           Clearable="true"
-                           HelperText="Legacy engine only">
-                    <MudSelectItem Value="@VideoProfile.Main">main</MudSelectItem>
-                    <MudSelectItem Value="@VideoProfile.High">high</MudSelectItem>
-                    @if (_model.HardwareAcceleration is HardwareAccelerationKind.Nvenc)
-                    {
-                        <MudSelectItem Value="@VideoProfile.High444p">high444p</MudSelectItem>
-                    }
-                    else
-                    {
-                        <MudSelectItem Value="@VideoProfile.High10">high10</MudSelectItem>
-                    }
-                </MudSelect>
-            </MudStack>
-            <MudStack Row="true" Breakpoint="Breakpoint.SmAndDown" Class="form-field-stack gap-md-8 mb-5">
-                <div class="d-flex">
-                    <MudText>Preset</MudText>
-                </div>
-                @{
-                    ICollection<string> presets = FFmpegLibraryHelper.PresetsForFFmpegProfile(
-                        _model.HardwareAcceleration,
-                        _model.VideoFormat,
-                        _model.BitDepth);
-                }
-                <MudSelect @bind-Value="_model.VideoPreset"
-                           For="@(() => _model.VideoPreset)"
-                           Disabled="@(presets.Count == 0)"
-                           Clearable="true"
-                           HelperText="Legacy engine only">
-                    @foreach (string preset in presets)
-                    {
-                        if (!string.IsNullOrWhiteSpace(preset))
+            @if (LegacyStreamingEngine.Enabled)
+            {
+                <MudStack Row="true" Breakpoint="Breakpoint.SmAndDown" Class="form-field-stack gap-md-8 mb-5">
+                    <div class="d-flex">
+                        <MudText>Profile</MudText>
+                    </div>
+                    <MudSelect @bind-Value="_model.VideoProfile"
+                               For="@(() => _model.VideoProfile)"
+                               Disabled="@(_model.VideoFormat != FFmpegProfileVideoFormat.H264 || !HardwareAccelSupportsH264Profile(_model.HardwareAcceleration))"
+                               Clearable="true"
+                               HelperText="Legacy engine only">
+                        <MudSelectItem Value="@VideoProfile.Main">main</MudSelectItem>
+                        <MudSelectItem Value="@VideoProfile.High">high</MudSelectItem>
+                        @if (_model.HardwareAcceleration is HardwareAccelerationKind.Nvenc)
                         {
-                            <MudSelectItem Value="@preset">@preset</MudSelectItem>
+                            <MudSelectItem Value="@VideoProfile.High444p">high444p</MudSelectItem>
                         }
+                        else
+                        {
+                            <MudSelectItem Value="@VideoProfile.High10">high10</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudStack>
+                <MudStack Row="true" Breakpoint="Breakpoint.SmAndDown" Class="form-field-stack gap-md-8 mb-5">
+                    <div class="d-flex">
+                        <MudText>Preset</MudText>
+                    </div>
+                    @{
+                        ICollection<string> presets = FFmpegLibraryHelper.PresetsForFFmpegProfile(
+                            _model.HardwareAcceleration,
+                            _model.VideoFormat,
+                            _model.BitDepth);
                     }
-                </MudSelect>
-            </MudStack>
-            <MudStack Row="true" Breakpoint="Breakpoint.SmAndDown" Class="form-field-stack gap-md-8 mb-5">
-                <div class="d-flex">
-                    <MudText>Allow B-Frames</MudText>
-                </div>
-                <MudCheckBox @bind-Value="@_model.AllowBFrames" For="@(() => _model.AllowBFrames)" Dense="true">
-                    <MudText Typo="Typo.caption" Style="font-weight: normal">Legacy engine only</MudText>
-                </MudCheckBox>
-            </MudStack>
+                    <MudSelect @bind-Value="_model.VideoPreset"
+                               For="@(() => _model.VideoPreset)"
+                               Disabled="@(presets.Count == 0)"
+                               Clearable="true"
+                               HelperText="Legacy engine only">
+                        @foreach (string preset in presets)
+                        {
+                            if (!string.IsNullOrWhiteSpace(preset))
+                            {
+                                <MudSelectItem Value="@preset">@preset</MudSelectItem>
+                            }
+                        }
+                    </MudSelect>
+                </MudStack>
+                <MudStack Row="true" Breakpoint="Breakpoint.SmAndDown" Class="form-field-stack gap-md-8 mb-5">
+                    <div class="d-flex">
+                        <MudText>Allow B-Frames</MudText>
+                    </div>
+                    <MudCheckBox @bind-Value="@_model.AllowBFrames" For="@(() => _model.AllowBFrames)" Dense="true">
+                        <MudText Typo="Typo.caption" Style="font-weight: normal">Legacy engine only</MudText>
+                    </MudCheckBox>
+                </MudStack>
+            }
             <MudStack Row="true" Breakpoint="Breakpoint.SmAndDown" Class="form-field-stack gap-md-8 mb-5">
                 <div class="d-flex">
                     <MudText>Bit Depth</MudText>
@@ -202,17 +211,20 @@
                             }
                         </MudSelect>
                     </MudStack>
-                    <MudStack Row="true" Breakpoint="Breakpoint.SmAndDown" Class="form-field-stack gap-md-8 mb-5">
-                        <div class="d-flex">
-                            <MudText>VAAPI Display</MudText>
-                        </div>
-                        <MudSelect @bind-Value="_model.VaapiDisplay" For="@(() => _model.VaapiDisplay)" HelperText="Legacy engine only">
-                            @foreach (string display in _vaapiDisplays)
-                            {
-                                <MudSelectItem Value="@display">@display</MudSelectItem>
-                            }
-                        </MudSelect>
-                    </MudStack>
+                    @if (LegacyStreamingEngine.Enabled)
+                    {
+                        <MudStack Row="true" Breakpoint="Breakpoint.SmAndDown" Class="form-field-stack gap-md-8 mb-5">
+                            <div class="d-flex">
+                                <MudText>VAAPI Display</MudText>
+                            </div>
+                            <MudSelect @bind-Value="_model.VaapiDisplay" For="@(() => _model.VaapiDisplay)" HelperText="Legacy engine only">
+                                @foreach (string display in _vaapiDisplays)
+                                {
+                                    <MudSelectItem Value="@display">@display</MudSelectItem>
+                                }
+                            </MudSelect>
+                        </MudStack>
+                    }
                 }
 
                 @if (_model.HardwareAcceleration is HardwareAccelerationKind.Vaapi ||
@@ -246,12 +258,15 @@
 
             @if (_model.HardwareAcceleration == HardwareAccelerationKind.Qsv)
             {
-                <MudStack Row="true" Breakpoint="Breakpoint.SmAndDown" Class="form-field-stack gap-md-8 mb-5">
-                    <div class="d-flex">
-                        <MudText>QSV Extra Hardware Frames</MudText>
-                    </div>
-                    <MudTextField @bind-Value="_model.QsvExtraHardwareFrames" For="@(() => _model.QsvExtraHardwareFrames)" HelperText="Legacy engine only"/>
-                </MudStack>
+                @if (LegacyStreamingEngine.Enabled)
+                {
+                    <MudStack Row="true" Breakpoint="Breakpoint.SmAndDown" Class="form-field-stack gap-md-8 mb-5">
+                        <div class="d-flex">
+                            <MudText>QSV Extra Hardware Frames</MudText>
+                        </div>
+                        <MudTextField @bind-Value="_model.QsvExtraHardwareFrames" For="@(() => _model.QsvExtraHardwareFrames)" HelperText="Legacy engine only"/>
+                    </MudStack>
+                }
             }
             else
             {
@@ -274,14 +289,17 @@
                 </div>
                 <MudCheckBox @bind-Value="@_model.NormalizeFramerate" For="@(() => _model.NormalizeFramerate)" Dense="true"/>
             </MudStack>
-            <MudStack Row="true" Breakpoint="Breakpoint.SmAndDown" Class="form-field-stack gap-md-8 mb-5">
-                <div class="d-flex">
-                    <MudText>Normalize Colors</MudText>
-                </div>
-                <MudCheckBox @bind-Value="@_model.NormalizeColors" For="@(() => _model.NormalizeColors)" Dense="true">
-                    <MudText Typo="Typo.caption" Style="font-weight: normal">Legacy engine only</MudText>
-                </MudCheckBox>
-            </MudStack>
+            @if (LegacyStreamingEngine.Enabled)
+            {
+                <MudStack Row="true" Breakpoint="Breakpoint.SmAndDown" Class="form-field-stack gap-md-8 mb-5">
+                    <div class="d-flex">
+                        <MudText>Normalize Colors</MudText>
+                    </div>
+                    <MudCheckBox @bind-Value="@_model.NormalizeColors" For="@(() => _model.NormalizeColors)" Dense="true">
+                        <MudText Typo="Typo.caption" Style="font-weight: normal">Legacy engine only</MudText>
+                    </MudCheckBox>
+                </MudStack>
+            }
             <MudStack Row="true" Breakpoint="Breakpoint.SmAndDown" Class="form-field-stack gap-md-8 mb-5">
                 <div class="d-flex">
                     <MudText>Auto Deinterlace Video</MudText>
@@ -569,6 +587,11 @@
 
     private async Task HandleSubmitAsync()
     {
+        if (!LegacyStreamingEngine.Enabled)
+        {
+            _model.SyncHiddenVideoProfile();
+        }
+
         await _form.ValidateAsync();
         if (!_form.IsValid)
         {
@@ -589,7 +612,7 @@
                 errorMessage.HeadOrNone().Match(
                     error =>
                     {
-                        Snackbar.Add("Unexpected error saving ffmpeg profile");
+                        Snackbar.Add(error.Value, Severity.Error);
                         Logger.LogError("Unexpected error saving ffmpeg profile: {Error}", error.Value);
                     },
                     () => NavigationManager.NavigateTo("ffmpeg"));

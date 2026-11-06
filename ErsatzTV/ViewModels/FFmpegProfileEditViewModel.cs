@@ -150,6 +150,25 @@ public class FFmpegProfileEditViewModel
         set;
     }
 
+    // without the legacy engine the profile field is hidden, but validation still checks it against bit depth
+    public void SyncHiddenVideoProfile()
+    {
+        if (VideoFormat is not FFmpegProfileVideoFormat.H264)
+        {
+            return;
+        }
+
+        // the getter already forces high444p for nvenc 10-bit
+        if (BitDepth is FFmpegProfileBitDepth.TenBit && HardwareAcceleration is not HardwareAccelerationKind.Nvenc)
+        {
+            VideoProfile = FFmpeg.Format.VideoProfile.High10;
+        }
+        else if (VideoProfile == FFmpeg.Format.VideoProfile.High10)
+        {
+            VideoProfile = FFmpeg.Format.VideoProfile.High;
+        }
+    }
+
     public string VideoPreset { get; set; }
     public bool AllowBFrames { get; set; }
     public FFmpegProfileBitDepth BitDepth { get; set; }
