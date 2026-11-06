@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using ErsatzTV.Application.Streaming;
 using ErsatzTV.Core.Next.Description;
 using NUnit.Framework;
@@ -8,23 +9,31 @@ namespace ErsatzTV.Tests.Streaming;
 [TestFixture]
 public class NextContractTests
 {
-    private const string ChannelConfigVersion = "https://ersatztv.org/channel/version/0.1.3";
-    private const string PlayoutVersion = "https://ersatztv.org/playout/version/0.0.7";
+    // made-up versions: these tests cover the rules, not legacy's current versions
+    private const string ChannelBase = "https://ersatztv.org/channel/version/";
+    private const string PlayoutBase = "https://ersatztv.org/playout/version/";
+    private const long ChannelBreaking = 4;
+    private const long ChannelCompatible = 6;
+    private const long PlayoutBreaking = 2;
+    private const long PlayoutCompatible = 9;
 
-    private const string DescribeJson =
-        """
+    private static readonly string ChannelVersion = $"{ChannelBase}0.{ChannelBreaking}.{ChannelCompatible}";
+    private static readonly string PlayoutVersion = $"{PlayoutBase}0.{PlayoutBreaking}.{PlayoutCompatible}";
+
+    private static readonly string DescribeJson =
+        $$"""
         {
-          "describe_version": 1,
+          "describe_version": {{NextContract.DescribeVersion}},
           "binary": { "version": "0.2.4+local", "commit": null },
           "contract": {
-            "playout_schema": { "uri": "https://ersatztv.org/playout/version/0.0.7", "breaking": 0, "compatible": 7 },
-            "channel_config_schema": { "uri": "https://ersatztv.org/channel/version/0.1.3", "breaking": 1, "compatible": 3 },
+            "playout_schema": { "uri": "{{PlayoutVersion}}", "breaking": {{PlayoutBreaking}}, "compatible": {{PlayoutCompatible}} },
+            "channel_config_schema": { "uri": "{{ChannelVersion}}", "breaking": {{ChannelBreaking}}, "compatible": {{ChannelCompatible}} },
             "output_files": {
-              "playlist": "live.m3u8",
-              "subtitle_playlist": "live_sub.m3u8",
+              "playlist": "{{NextContract.PlaylistFileName}}",
+              "subtitle_playlist": "{{NextContract.SubtitlePlaylistFileName}}",
               "segment_template": "live%06d.ts",
-              "ready": ".ready",
-              "heartbeat": ".heartbeat"
+              "ready": "{{NextContract.ReadyFileName}}",
+              "heartbeat": "{{NextContract.HeartbeatFileName}}"
             },
             "segment_seconds": 4,
             "keyframe_seconds": 2
@@ -43,15 +52,15 @@ public class NextContractTests
     private static Describe Parse() => Describe.FromJson(DescribeJson);
 
     [Test]
-    public void Current_Legacy_Versions_Match_Current_Binary()
+    public void Same_Versions_Are_Accepted()
     {
-        NextContract.Check(Parse()).ShouldBeEmpty();
+        NextContract.Check(Parse(), ChannelVersion, PlayoutVersion).ShouldBeEmpty();
     }
 
     [Test]
     public void Older_Compatible_Version_Is_Accepted()
     {
-        NextContract.Check(Parse(), "https://ersatztv.org/channel/version/0.1.0", PlayoutVersion).ShouldBeEmpty();
+        NextContract.Check(Parse(), $"{ChannelBase}0.{ChannelBreaking}.0", PlayoutVersion).ShouldBeEmpty();
     }
 
     [Test]
@@ -59,7 +68,7 @@ public class NextContractTests
     {
         List<string> problems = NextContract.Check(
             Parse(),
-            "https://ersatztv.org/channel/version/0.1.4",
+            $"{ChannelBase}0.{ChannelBreaking}.{ChannelCompatible + 1}",
             PlayoutVersion);
 
         problems.Count.ShouldBe(1);
@@ -71,8 +80,8 @@ public class NextContractTests
     {
         List<string> problems = NextContract.Check(
             Parse(),
-            ChannelConfigVersion,
-            "https://ersatztv.org/playout/version/0.1.0");
+            ChannelVersion,
+            $"{PlayoutBase}0.{PlayoutBreaking + 1}.0");
 
         problems.Count.ShouldBe(1);
         problems[0].ShouldContain("playout");
@@ -81,7 +90,7 @@ public class NextContractTests
     [Test]
     public void Unparseable_Version_Is_Rejected()
     {
-        NextContract.Check(Parse(), "https://ersatztv.org/channel/version/latest", PlayoutVersion).Count.ShouldBe(1);
+        NextContract.Check(Parse(), $"{ChannelBase}latest", PlayoutVersion).Count.ShouldBe(1);
     }
 
     [Test]
@@ -90,7 +99,7 @@ public class NextContractTests
         Describe describe = Parse();
         describe.Contract.OutputFiles.Ready = "ready";
 
-        List<string> problems = NextContract.Check(describe, ChannelConfigVersion, PlayoutVersion);
+        List<string> problems = NextContract.Check(describe, ChannelVersion, PlayoutVersion);
 
         problems.Count.ShouldBe(1);
         problems[0].ShouldContain("ready");
@@ -100,8 +109,30 @@ public class NextContractTests
     public void Unknown_Describe_Version_Is_Rejected()
     {
         Describe describe = Parse();
-        describe.DescribeVersion = 2;
+        describe.DescribeVersion = NextContract.DescribeVersion + 1;
 
-        NextContract.Check(describe, ChannelConfigVersion, PlayoutVersion).Count.ShouldBe(1);
+        NextContract.Check(describe, ChannelVersion, PlayoutVersion).Count.ShouldBe(1);
+    }
+
+    // CI downloads the pinned build into ETV_TEST_NEXT_FOLDER
+    [Test]
+    public async Task Current_Versions_Match_Pinned_Binary()
+    {
+        string folder = Environment.GetEnvironmentVariable("ETV_TEST_NEXT_FOLDER");
+        if (string.IsNullOrWhiteSpace(folder))
+        {
+            Assert.Ignore("set ETV_TEST_NEXT_FOLDER to a folder with ersatztv-channel");
+        }
+
+        string binary = Path.Combine(folder, OperatingSystem.IsWindows() ? "ersatztv-channel.exe" : "ersatztv-channel");
+        using var process = Process.Start(
+            new ProcessStartInfo(binary, "describe") { RedirectStandardOutput = true, UseShellExecute = false });
+        process.ShouldNotBeNull();
+
+        string json = await process.StandardOutput.ReadToEndAsync();
+        await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(30));
+        process.ExitCode.ShouldBe(0);
+
+        NextContract.Check(Describe.FromJson(json)).ShouldBeEmpty();
     }
 }
