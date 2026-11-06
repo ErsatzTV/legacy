@@ -5,7 +5,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 ### Changed
-- Use an ErsatzTV-ffmpeg develop build (`8.1.2-4089c130-develop`, newer than `8.1.2-7`) in docker images, Windows packages and macOS packages
+- Use ErsatzTV-ffmpeg `8.1.2-8` in docker images, Windows packages and macOS packages
   - Fix QSV streams failing about 10 seconds in with `Can't allocate a surface` or `Failed to query an output frame` on pre-Tiger Lake Intel GPUs (regression in 26.11.6)
   - Fix QSV, VAAPI and CUDA items failing when the source's color tags change mid-stream
 - Troubleshooting: replace the separate accel-specific tabs with one `Hardware` tab showing what the next engine can use on the machine
@@ -26,6 +26,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Next engine:
   - Fix NVENC failing to start (`Gop Length should be greater than number of B frames + 1`) on very low frame rate sources, such as 1 fps slideshows
   - VAAPI: fix `tonemap_opencl` and `pad_opencl` never being used on Intel GPUs when only the OpenCL runtime (`libOpenCL.so.1`) is installed, such as in docker
+  - Vulkan: fix hardware decode being chosen for formats the driver can't decode, such as H.264 10-bit on Intel GPUs on Windows
+  - Vulkan: never select a CPU (llvmpipe) Vulkan device
   - Fix still-image watermarks disappearing partway through an item, or (QSV) the item ending early
     - This happened when the source's video parameters change mid-stream, such as spliced or smart-cut files
   - Fix 4:2:2, 4:4:4 and 12-bit sources (such as ProRes, or HEVC/H.264 from cameras)
@@ -37,6 +39,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Fix one invalid playout item failing the whole playout file, so the channel showed `failed to load playout JSON file` for every item
     - An invalid item now shows the fallback for its own time only, naming the item and the invalid field
   - Fix fallback filler showing the previous clip's subtitles, or the fallback error screen for the rest of a gap after one clip ended early
+
+### Known issues
+- VAAPI on Intel Meteor Lake and Arrow Lake with the free `intel-media-va-driver` package (Debian, Ubuntu): channels with a watermark run far below realtime
+  - Install `intel-media-va-driver-non-free`, or add `"ffmpeg": { "disabled_filters": ["overlay_vaapi"] }` to a channel config overlay in ErsatzTV's config folder / `next` / `channel-config-overlays` (`default.json` for all channels, or `{number}.json` for one channel)
+  - The docker image is not affected
 
 ## [26.11.6] - 2026-10-31
 ### Added

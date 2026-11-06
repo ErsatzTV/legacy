@@ -1,6 +1,5 @@
 {
-  "tag": "8.1.2-4089c130-develop",
-  "digest": "sha256:53a6af8fe5d56f6ce6699d71d6f59f63a4797d139e3d37e6dd9af305d49332bf",
-  "sha256sums": "c4881b7d12b21101f2d35c48ea37a87234ddd264e44f29dc2aead8aa11fba8bd",
-  "last_release": "8.1.2-7"
+  "tag": "8.1.2-8",
+  "digest": "sha256:702edc9ee685d59a69621ab62121c3a7cbf62d4270fbeac9629ac40e95d6f98c",
+  "sha256sums": "05b30806e97ed885fd42ba18b38daa50d4bb315e94ec19ae6800ea7bfd955c44"
 }
