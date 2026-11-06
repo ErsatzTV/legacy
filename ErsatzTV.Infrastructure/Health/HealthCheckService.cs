@@ -32,8 +32,7 @@ public class HealthCheckService(
         typeof(IZeroDurationHealthCheck),
         typeof(IFileNotFoundHealthCheck),
         typeof(IUnavailableHealthCheck),
-        typeof(IEmptyScheduleHealthCheck),
-        typeof(IVaapiDriverHealthCheck)
+        typeof(IEmptyScheduleHealthCheck)
     ];
 
     private readonly Lock _sync = new();

@@ -127,6 +127,15 @@ jobs:
         shell: bash
         run: scripts/install-age-ci.sh
 
+      # the contract is the same everywhere, so one job checks legacy's versions against the pinned next
+      - name: Download next
+        if: matrix.target == 'linux-x64'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          .github/scripts/download-next.sh "${{ matrix.target }}" next-extracted
+          echo "ETV_TEST_NEXT_FOLDER=$PWD/next-extracted" >> "$GITHUB_ENV"
+
       - name: Test
         run: dotnet test --configuration Release --no-build --no-restore --blame-hang-timeout "2m" --verbosity normal
   build_and_test_mac:

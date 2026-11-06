@@ -1,5 +1,4 @@
 using System.Collections.Immutable;
-using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -132,63 +131,6 @@ public partial class HardwareCapabilitiesFactory(
         };
     }
 
-    public async Task<string> GetNvidiaOutput(string ffmpegPath)
-    {
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
-        {
-            return string.Empty;
-        }
-
-        try
-        {
-            Option<List<CudaDevice>> maybeDevices = CudaHelper.GetDevices();
-            foreach (List<CudaDevice> devices in maybeDevices.Where(list => list.Count > 0))
-            {
-                var sb = new StringBuilder();
-                foreach (CudaDevice device in devices)
-                {
-                    sb.AppendLine(
-                        CultureInfo.InvariantCulture,
-                        $"GPU #{device.Handle} < {device.Model} > has Compute SM {device.Version.Major}.{device.Version.Minor}");
-
-                    sb.AppendLine(CudaHelper.GetDeviceDetails(device));
-                }
-
-                return sb.ToString();
-            }
-        }
-        catch (FileNotFoundException)
-        {
-            // do nothing
-        }
-        catch (TypeInitializationException)
-        {
-            // do nothing
-        }
-
-        // if we don't have a list of cuda devices, fall back to ffmpeg check
-
-        string[] arguments =
-        [
-            "-f", "lavfi",
-            "-i", "nullsrc",
-            "-c:v", "h264_nvenc",
-            "-gpu", "list",
-            "-f", "null", "-"
-        ];
-
-        BufferedCommandResult result = await Cli.Wrap(ffmpegPath)
-            .WithArguments(arguments)
-            .WithValidation(CommandResultValidation.None)
-            .ExecuteBufferedAsync(Encoding.UTF8);
-
-        string output = string.IsNullOrWhiteSpace(result.StandardOutput)
-            ? result.StandardError
-            : result.StandardOutput;
-
-        return output;
-    }
-
     public async Task<QsvOutput> GetQsvOutput(string ffmpegPath, Option<string> qsvDevice)
     {
         if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
@@ -308,24 +250,6 @@ public partial class HardwareCapabilitiesFactory(
 
         return [];
     }
-
-    [SuppressMessage("ReSharper", "InconsistentNaming")]
-    public List<string> GetVideoToolboxDecoders()
-    {
-        var result = new List<string>();
-
-        foreach (string fourCC in FourCC.AllVideoToolbox)
-        {
-            if (VideoToolboxUtil.IsHardwareDecoderSupported(fourCC, logger))
-            {
-                result.Add(fourCC);
-            }
-        }
-
-        return result;
-    }
-
-    public List<string> GetVideoToolboxEncoders() => VideoToolboxUtil.GetAvailableEncoders(logger);
 
     public void SetAviSynthInstalled(bool aviSynthInstalled)
     {

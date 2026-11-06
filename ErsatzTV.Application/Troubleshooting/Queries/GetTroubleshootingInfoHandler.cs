@@ -1,21 +1,15 @@
 using System.Collections;
-using System.Globalization;
 using System.Reflection;
-using System.Runtime.InteropServices;
-using System.Text;
 using ErsatzTV.Application.FFmpegProfiles;
 using ErsatzTV.Application.Streaming;
 using ErsatzTV.Core.Domain;
-using ErsatzTV.Core.FFmpeg;
 using ErsatzTV.Core.Health;
 using ErsatzTV.Core.Interfaces.Repositories;
+using ErsatzTV.Core.Interfaces.Streaming;
 using ErsatzTV.Core.Next.Description;
 using ErsatzTV.FFmpeg.Capabilities;
-using ErsatzTV.FFmpeg.Capabilities.Qsv;
-using ErsatzTV.FFmpeg.Runtime;
 using ErsatzTV.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Caching.Memory;
 
 namespace ErsatzTV.Application.Troubleshooting.Queries;
 
@@ -25,25 +19,22 @@ public class GetTroubleshootingInfoHandler : IRequestHandler<GetTroubleshootingI
     private readonly IDbContextFactory<TvContext> _dbContextFactory;
     private readonly IHardwareCapabilitiesFactory _hardwareCapabilitiesFactory;
     private readonly IHealthCheckService _healthCheckService;
-    private readonly IMemoryCache _memoryCache;
     private readonly IMediator _mediator;
-    private readonly IRuntimeInfo _runtimeInfo;
+    private readonly INextProbeService _nextProbeService;
 
     public GetTroubleshootingInfoHandler(
         IDbContextFactory<TvContext> dbContextFactory,
         IHealthCheckService healthCheckService,
         IHardwareCapabilitiesFactory hardwareCapabilitiesFactory,
         IConfigElementRepository configElementRepository,
-        IRuntimeInfo runtimeInfo,
-        IMemoryCache memoryCache,
+        INextProbeService nextProbeService,
         IMediator mediator)
     {
         _dbContextFactory = dbContextFactory;
         _healthCheckService = healthCheckService;
         _hardwareCapabilitiesFactory = hardwareCapabilitiesFactory;
         _configElementRepository = configElementRepository;
-        _runtimeInfo = runtimeInfo;
-        _memoryCache = memoryCache;
+        _nextProbeService = nextProbeService;
         _mediator = mediator;
     }
 
@@ -82,99 +73,16 @@ public class GetTroubleshootingInfoHandler : IRequestHandler<GetTroubleshootingI
         bool aviSynthDemuxer = false;
         bool aviSynthInstalled = false;
 
-        string nvidiaCapabilities = null;
-        StringBuilder qsvCapabilities = new();
-        StringBuilder vaapiCapabilities = new();
-        StringBuilder videoToolboxCapabilities = new();
         Option<ConfigElement> maybeFFmpegPath =
             await _configElementRepository.GetConfigElement(ConfigElementKey.FFmpegPath, cancellationToken);
-        if (maybeFFmpegPath.IsNone)
+        foreach (ConfigElement ffmpegPath in maybeFFmpegPath)
         {
-            nvidiaCapabilities = "Unable to locate ffmpeg";
-        }
-        else
-        {
-            foreach (ConfigElement ffmpegPath in maybeFFmpegPath)
-            {
-                ffmpegVersion =
-                    await _hardwareCapabilitiesFactory.GetFFmpegVersion(ffmpegPath.Value, cancellationToken);
+            ffmpegVersion = await _hardwareCapabilitiesFactory.GetFFmpegVersion(ffmpegPath.Value, cancellationToken);
 
-                nvidiaCapabilities = await _hardwareCapabilitiesFactory.GetNvidiaOutput(ffmpegPath.Value);
-
-                if (!_memoryCache.TryGetValue("ffmpeg.render_devices", out List<string> vaapiDevices))
-                {
-                    vaapiDevices = ["/dev/dri/renderD128"];
-                }
-
-                if (!_memoryCache.TryGetValue("ffmpeg.vaapi_displays", out List<string> vaapiDisplays))
-                {
-                    vaapiDisplays = ["drm"];
-                }
-
-                foreach (string qsvDevice in vaapiDevices)
-                {
-                    QsvOutput output = await _hardwareCapabilitiesFactory.GetQsvOutput(ffmpegPath.Value, qsvDevice);
-                    qsvCapabilities.AppendLine(CultureInfo.InvariantCulture, $"Checking device {qsvDevice}");
-                    qsvCapabilities.AppendLine(CultureInfo.InvariantCulture, $"Exit Code: {output.ExitCode}");
-                    qsvCapabilities.AppendLine();
-                    qsvCapabilities.AppendLine(output.Output);
-                    qsvCapabilities.AppendLine();
-                }
-
-                if (_runtimeInfo.IsOSPlatform(OSPlatform.Linux))
-                {
-                    var allDrivers = new List<VaapiDriver>
-                        { VaapiDriver.iHD, VaapiDriver.i965, VaapiDriver.RadeonSI, VaapiDriver.Nouveau };
-
-                    foreach (string display in vaapiDisplays)
-                    foreach (VaapiDriver activeDriver in allDrivers)
-                    foreach (string vaapiDevice in vaapiDevices)
-                    {
-                        foreach (string output in await _hardwareCapabilitiesFactory.GetVaapiOutput(
-                                     display,
-                                     Optional(GetDriverName(activeDriver)),
-                                     vaapiDevice))
-                        {
-                            vaapiCapabilities.AppendLine(
-                                CultureInfo.InvariantCulture,
-                                $"Checking display [{display}] driver [{activeDriver}] device [{vaapiDevice}]{Environment.NewLine}");
-                            vaapiCapabilities.AppendLine();
-                            vaapiCapabilities.AppendLine(output);
-                            vaapiCapabilities.AppendLine();
-                        }
-                    }
-                }
-
-                if (_runtimeInfo.IsOSPlatform(OSPlatform.OSX))
-                {
-                    List<string> decoders = _hardwareCapabilitiesFactory.GetVideoToolboxDecoders();
-                    videoToolboxCapabilities.AppendLine("VideoToolbox Decoders: ");
-                    videoToolboxCapabilities.AppendLine();
-                    foreach (string decoder in decoders)
-                    {
-                        videoToolboxCapabilities.AppendLine(CultureInfo.InvariantCulture, $"\t{decoder}");
-                    }
-
-                    videoToolboxCapabilities.AppendLine();
-                    videoToolboxCapabilities.AppendLine();
-
-                    List<string> encoders = _hardwareCapabilitiesFactory.GetVideoToolboxEncoders();
-                    videoToolboxCapabilities.AppendLine("VideoToolbox Encoders: ");
-                    videoToolboxCapabilities.AppendLine();
-                    foreach (string encoder in encoders)
-                    {
-                        videoToolboxCapabilities.AppendLine(CultureInfo.InvariantCulture, $"\t{encoder}");
-                    }
-
-                    videoToolboxCapabilities.AppendLine();
-                    videoToolboxCapabilities.AppendLine();
-                }
-
-                var ffmpegCapabilities =
-                    await _hardwareCapabilitiesFactory.GetFFmpegCapabilities(ffmpegPath.Value, cancellationToken);
-                aviSynthDemuxer = ffmpegCapabilities.HasDemuxFormat(FFmpegKnownFormat.AviSynth);
-                aviSynthInstalled = _hardwareCapabilitiesFactory.IsAviSynthInstalled();
-            }
+            var ffmpegCapabilities =
+                await _hardwareCapabilitiesFactory.GetFFmpegCapabilities(ffmpegPath.Value, cancellationToken);
+            aviSynthDemuxer = ffmpegCapabilities.HasDemuxFormat(FFmpegKnownFormat.AviSynth);
+            aviSynthInstalled = _hardwareCapabilitiesFactory.IsAviSynthInstalled();
         }
 
         var environment = new Dictionary<string, string>();
@@ -223,26 +131,6 @@ public class GetTroubleshootingInfoHandler : IRequestHandler<GetTroubleshootingI
             channelWatermarks,
             aviSynthDemuxer,
             aviSynthInstalled,
-            nvidiaCapabilities,
-            qsvCapabilities.ToString(),
-            vaapiCapabilities.ToString(),
-            videoToolboxCapabilities.ToString());
-    }
-
-    private static string GetDriverName(VaapiDriver driver)
-    {
-        switch (driver)
-        {
-            case VaapiDriver.i965:
-                return "i965";
-            case VaapiDriver.iHD:
-                return "iHD";
-            case VaapiDriver.RadeonSI:
-                return "radeonsi";
-            case VaapiDriver.Nouveau:
-                return "nouveau";
-        }
-
-        return null;
+            _nextProbeService.Latest.MatchUnsafe(identity, () => null));
     }
 }

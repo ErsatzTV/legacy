@@ -37,7 +37,7 @@ public class PlayoutItemConverter(
     IDbContextFactory<TvContext> dbContextFactory,
     ILogger<PlayoutItemConverter> logger) : IPlayoutItemConverter
 {
-    public static readonly string PlayoutVersion = "https://ersatztv.org/playout/version/0.0.7";
+    public static readonly string PlayoutVersion = "https://ersatztv.org/playout/version/0.0.8";
 
     public async Task<Option<Core.Next.PlayoutItem>> ToNext(
         string channelNumber,

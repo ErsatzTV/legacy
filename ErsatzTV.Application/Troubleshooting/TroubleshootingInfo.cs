@@ -1,5 +1,6 @@
 using ErsatzTV.Application.FFmpegProfiles;
 using ErsatzTV.Core.Domain;
+using ErsatzTV.Core.Interfaces.Streaming;
 using ErsatzTV.Core.Next.Description;
 using ErsatzTV.FFmpeg.Capabilities;
 
@@ -20,7 +21,4 @@ public record TroubleshootingInfo(
     List<ChannelWatermark> Watermarks,
     bool AviSynthDemuxer,
     bool AviSynthInstalled,
-    string NvidiaCapabilities,
-    string QsvCapabilities,
-    string VaapiCapabilities,
-    string VideoToolboxCapabilities);
+    NextProbeResult NextProbe);

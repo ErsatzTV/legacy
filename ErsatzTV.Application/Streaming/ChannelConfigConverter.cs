@@ -6,6 +6,7 @@ using ErsatzTV.Core;
 using ErsatzTV.Core.Domain;
 using ErsatzTV.Core.FFmpeg;
 using ErsatzTV.Core.Interfaces.Repositories;
+using ErsatzTV.Core.Next;
 using ErsatzTV.Core.Next.Config;
 using ErsatzTV.FFmpeg;
 using Subtitle = ErsatzTV.Core.Next.Config.Subtitle;
@@ -92,28 +93,9 @@ public class ChannelConfigConverter(IConfigElementRepository configElementReposi
         var videoNormalization = new Video
         {
             Mode = videoCopy ? StreamMode.Copy : StreamMode.Transcode,
-            Format = ffmpegProfile.VideoFormat switch
-            {
-                FFmpegProfileVideoFormat.Hevc => VideoFormat.Hevc,
-                FFmpegProfileVideoFormat.Mpeg2Video => VideoFormat.Mpeg2Video,
-                _ => VideoFormat.H264
-            },
-            BitDepth = (ffmpegProfile.VideoFormat, ffmpegProfile.BitDepth) switch
-            {
-                (FFmpegProfileVideoFormat.Mpeg2Video, _) => 8,
-                (_, FFmpegProfileBitDepth.TenBit) => 10,
-                _ => 8
-            },
-            Accel = ffmpegProfile.HardwareAcceleration switch
-            {
-                HardwareAccelerationKind.Amf => AccelEnum.Amf,
-                HardwareAccelerationKind.Nvenc => AccelEnum.Cuda,
-                HardwareAccelerationKind.Qsv => AccelEnum.Qsv,
-                HardwareAccelerationKind.Rkmpp => AccelEnum.Rkmpp,
-                HardwareAccelerationKind.Vaapi => AccelEnum.Vaapi,
-                HardwareAccelerationKind.VideoToolbox => AccelEnum.Videotoolbox,
-                _ => null
-            },
+            Format = NextHardware.ToNextVideoFormat(ffmpegProfile.VideoFormat),
+            BitDepth = NextHardware.ToNextBitDepth(ffmpegProfile.VideoFormat, ffmpegProfile.BitDepth),
+            Accel = NextHardware.ToNextAccel(ffmpegProfile.HardwareAcceleration),
             Height = ffmpegProfile.Resolution.Height,
             Width = ffmpegProfile.Resolution.Width,
             BitrateKbps = ffmpegProfile.VideoBitrate,
@@ -141,13 +123,7 @@ public class ChannelConfigConverter(IConfigElementRepository configElementReposi
                 }
             },
             VaapiDevice = ffmpegProfile.VaapiDevice,
-            VaapiDriver = ffmpegProfile.VaapiDriver switch
-            {
-                VaapiDriver.iHD => VaapiDriverEnum.Ihd,
-                VaapiDriver.i965 => VaapiDriverEnum.I965,
-                VaapiDriver.RadeonSI => VaapiDriverEnum.Radeonsi,
-                _ => null
-            }
+            VaapiDriver = NextHardware.ToNextVaapiDriver(ffmpegProfile.VaapiDriver)
         };
 
         foreach (string frameRate in targetFramerate.Bind(ToNextFrameRate))

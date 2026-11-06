@@ -1,6 +1,5 @@
 using System.IO.Abstractions;
 using System.IO.Pipelines;
-using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using CliWrap;
@@ -13,7 +12,6 @@ using ErsatzTV.Core.Interfaces.Metadata;
 using ErsatzTV.Core.Interfaces.Streaming;
 using ErsatzTV.Core.Interfaces.Troubleshooting;
 using ErsatzTV.Core.Notifications;
-using ErsatzTV.FFmpeg.Runtime;
 using Microsoft.Extensions.Logging;
 using Serilog.Context;
 using Serilog.Events;
@@ -25,7 +23,6 @@ public class StartTroubleshootingPlaybackHandler(
     ITroubleshootingPlayoutItemStore troubleshootingPlayoutItemStore,
     IMediator mediator,
     IEntityLocker entityLocker,
-    IRuntimeInfo runtimeInfo,
     IGraphicsEngine graphicsEngine,
     InMemoryLogService logService,
     LoggingLevelSwitches loggingLevelSwitches,
@@ -111,29 +108,11 @@ public class StartTroubleshootingPlaybackHandler(
                 }
             }
 
-            HardwareAccelerationKind hwAccel = request.TroubleshootingInfo.FFmpegProfiles.Head().HardwareAcceleration;
-            if (hwAccel is HardwareAccelerationKind.Qsv)
+            if (request.TroubleshootingInfo.NextProbe is { } nextProbe)
             {
                 await File.WriteAllTextAsync(
-                    Path.Combine(FileSystemLayout.TranscodeTroubleshootingFolder, "capabilities_qsv.txt"),
-                    request.TroubleshootingInfo.QsvCapabilities,
-                    cancellationToken);
-            }
-
-            if (hwAccel is HardwareAccelerationKind.Vaapi || hwAccel is HardwareAccelerationKind.Qsv &&
-                runtimeInfo.IsOSPlatform(OSPlatform.Linux))
-            {
-                await File.WriteAllTextAsync(
-                    Path.Combine(FileSystemLayout.TranscodeTroubleshootingFolder, "capabilities_vaapi.txt"),
-                    request.TroubleshootingInfo.VaapiCapabilities,
-                    cancellationToken);
-            }
-
-            if (hwAccel is HardwareAccelerationKind.Nvenc)
-            {
-                await File.WriteAllTextAsync(
-                    Path.Combine(FileSystemLayout.TranscodeTroubleshootingFolder, "capabilities_nvidia.txt"),
-                    request.TroubleshootingInfo.NvidiaCapabilities,
+                    Path.Combine(FileSystemLayout.TranscodeTroubleshootingFolder, "next_probe.json"),
+                    nextProbe.Json,
                     cancellationToken);
             }
 

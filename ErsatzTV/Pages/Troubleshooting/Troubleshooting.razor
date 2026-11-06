@@ -1,10 +1,12 @@
 ﻿@page "/system/troubleshooting"
-@using System.Runtime.InteropServices
 @using System.Text.Encodings.Web
 @using System.Text.Json
 @using System.Text.Json.Serialization
+@using ErsatzTV.Application.Streaming
 @using ErsatzTV.Application.Troubleshooting
 @using ErsatzTV.Application.Troubleshooting.Queries
+@using ErsatzTV.Core.Interfaces.Streaming
+@using ErsatzTV.Core.Next.Description
 @implements IDisposable
 @inject IMediator Mediator
 @inject IJSRuntime JsRuntime
@@ -14,7 +16,7 @@
         <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="pt-8">
             <MudText Typo="Typo.h5" Class="mb-2">Troubleshooting</MudText>
             <MudDivider Class="mb-6"/>
-            <MudTabs Class="mb-6">
+            <MudTabs Class="mb-6" @bind-ActivePanelIndex="_activeTab">
                 <MudTabPanel Text="Tools">
                     <MudPaper Class="pa-6" Style="max-height: 500px">
                         <MudStack>
@@ -58,55 +60,73 @@
                         </MudButton>
                     </MudPaper>
                 </MudTabPanel>
-                @if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
-                {
-                    <MudTabPanel Text="VideoToolbox">
-                        <MudPaper Class="pa-6">
-                            <div class="overflow-y-scroll" style="max-height: 500px">
-                                <pre class="wrap-pre"><code @ref="_videoToolboxView">@_videoToolboxCapabilities</code></pre>
-                            </div>
-                            <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-4" OnClick="@(() => CopyToClipboard(_videoToolboxView))">
-                                Copy
-                            </MudButton>
-                        </MudPaper>
-                    </MudTabPanel>
-                }
-                else
-                {
-                    <MudTabPanel Text="NVIDIA">
-                        <MudPaper Class="pa-6">
-                            <div class="overflow-y-scroll" style="max-height: 500px">
-                                <pre class="wrap-pre"><code @ref="_nvidiaView">@_nvidiaCapabilities</code></pre>
-                            </div>
-                            <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-4" OnClick="@(() => CopyToClipboard(_nvidiaView))">
-                                Copy
-                            </MudButton>
-                        </MudPaper>
-                    </MudTabPanel>
-                    <MudTabPanel Text="QSV">
-                        <MudPaper Class="pa-6">
-                            <div class="overflow-y-scroll" style="max-height: 500px">
-                                <pre class="wrap-pre"><code @ref="_qsvView">@_qsvCapabilities</code></pre>
-                            </div>
-                            <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-4" OnClick="@(() => CopyToClipboard(_qsvView))">
-                                Copy
-                            </MudButton>
-                        </MudPaper>
-                    </MudTabPanel>
-                }
-                @if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
-                {
-                    <MudTabPanel Text="VAAPI">
-                        <MudPaper Class="pa-6">
-                            <div class="overflow-y-scroll" style="max-height: 500px">
-                                <pre class="wrap-pre"><code @ref="_vaapiView">@_vaapiCapabilities</code></pre>
-                            </div>
-                            <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-4" OnClick="@(() => CopyToClipboard(_vaapiView))">
-                                Copy
-                            </MudButton>
-                        </MudPaper>
-                    </MudTabPanel>
-                }
+                <MudTabPanel Text="Hardware">
+                    <MudPaper Class="pa-6">
+                        <div class="d-flex flex-row align-center mb-4">
+                            @if (_nextProbe is null)
+                            {
+                                <MudText>No hardware probe has finished yet.</MudText>
+                            }
+                            else
+                            {
+                                <MudText>
+                                    Probed @_nextProbe.ProbedAt.ToLocalTime().ToString("G") with ffmpeg @(_nextProbe.Capability.Ffmpeg.Version ?? "(unknown version)") at @_nextProbe.Capability.Ffmpeg.Path
+                                </MudText>
+                            }
+                            <MudIconButton Icon="@Icons.Material.Filled.Refresh"
+                                           Size="Size.Small"
+                                           Class="ml-2"
+                                           title="Probe hardware again"
+                                           Disabled="@_probing"
+                                           OnClick="@Reprobe"/>
+                            @if (_probing)
+                            {
+                                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="ml-2"/>
+                            }
+                        </div>
+                        @if (_nextProbe is not null)
+                        {
+                            <MudText Typo="Typo.body2" Class="mb-4">
+                                ffmpeg hwaccels: @string.Join(", ", _nextProbe.Capability.Ffmpeg.Hwaccels)
+                            </MudText>
+                            <MudTable Items="@_nextProbe.Capability.Accels" Dense="true" Hover="true" Breakpoint="Breakpoint.None">
+                                <HeaderContent>
+                                    <MudTh>Acceleration</MudTh>
+                                    <MudTh>Device</MudTh>
+                                    <MudTh>Driver</MudTh>
+                                    <MudTh>Decode</MudTh>
+                                    <MudTh>Encode</MudTh>
+                                </HeaderContent>
+                                <RowTemplate>
+                                    <MudTd>
+                                        <div style="align-items: center; display: flex; flex-direction: row;">
+                                            @if (context.Status == AccelStatus.Available)
+                                            {
+                                                <MudIcon Color="@Color.Success" Icon="@Icons.Material.Filled.Check"/>
+                                            }
+                                            else
+                                            {
+                                                <MudIcon Color="@Color.Error" Icon="@Icons.Material.Filled.Error"/>
+                                            }
+                                            <div class="ml-2">@context.Accel</div>
+                                        </div>
+                                    </MudTd>
+                                    <MudTd>@(context.Device ?? "")</MudTd>
+                                    <MudTd>@(context.Accel == "vaapi" ? context.Driver ?? "(libva default)" : "")</MudTd>
+                                    @if (context.Status == AccelStatus.Available)
+                                    {
+                                        <MudTd>@DecodeText(context)</MudTd>
+                                        <MudTd>@EncodeText(context)</MudTd>
+                                    }
+                                    else
+                                    {
+                                        <MudTd colspan="2">@StatusText(context)</MudTd>
+                                    }
+                                </RowTemplate>
+                            </MudTable>
+                        }
+                    </MudPaper>
+                </MudTabPanel>
             </MudTabs>
         </MudContainer>
     </div>
@@ -115,15 +135,15 @@
 @code {
     private CancellationTokenSource _cts;
     private string _troubleshootingInfo;
-    private string _nvidiaCapabilities;
-    private string _qsvCapabilities;
-    private string _vaapiCapabilities;
-    private string _videoToolboxCapabilities;
+    private const int HardwareTab = 2;
+
+    [SupplyParameterFromQuery(Name = "tab")]
+    public string Tab { get; set; }
+
+    private int _activeTab;
+    private NextProbeResult _nextProbe;
+    private bool _probing;
     private JsonView _troubleshootingView;
-    private ElementReference _nvidiaView;
-    private ElementReference _qsvView;
-    private ElementReference _vaapiView;
-    private ElementReference _videoToolboxView;
 
     public void Dispose()
     {
@@ -138,6 +158,8 @@
         _cts = new CancellationTokenSource();
         var token = _cts.Token;
 
+        _activeTab = string.Equals(Tab, "hardware", StringComparison.OrdinalIgnoreCase) ? HardwareTab : 0;
+
         try
         {
             TroubleshootingInfo info = await Mediator.Send(new GetTroubleshootingInfo(NextVersion.Version), token);
@@ -148,6 +170,9 @@
                     LegacyVersion = info.Version,
                     info.NextVersion,
                     info.NextDescribe,
+                    NextProbe = info.NextProbe is null
+                        ? null
+                        : new { info.NextProbe.ProbedAt, info.NextProbe.Capability },
                     info.FFmpegVersion,
                     Environment = info.Environment.OrderBy(x => x.Key).ToDictionary(x => x.Key, x => x.Value),
                     info.Cpus,
@@ -171,10 +196,7 @@
                     WriteIndented = true
                 });
 
-            _nvidiaCapabilities = info.NvidiaCapabilities;
-            _qsvCapabilities = info.QsvCapabilities;
-            _vaapiCapabilities = info.VaapiCapabilities;
-            _videoToolboxCapabilities = info.VideoToolboxCapabilities;
+            _nextProbe = info.NextProbe;
         }
         catch (OperationCanceledException)
         {
@@ -187,5 +209,42 @@
     }
 
     private async Task CopyToClipboard(ElementReference view) => await JsRuntime.InvokeVoidAsync("clipboardCopy.copyText", view);
+
+    private async Task Reprobe()
+    {
+        _probing = true;
+        try
+        {
+            Option<NextProbeResult> result = await Mediator.Send(new RefreshNextProbe(), _cts.Token);
+            _nextProbe = result.MatchUnsafe(identity, () => null);
+        }
+        catch (OperationCanceledException)
+        {
+            // do nothing
+        }
+        finally
+        {
+            _probing = false;
+        }
+    }
+
+    private static string DecodeText(AccelRuntime accel) =>
+        accel.Decode.Count == 0
+            ? "none"
+            : string.Join(", ", accel.Decode.Map(d => $"{d.Format} ({string.Join(", ", d.PixelFormats)})"));
+
+    private static string EncodeText(AccelRuntime accel) =>
+        accel.Encode.Count == 0
+            ? "none"
+            : string.Join(", ", accel.Encode.Map(e => $"{e.Format} ({string.Join("/", e.BitDepths)}-bit)"));
+
+    private static string StatusText(AccelRuntime accel) =>
+        accel.Status switch
+        {
+            AccelStatus.FfmpegMissing => accel.Error ?? "ffmpeg doesn't support this acceleration",
+            AccelStatus.Timeout => accel.Error ?? "probe timed out",
+            AccelStatus.Skipped => "not probed, because an earlier probe of this acceleration timed out",
+            _ => accel.Error ?? "probe failed"
+        };
 
 }

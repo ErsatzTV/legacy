@@ -3,6 +3,10 @@
 @using System.Runtime.InteropServices
 @using ErsatzTV.Application.FFmpegProfiles
 @using ErsatzTV.Application.Resolutions
+@using ErsatzTV.Application.Streaming
+@using ErsatzTV.Core.Interfaces.Streaming
+@using ErsatzTV.Core.Next
+@using ErsatzTV.Core.Next.Description
 @using ErsatzTV.Core.FFmpeg
 @using ErsatzTV.FFmpeg.Format
 @using ErsatzTV.Validators
@@ -179,7 +183,7 @@
                 <MudSelect @bind-Value="_model.HardwareAcceleration" For="@(() => _model.HardwareAcceleration)">
                     @foreach (HardwareAccelerationKind hwAccel in _hardwareAccelerationKinds)
                     {
-                        <MudSelectItem Value="@hwAccel">@hwAccel</MudSelectItem>
+                        <MudSelectItem Value="@hwAccel">@AccelLabel(hwAccel)</MudSelectItem>
                     }
                 </MudSelect>
             </MudStack>
@@ -211,20 +215,33 @@
                     </MudStack>
                 }
 
-                @if (_model.HardwareAcceleration is HardwareAccelerationKind.Vaapi or HardwareAccelerationKind.Qsv)
+                @if (_model.HardwareAcceleration is HardwareAccelerationKind.Vaapi ||
+                     _model.HardwareAcceleration is HardwareAccelerationKind.Qsv && LegacyStreamingEngine.Enabled)
                 {
                     <MudStack Row="true" Breakpoint="Breakpoint.SmAndDown" Class="form-field-stack gap-md-8 mb-5">
                         <div class="d-flex">
                             <MudText>@(_model.HardwareAcceleration == HardwareAccelerationKind.Vaapi ? "VAAPI Device" : "QSV Device")</MudText>
                         </div>
                         <MudSelect @bind-Value="_model.VaapiDevice" For="@(() => _model.VaapiDevice)">
-                            @foreach (string device in _vaapiDevices)
+                            @foreach (string device in DeviceOptions())
                             {
                                 <MudSelectItem Value="@device">@device</MudSelectItem>
                             }
                         </MudSelect>
                     </MudStack>
                 }
+            }
+
+            @if (HardwareMessage() is var (severity, message, working))
+            {
+                <MudAlert Severity="@severity" Class="mb-5">
+                    @message
+                    @if (working.Count > 0)
+                    {
+                        <span> Working on this machine: @string.Join(", ", working).</span>
+                    }
+                    <MudLink Href="system/troubleshooting?tab=hardware" Class="ml-1">Hardware troubleshooting</MudLink>
+                </MudAlert>
             }
 
             @if (_model.HardwareAcceleration == HardwareAccelerationKind.Qsv)
@@ -354,6 +371,7 @@
     private List<HardwareAccelerationKind> _hardwareAccelerationKinds = [];
     private List<string> _vaapiDisplays = [];
     private List<string> _vaapiDevices = [];
+    private Option<RuntimeCapability> _probe;
     private PersistingComponentStateSubscription _persistingSubscription;
 
     public void Dispose()
@@ -428,12 +446,23 @@
                 _model.HardwareAcceleration = HardwareAccelerationKind.None;
             }
 
+            Option<NextProbeResult> maybeProbe = await Mediator.Send(new GetNextProbe(), token);
+            _probe = maybeProbe.Map(p => p.Capability);
+
+            // stable sort keeps ffmpeg's order within each group
+            _hardwareAccelerationKinds = _hardwareAccelerationKinds
+                .OrderBy(k => k is HardwareAccelerationKind.None ? 0 : IsAvailable(k) ? 1 : 2)
+                .ToList();
+
             if (!MemoryCache.TryGetValue("ffmpeg.render_devices", out List<string> vaapiDevices))
             {
-                vaapiDevices = ["/dev/dri/renderD128"];
+                vaapiDevices = [NextHardware.DefaultVaapiDevice];
             }
 
-            _vaapiDevices = vaapiDevices.OrderBy(s => s).ToList();
+            // next's VAAPI needs a render node; card nodes fail for non-root users
+            _vaapiDevices = _probe.Map(NextHardware.VaapiDevices)
+                .Filter(devices => devices.Count > 0)
+                .IfNone(() => vaapiDevices.Filter(d => d.StartsWith("/dev/dri/render", StringComparison.Ordinal)).OrderBy(d => d).ToList());
 
             if (!MemoryCache.TryGetValue("ffmpeg.vaapi_displays", out List<string> vaapiDisplays))
             {
@@ -446,6 +475,74 @@
         {
             // do nothing
         }
+    }
+
+    private bool IsAvailable(HardwareAccelerationKind kind) =>
+        NextHardware.ToNextAccel(kind) is { } accel && _probe.Exists(p => NextHardware.AnyAvailable(p, accel));
+
+    private string AccelLabel(HardwareAccelerationKind kind)
+    {
+        if (kind is HardwareAccelerationKind.None || _probe.IsNone || IsAvailable(kind))
+        {
+            return kind.ToString();
+        }
+
+        return NextHardware.ToNextAccel(kind) is null ? $"{kind} (not supported)" : $"{kind} (unavailable)";
+    }
+
+    // keep an unprobed saved device so the select can show it
+    private List<string> DeviceOptions() =>
+        string.IsNullOrWhiteSpace(_model.VaapiDevice) || _vaapiDevices.Contains(_model.VaapiDevice)
+            ? _vaapiDevices
+            : [.._vaapiDevices, _model.VaapiDevice];
+
+    private (Severity, string, List<string>)? HardwareMessage()
+    {
+        NextHardwareTarget target = NextHardware.ToTarget(
+            _model.HardwareAcceleration,
+            _model.VaapiDevice,
+            _model.VaapiDriver,
+            _model.VideoFormat,
+            _model.BitDepth);
+        NextHardwareCheck check = NextHardware.Check(target, _probe);
+
+        string accel = _model.HardwareAcceleration.ToString();
+        string format = $"{NextHardware.ToProbeName(target.Format)} {target.BitDepth}-bit";
+        string error = check.Entry.Bind(e => Optional(e.Error)).Map(e => $": {e}").IfNone(string.Empty);
+        List<string> working = check.Working.Map(WorkingLabel).ToList();
+
+        return check.Status switch
+        {
+            NextHardwareStatus.NotProbed => (Severity.Info, "Hardware hasn't been probed yet, so this profile can't be checked.", working),
+            NextHardwareStatus.UnsupportedAccel => (Severity.Warning, $"The next engine doesn't support {accel}; channels will stream in software.", working),
+            NextHardwareStatus.NotOnPlatform => (Severity.Warning, $"The next engine can't use {accel} on this platform; channels will stream in software.", working),
+            NextHardwareStatus.DeviceNotProbed => (Severity.Warning,
+                target.VaapiDevice.StartsWith("/dev/dri/card", StringComparison.Ordinal)
+                    ? $"{target.VaapiDevice} isn't a render node; the next engine needs one (/dev/dri/renderD*)."
+                    : $"{target.VaapiDevice} wasn't found on this machine.",
+                working),
+            NextHardwareStatus.Unavailable => (Severity.Error, $"Channels will stream in software on this machine{error}.", working),
+            NextHardwareStatus.SoftwareEncode => (Severity.Warning, $"{accel} can't encode {format} on this machine; channels will decode in hardware where possible but encode in software.", working),
+            _ => null
+        };
+    }
+
+    private static string WorkingLabel(AccelRuntime entry)
+    {
+        if (entry.Device is null)
+        {
+            return entry.Accel;
+        }
+
+        string driver = entry.Driver switch
+        {
+            null => "Default",
+            "ihd" => "iHD",
+            "radeonsi" => "RadeonSI",
+            var d => d
+        };
+
+        return entry.Accel == "vaapi" ? $"{entry.Device} with driver {driver}" : entry.Device;
     }
 
     private bool HardwareAccelSupportsH264Profile(HardwareAccelerationKind accel) =>

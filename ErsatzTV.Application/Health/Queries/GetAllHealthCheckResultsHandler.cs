@@ -1,8 +1,9 @@
-﻿using ErsatzTV.Core.Health;
+﻿using ErsatzTV.Application.Streaming;
+using ErsatzTV.Core.Health;
 
 namespace ErsatzTV.Application.Health;
 
-public class GetAllHealthCheckResultsHandler(IHealthCheckService healthCheckService)
+public class GetAllHealthCheckResultsHandler(IHealthCheckService healthCheckService, IMediator mediator)
     : IRequestHandler<GetAllHealthCheckResults, List<HealthCheckResult>>
 {
     public async Task<List<HealthCheckResult>> Handle(
@@ -11,6 +12,11 @@ public class GetAllHealthCheckResultsHandler(IHealthCheckService healthCheckServ
     {
         try
         {
+            if (request.Refresh)
+            {
+                await mediator.Send(new RefreshNextProbe(), cancellationToken);
+            }
+
             List<HealthCheckResult> results = request.Refresh
                 ? await healthCheckService.PerformHealthChecks(cancellationToken)
                 : await healthCheckService.GetCachedHealthChecks(cancellationToken);
