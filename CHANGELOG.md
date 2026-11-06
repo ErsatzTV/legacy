@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
+
+## [26.12.0] - 2026-11-06
 ### Changed
 - Use ErsatzTV-ffmpeg `8.1.2-8` in docker images, Windows packages and macOS packages
   - Fix QSV streams failing about 10 seconds in with `Can't allocate a surface` or `Failed to query an output frame` on pre-Tiger Lake Intel GPUs (regression in 26.11.6)
@@ -3779,7 +3781,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Initial release to facilitate testing outside of Docker.
 
 
-[Unreleased]: https://github.com/ErsatzTV/legacy/compare/v26.11.6...HEAD
+[Unreleased]: https://github.com/ErsatzTV/legacy/compare/v26.12.0...HEAD
+[26.12.0]: https://github.com/ErsatzTV/legacy/compare/v26.11.6...v26.12.0
 [26.11.6]: https://github.com/ErsatzTV/legacy/compare/v26.11.5...v26.11.6
 [26.11.5]: https://github.com/ErsatzTV/legacy/compare/v26.11.4...v26.11.5
 [26.11.4]: https://github.com/ErsatzTV/legacy/compare/v26.11.3...v26.11.4
