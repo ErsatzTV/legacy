@@ -1,6 +1,4 @@
 using System.Collections.Immutable;
-using System.Globalization;
-using System.Text;
 using ErsatzTV.FFmpeg.Format;
 using Lennox.NvEncSharp;
 
@@ -194,33 +192,5 @@ internal static class CudaHelper
         }
 
         return result;
-    }
-
-    internal static string GetDeviceDetails(CudaDevice device)
-    {
-        var sb = new StringBuilder();
-
-        sb.AppendLine();
-        sb.AppendLine("  Encoding:");
-        foreach (CudaCodec cudaCodec in device.Encoders)
-        {
-            string bFrames = cudaCodec.BFrames ? " (with B-frames)" : string.Empty;
-
-            sb.AppendLine(CultureInfo.InvariantCulture, $"    - Supports {cudaCodec.Name} 8-bit{bFrames}");
-
-            if (cudaCodec.BitDepths.Contains(10))
-            {
-                sb.AppendLine(CultureInfo.InvariantCulture, $"    - Supports {cudaCodec.Name} 10-bit{bFrames}");
-            }
-        }
-
-        sb.AppendLine();
-        sb.AppendLine("  Decoding:");
-        foreach (CudaDecoder cudaDecoder in device.Decoders)
-        {
-            sb.AppendLine(CultureInfo.InvariantCulture, $"    - Supports {cudaDecoder.Name}");
-        }
-
-        return sb.ToString();
     }
 }

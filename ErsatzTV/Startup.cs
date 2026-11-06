@@ -859,6 +859,7 @@ public class Startup
         services.AddSingleton<SystemStartup>();
         services.AddSingleton<ILanguageCodeCache, LanguageCodeCache>();
         services.AddSingleton<IHealthCheckService, HealthCheckService>();
+        services.AddSingleton<INextProbeService, NextProbeService>();
         AddChannel<IBackgroundServiceRequest>(services);
         AddChannel<IPlexBackgroundServiceRequest>(services);
         AddChannel<IJellyfinBackgroundServiceRequest>(services);
@@ -877,7 +878,6 @@ public class Startup
         services.AddScoped<IZeroDurationHealthCheck, ZeroDurationHealthCheck>();
         services.AddScoped<IFileNotFoundHealthCheck, FileNotFoundHealthCheck>();
         services.AddScoped<IUnavailableHealthCheck, UnavailableHealthCheck>();
-        services.AddScoped<IVaapiDriverHealthCheck, VaapiDriverHealthCheck>();
         services.AddScoped<IUnifiedDockerHealthCheck, UnifiedDockerHealthCheck>();
         services.AddScoped<IDowngradeHealthCheck, DowngradeHealthCheck>();
         services.AddScoped<IEmptyScheduleHealthCheck, EmptyScheduleHealthCheck>();

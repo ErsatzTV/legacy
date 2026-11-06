@@ -256,24 +256,37 @@ namespace ErsatzTV.Core.Next
     /// HTTP.
     ///
     /// A placeholder source resolved at playback time by fetching a `PlayoutItem` JSON document
-    /// over HTTP(S). The returned item replaces this one; its `start` is forced to the current
-    /// transcode position and its `finish` is clamped to the placeholder's `finish`. Because
-    /// `start` advances each tick, the resolver is re-hit while the transcode position remains
-    /// inside the placeholder window, allowing a sequence of distinct items to be returned for a
-    /// single placeholder. The resolved item's `source` may not itself be `dynamic`, but it may
-    /// carry its own `probe_hint`, which is honored exactly as for a directly-specified source.
+    /// over HTTP(S). The request and response are part of the playout schema: a change to either
+    /// bumps its version, and the channel sends the version it implements in
+    /// `x-etv-playout-schema`.
     ///
-    /// The channel automatically injects the following request headers (in addition to any
-    /// configured via `headers`), all formatted per RFC 3339 for timestamps:
+    /// The request is a `GET` of `uri`, with `headers` and `user_agent`; redirects are followed.
+    /// The channel adds these headers, replacing any configured header of the same name.
+    /// Timestamps are RFC 3339, may include fractional seconds and may carry any UTC offset.
     ///
-    /// - `x-etv-channel` — the channel number this request is for.
-    /// - `x-etv-dynamic-id` — a stable identifier for the placeholder; resolvers can use it to
-    /// coalesce or cache decisions across the multiple calls that occur while transcoding stays
-    /// inside one placeholder window.
-    /// - `x-etv-now` — the current transcode position; this is the `start` that will be forced
-    /// onto the resolved item.
-    /// - `x-etv-until` — the placeholder's `finish`; the resolver should not return an item that
-    /// extends beyond this (it will be clamped if it does).
+    /// - `x-etv-channel` — the channel number.
+    /// - `x-etv-dynamic-id` — this placeholder's `id`. It is the same on every request within
+    /// the placeholder's window, so resolvers can use it to coalesce or cache decisions.
+    /// - `x-etv-now` — the schedule position to fill. It is the channel's transcode position,
+    /// which runs ahead of the wall clock while the channel works ahead.
+    /// - `x-etv-until` — the placeholder's `finish`.
+    /// - `x-etv-playout-schema` — the newest playout schema version this channel accepts, e.g.
+    /// `https://ersatztv.org/playout/version/0.0.8`.
+    ///
+    /// The response is a 2xx status with a JSON `PlayoutItem` body; the content type isn't
+    /// checked and unknown fields are ignored. The item's `start` is moved to `x-etv-now`,
+    /// keeping its duration, and its `finish` is clamped to `x-etv-until`. An item with no time
+    /// left after that is refused, as is one with a `dynamic` source anywhere (main source,
+    /// tracks, watermark or graphics). An invalid `probe_hint` is dropped with a warning and the
+    /// item plays without it, as in a playout file; any other invalid item is refused. A refused
+    /// or failed resolution plays the channel's fallback (see `retry_budget_ms` for what is
+    /// retried).
+    ///
+    /// When the resolved item finishes before the placeholder does, the channel requests again
+    /// with the new `x-etv-now`, so one placeholder can return a sequence of items. The returned
+    /// `id` identifies the content: an equal `id` reuses the previous item's converted subtitles
+    /// and copy position, and after a source ends early, a response with the same `id` plays
+    /// fallback instead. Return a distinct `id` for each distinct item.
     /// </summary>
     public partial class PlayoutItemSource
     {
@@ -595,8 +608,9 @@ namespace ErsatzTV.Core.Next
         /// <summary>
         /// Whether the stream carries HDR10 static metadata (mastering display colour volume or
         /// content light level), at the container level or in per-frame SEI. Hardware tonemappers
-        /// that read that metadata (Intel vpp_qsv) are only used when this is true; omitting it is
-        /// treated as false and falls back to software tonemapping for "smpte2084" content.
+        /// that read that metadata (Intel vpp_qsv) are only used when this is true; when it is
+        /// omitted for "smpte2084" content, the channel reads the first frame of local and HTTP
+        /// sources to determine it, and otherwise treats it as false.
         /// </summary>
         [JsonPropertyName("has_hdr10_metadata")]
         public bool? HasHdr10Metadata { get; set; }
@@ -721,24 +735,37 @@ namespace ErsatzTV.Core.Next
     /// HTTP.
     ///
     /// A placeholder source resolved at playback time by fetching a `PlayoutItem` JSON document
-    /// over HTTP(S). The returned item replaces this one; its `start` is forced to the current
-    /// transcode position and its `finish` is clamped to the placeholder's `finish`. Because
-    /// `start` advances each tick, the resolver is re-hit while the transcode position remains
-    /// inside the placeholder window, allowing a sequence of distinct items to be returned for a
-    /// single placeholder. The resolved item's `source` may not itself be `dynamic`, but it may
-    /// carry its own `probe_hint`, which is honored exactly as for a directly-specified source.
+    /// over HTTP(S). The request and response are part of the playout schema: a change to either
+    /// bumps its version, and the channel sends the version it implements in
+    /// `x-etv-playout-schema`.
     ///
-    /// The channel automatically injects the following request headers (in addition to any
-    /// configured via `headers`), all formatted per RFC 3339 for timestamps:
+    /// The request is a `GET` of `uri`, with `headers` and `user_agent`; redirects are followed.
+    /// The channel adds these headers, replacing any configured header of the same name.
+    /// Timestamps are RFC 3339, may include fractional seconds and may carry any UTC offset.
     ///
-    /// - `x-etv-channel` — the channel number this request is for.
-    /// - `x-etv-dynamic-id` — a stable identifier for the placeholder; resolvers can use it to
-    /// coalesce or cache decisions across the multiple calls that occur while transcoding stays
-    /// inside one placeholder window.
-    /// - `x-etv-now` — the current transcode position; this is the `start` that will be forced
-    /// onto the resolved item.
-    /// - `x-etv-until` — the placeholder's `finish`; the resolver should not return an item that
-    /// extends beyond this (it will be clamped if it does).
+    /// - `x-etv-channel` — the channel number.
+    /// - `x-etv-dynamic-id` — this placeholder's `id`. It is the same on every request within
+    /// the placeholder's window, so resolvers can use it to coalesce or cache decisions.
+    /// - `x-etv-now` — the schedule position to fill. It is the channel's transcode position,
+    /// which runs ahead of the wall clock while the channel works ahead.
+    /// - `x-etv-until` — the placeholder's `finish`.
+    /// - `x-etv-playout-schema` — the newest playout schema version this channel accepts, e.g.
+    /// `https://ersatztv.org/playout/version/0.0.8`.
+    ///
+    /// The response is a 2xx status with a JSON `PlayoutItem` body; the content type isn't
+    /// checked and unknown fields are ignored. The item's `start` is moved to `x-etv-now`,
+    /// keeping its duration, and its `finish` is clamped to `x-etv-until`. An item with no time
+    /// left after that is refused, as is one with a `dynamic` source anywhere (main source,
+    /// tracks, watermark or graphics). An invalid `probe_hint` is dropped with a warning and the
+    /// item plays without it, as in a playout file; any other invalid item is refused. A refused
+    /// or failed resolution plays the channel's fallback (see `retry_budget_ms` for what is
+    /// retried).
+    ///
+    /// When the resolved item finishes before the placeholder does, the channel requests again
+    /// with the new `x-etv-now`, so one placeholder can return a sequence of items. The returned
+    /// `id` identifies the content: an equal `id` reuses the previous item's converted subtitles
+    /// and copy position, and after a source ends early, a response with the same `id` plays
+    /// fallback instead. Return a distinct `id` for each distinct item.
     /// </summary>
     public partial class Source
     {

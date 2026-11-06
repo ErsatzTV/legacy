@@ -8,14 +8,4 @@ public static class FourCC
     public const string Mpeg2Video = "mp2v";
     public const string Mpeg4 = "mp4v";
     public const string Vp9 = "vp09";
-
-    public static readonly List<string> AllVideoToolbox =
-    [
-        Av1,
-        H264,
-        Hevc,
-        Mpeg2Video,
-        Mpeg4,
-        Vp9
-    ];
 }

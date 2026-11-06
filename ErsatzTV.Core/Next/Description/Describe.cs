@@ -45,10 +45,11 @@ namespace ErsatzTV.Core.Next.Description
         public long DescribeVersion { get; set; }
 
         /// <summary>
-        /// Probed capabilities of this machine and ffmpeg build. Always `null` for now.
+        /// What this machine and the config's ffmpeg build can do, from `describe --probe &lt;config&gt;`;
+        /// `null` without `--probe`.
         /// </summary>
         [JsonPropertyName("runtime_capability")]
-        public object? RuntimeCapability { get; set; }
+        public RuntimeCapability? RuntimeCapability { get; set; }
 
         /// <summary>
         /// Values the channel config accepts. A value listed here may still be unavailable on this
@@ -89,6 +90,13 @@ namespace ErsatzTV.Core.Next.Description
         /// </summary>
         [JsonPropertyName("channel_config_schema")]
         public SchemaInfo ChannelConfigSchema { get; set; }
+
+        /// <summary>
+        /// Headers sent on every dynamic source request. `DynamicSource` in the playout schema
+        /// defines them.
+        /// </summary>
+        [JsonPropertyName("dynamic_callback_headers")]
+        public List<string> DynamicCallbackHeaders { get; set; }
 
         /// <summary>
         /// Keyframe interval in seconds.
@@ -184,6 +192,140 @@ namespace ErsatzTV.Core.Next.Description
     }
 
     /// <summary>
+    /// What this machine and ffmpeg build can do with a channel config.
+    /// </summary>
+    public partial class RuntimeCapability
+    {
+        /// <summary>
+        /// One entry per probe of every accel this build can probe here, selected or not. VAAPI
+        /// appears
+        /// once per render node and driver; the others once. `configured` marks the config's entry.
+        /// </summary>
+        [JsonPropertyName("accels")]
+        public List<AccelRuntime> Accels { get; set; }
+
+        /// <summary>
+        /// The ffmpeg build the channel config selects.
+        /// </summary>
+        [JsonPropertyName("ffmpeg")]
+        public FfmpegRuntime Ffmpeg { get; set; }
+    }
+
+    public partial class AccelRuntime
+    {
+        /// <summary>
+        /// The `normalization.video.accel` value.
+        /// </summary>
+        [JsonPropertyName("accel")]
+        public string Accel { get; set; }
+
+        /// <summary>
+        /// Whether this is the accel, device and driver the channel config selects.
+        /// </summary>
+        [JsonPropertyName("configured")]
+        public bool Configured { get; set; }
+
+        /// <summary>
+        /// Source codecs the channel decodes in hardware. Each codec was checked with a typical
+        /// profile
+        /// for each pixel format; a stream's actual profile or interlacing can still make it decode
+        /// in
+        /// software. A codec or pixel format not listed decodes in software.
+        /// </summary>
+        [JsonPropertyName("decode")]
+        public List<DecodeSupport> Decode { get; set; }
+
+        /// <summary>
+        /// The device probed: the VAAPI render node, or the AMF adapter (`&lt;index&gt;: &lt;description&gt;`,
+        /// or
+        /// the configured index when the probe failed). `null` for other accels.
+        /// </summary>
+        [JsonPropertyName("device")]
+        public string? Device { get; set; }
+
+        /// <summary>
+        /// The VAAPI driver probed, as a `normalization.video.vaapi_driver` value; `null` when libva
+        /// selected it, and for other accels.
+        /// </summary>
+        [JsonPropertyName("driver")]
+        public string? Driver { get; set; }
+
+        /// <summary>
+        /// `normalization.video.format` values the channel encodes in hardware, by
+        /// `normalization.video.bit_depth`. Anything not listed encodes in software.
+        /// </summary>
+        [JsonPropertyName("encode")]
+        public List<EncodeSupport> Encode { get; set; }
+
+        /// <summary>
+        /// Why the accel isn't available, or `null`.
+        /// </summary>
+        [JsonPropertyName("error")]
+        public string? Error { get; set; }
+
+        /// <summary>
+        /// Whether the channel can use this accel. `decode` and `encode` are empty unless it is
+        /// `available`.
+        /// </summary>
+        [JsonPropertyName("status")]
+        public AccelStatus Status { get; set; }
+    }
+
+    public partial class DecodeSupport
+    {
+        /// <summary>
+        /// Codec name as ffprobe reports it (`codec_name`), e.g. `hevc`.
+        /// </summary>
+        [JsonPropertyName("format")]
+        public string Format { get; set; }
+
+        /// <summary>
+        /// Pixel formats as ffprobe reports them (`pix_fmt`), e.g. `yuv420p10le`.
+        /// </summary>
+        [JsonPropertyName("pixel_formats")]
+        public List<string> PixelFormats { get; set; }
+    }
+
+    public partial class EncodeSupport
+    {
+        /// <summary>
+        /// `normalization.video.bit_depth` values.
+        /// </summary>
+        [JsonPropertyName("bit_depths")]
+        public List<long> BitDepths { get; set; }
+
+        /// <summary>
+        /// A `normalization.video.format` value.
+        /// </summary>
+        [JsonPropertyName("format")]
+        public string Format { get; set; }
+    }
+
+    /// <summary>
+    /// The ffmpeg build the channel config selects.
+    /// </summary>
+    public partial class FfmpegRuntime
+    {
+        /// <summary>
+        /// Hardware accels the ffmpeg build lists (`ffmpeg -hwaccels`).
+        /// </summary>
+        [JsonPropertyName("hwaccels")]
+        public List<string> Hwaccels { get; set; }
+
+        /// <summary>
+        /// Path from the channel config, or `ffmpeg` (found on `PATH`) when it sets none.
+        /// </summary>
+        [JsonPropertyName("path")]
+        public string Path { get; set; }
+
+        /// <summary>
+        /// Version from `ffmpeg -version`, e.g. `n8.1.2-etv.4`, or `null` when it couldn't be read.
+        /// </summary>
+        [JsonPropertyName("version")]
+        public string? Version { get; set; }
+    }
+
+    /// <summary>
     /// Values the channel config accepts. A value listed here may still be unavailable on this
     /// machine or ffmpeg build.
     /// </summary>
@@ -220,6 +362,20 @@ namespace ErsatzTV.Core.Next.Description
         public List<string> VideoFormats { get; set; }
     }
 
+    /// <summary>
+    /// Whether the channel can use this accel. `decode` and `encode` are empty unless it is
+    /// `available`.
+    ///
+    /// `available`: the channel uses this accel. `ffmpeg_missing`: the ffmpeg build lacks its
+    /// hwaccel,
+    /// so the channel uses software. `probe_failed`: the device or driver couldn't be opened
+    /// (see
+    /// `error`). `timeout`: the probe didn't finish. `skipped`: not probed, because an earlier
+    /// probe of
+    /// the same accel didn't finish.
+    /// </summary>
+    public enum AccelStatus { Available, FfmpegMissing, ProbeFailed, Skipped, Timeout };
+
     public partial class Describe
     {
         public static Describe FromJson(string json) => JsonSerializer.Deserialize<Describe>(json, ErsatzTV.Core.Next.Description.Converter.Settings);
@@ -236,11 +392,61 @@ namespace ErsatzTV.Core.Next.Description
         {
             Converters =
             {
+                AccelStatusConverter.Singleton,
                 new DateOnlyConverter(),
                 new TimeOnlyConverter(),
                 IsoDateTimeOffsetConverter.Singleton
             },
         };
+    }
+
+    internal class AccelStatusConverter : JsonConverter<AccelStatus>
+    {
+        public override bool CanConvert(Type t) => t == typeof(AccelStatus);
+
+        public override AccelStatus Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "available":
+                    return AccelStatus.Available;
+                case "ffmpeg_missing":
+                    return AccelStatus.FfmpegMissing;
+                case "probe_failed":
+                    return AccelStatus.ProbeFailed;
+                case "skipped":
+                    return AccelStatus.Skipped;
+                case "timeout":
+                    return AccelStatus.Timeout;
+            }
+            throw new Exception("Cannot unmarshal type AccelStatus");
+        }
+
+        public override void Write(Utf8JsonWriter writer, AccelStatus value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case AccelStatus.Available:
+                    JsonSerializer.Serialize(writer, "available", options);
+                    return;
+                case AccelStatus.FfmpegMissing:
+                    JsonSerializer.Serialize(writer, "ffmpeg_missing", options);
+                    return;
+                case AccelStatus.ProbeFailed:
+                    JsonSerializer.Serialize(writer, "probe_failed", options);
+                    return;
+                case AccelStatus.Skipped:
+                    JsonSerializer.Serialize(writer, "skipped", options);
+                    return;
+                case AccelStatus.Timeout:
+                    JsonSerializer.Serialize(writer, "timeout", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type AccelStatus");
+        }
+
+        public static readonly AccelStatusConverter Singleton = new AccelStatusConverter();
     }
     
     public class DateOnlyConverter : JsonConverter<DateOnly>

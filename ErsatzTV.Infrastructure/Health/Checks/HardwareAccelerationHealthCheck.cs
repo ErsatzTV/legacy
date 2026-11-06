@@ -1,159 +1,186 @@
-﻿using System.Reflection;
-using System.Runtime.InteropServices;
-using ErsatzTV.Core.Domain;
+﻿using ErsatzTV.Core.Domain;
 using ErsatzTV.Core.Health;
 using ErsatzTV.Core.Health.Checks;
-using ErsatzTV.Core.Interfaces.Repositories;
-using ErsatzTV.FFmpeg.Runtime;
+using ErsatzTV.Core.Interfaces.Streaming;
+using ErsatzTV.Core.Next;
+using ErsatzTV.Core.Next.Description;
 using ErsatzTV.Infrastructure.Data;
-using LanguageExt.UnsafeValueAccess;
+using ErsatzTV.Infrastructure.Extensions;
 using Microsoft.EntityFrameworkCore;
 
 namespace ErsatzTV.Infrastructure.Health.Checks;
 
-public class HardwareAccelerationHealthCheck : BaseHealthCheck, IHardwareAccelerationHealthCheck
+public record HardwareAccelerationProblems(
+    List<string> Software,
+    List<string> SoftwareEncode,
+    List<string> NotConfigured,
+    List<HardwareAccelerationKind> Available);
+
+public class HardwareAccelerationHealthCheck(
+    IDbContextFactory<TvContext> dbContextFactory,
+    INextProbeService nextProbeService)
+    : BaseHealthCheck, IHardwareAccelerationHealthCheck
 {
-    private static readonly string[] FFmpegAccelsArguments = { "-v", "quiet", "-hwaccels" };
-    private static readonly string[] FFmpegEncodersArguments = { "-v", "quiet", "-encoders" };
-
-    private readonly IConfigElementRepository _configElementRepository;
-    private readonly IDbContextFactory<TvContext> _dbContextFactory;
-    private readonly IRuntimeInfo _runtimeInfo;
-
-    public HardwareAccelerationHealthCheck(
-        IDbContextFactory<TvContext> dbContextFactory,
-        IConfigElementRepository configElementRepository,
-        IRuntimeInfo runtimeInfo)
-    {
-        _dbContextFactory = dbContextFactory;
-        _configElementRepository = configElementRepository;
-        _runtimeInfo = runtimeInfo;
-    }
+    private static readonly HealthCheckLink HardwareLink = new("system/troubleshooting?tab=hardware");
 
     public override string Title => "Hardware Acceleration";
 
     public async Task<HealthCheckResult> Check(CancellationToken cancellationToken)
     {
-        Option<ConfigElement> maybeFFmpegPath =
-            await _configElementRepository.GetConfigElement(ConfigElementKey.FFmpegPath, cancellationToken);
+        await using TvContext dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+
+        // the ffmpeg version check reports a missing ffmpeg
+        Option<string> maybeFFmpegPath =
+            await dbContext.ConfigElements.GetValue<string>(ConfigElementKey.FFmpegPath, cancellationToken);
         if (maybeFFmpegPath.IsNone)
         {
-            return FailResult("Unable to locate ffmpeg", "Unable to locate ffmpeg");
+            return NotApplicableResult();
         }
 
-        string version = Assembly.GetEntryAssembly()?.GetCustomAttribute<AssemblyInformationalVersionAttribute>()
-            ?.InformationalVersion ?? "unknown";
+        List<Channel> channels = await dbContext.Channels
+            .AsNoTracking()
+            .Include(c => c.FFmpegProfile)
+            .ToListAsync(cancellationToken);
 
-        var accelerationKinds = new List<HardwareAccelerationKind>();
-
-        if (version.Contains("docker", StringComparison.OrdinalIgnoreCase))
+        Option<NextProbeResult> maybeProbe = nextProbeService.Latest;
+        if (maybeProbe.IsNone)
         {
-            if (version.Contains("nvidia", StringComparison.OrdinalIgnoreCase))
+            // at startup this joins the probe that is already running
+            foreach (string ffmpegPath in maybeFFmpegPath)
             {
-                accelerationKinds.Add(HardwareAccelerationKind.Nvenc);
-            }
-            else if (version.Contains("vaapi", StringComparison.OrdinalIgnoreCase))
-            {
-                accelerationKinds.Add(HardwareAccelerationKind.Vaapi);
-                accelerationKinds.Add(HardwareAccelerationKind.Qsv);
+                maybeProbe = await nextProbeService.Refresh(ffmpegPath, cancellationToken);
             }
         }
 
-        if (accelerationKinds.Count == 0)
+        foreach (NextProbeResult probe in maybeProbe)
         {
-            accelerationKinds.AddRange(
-                await GetSupportedAccelerationKinds(maybeFFmpegPath.ValueUnsafe().Value, cancellationToken));
+            return ToResult(Evaluate(channels, probe.Capability));
         }
 
-        if (accelerationKinds.Count == 0)
+        return WarningResult(
+            "Unable to probe hardware with ErsatzTV Next, so hardware acceleration can't be checked",
+            "Unable to probe hardware",
+            HardwareLink);
+    }
+
+    public static HardwareAccelerationProblems Evaluate(List<Channel> channels, RuntimeCapability capability)
+    {
+        var software = new List<string>();
+        var softwareEncode = new List<string>();
+
+        var available = Enum.GetValues<HardwareAccelerationKind>()
+            .Filter(k => NextHardware.ToNextAccel(k) is { } accel && NextHardware.AnyAvailable(capability, accel))
+            .ToList();
+
+        var profiles = channels
+            .Map(c => c.FFmpegProfile)
+            .Filter(p => p.HardwareAcceleration is not HardwareAccelerationKind.None)
+            .DistinctBy(p => p.Id)
+            .OrderBy(p => p.Name);
+
+        foreach (FFmpegProfile profile in profiles)
+        {
+            NextHardwareTarget target = NextHardware.ToTarget(
+                profile.HardwareAcceleration,
+                profile.VaapiDevice,
+                profile.VaapiDriver,
+                profile.VideoFormat,
+                profile.BitDepth);
+            NextHardwareCheck check = NextHardware.Check(target, capability);
+
+            string accel = profile.HardwareAcceleration.ToString();
+            string error = check.Entry.Bind(e => Optional(e.Error)).Map(e => $" ({e})").IfNone(string.Empty);
+
+            switch (check.Status)
+            {
+                case NextHardwareStatus.Unavailable:
+                    software.Add($"{profile.Name}: {accel} isn't available{error}");
+                    break;
+                case NextHardwareStatus.UnsupportedAccel:
+                    software.Add($"{profile.Name}: the next engine doesn't support {accel}");
+                    break;
+                case NextHardwareStatus.NotOnPlatform:
+                    software.Add($"{profile.Name}: the next engine can't use {accel} on this platform");
+                    break;
+                case NextHardwareStatus.DeviceNotProbed:
+                    software.Add(
+                        target.VaapiDevice.StartsWith("/dev/dri/card", StringComparison.Ordinal)
+                            ? $"{profile.Name}: {target.VaapiDevice} isn't a render node"
+                            : $"{profile.Name}: {target.VaapiDevice} wasn't found");
+                    break;
+                case NextHardwareStatus.SoftwareEncode:
+                    softwareEncode.Add(
+                        $"{profile.Name}: {accel} can't encode {NextHardware.ToProbeName(target.Format)} {target.BitDepth}-bit");
+                    break;
+            }
+        }
+
+        var notConfigured = channels
+            .Filter(c => c.FFmpegProfile.HardwareAcceleration is HardwareAccelerationKind.None)
+            .OrderBy(c => c.SortNumber)
+            .Map(c => $"{c.Number} - {c.Name}")
+            .ToList();
+
+        return new HardwareAccelerationProblems(software, softwareEncode, notConfigured, available);
+    }
+
+    private HealthCheckResult ToResult(HardwareAccelerationProblems problems)
+    {
+        var messages = new List<string>();
+        if (problems.Software.Count > 0)
+        {
+            messages.Add(
+                $"Channels using these FFmpeg profiles will stream in software: {string.Join("; ", problems.Software)}.");
+        }
+
+        if (problems.SoftwareEncode.Count > 0)
+        {
+            messages.Add(
+                $"Channels using these FFmpeg profiles will encode in software: {string.Join("; ", problems.SoftwareEncode)}.");
+        }
+
+        bool suggest = problems.NotConfigured.Count > 0 && problems.Available.Count > 0;
+        if (suggest)
+        {
+            messages.Add(
+                $"These channels don't use hardware acceleration (available here: {string.Join(", ", problems.Available)}): {string.Join(", ", problems.NotConfigured)}.");
+        }
+
+        string message = string.Join(" ", messages);
+
+        if (problems.Software.Count > 0)
+        {
+            return FailResult(
+                message,
+                $"{Count(problems.Software.Count, "FFmpeg profile")} will stream in software",
+                HardwareLink);
+        }
+
+        if (problems.SoftwareEncode.Count > 0)
+        {
+            return WarningResult(
+                message,
+                $"{Count(problems.SoftwareEncode.Count, "FFmpeg profile")} will encode in software",
+                HardwareLink);
+        }
+
+        if (suggest)
+        {
+            return WarningResult(
+                message,
+                $"{Count(problems.NotConfigured.Count, "channel")} not configured for hardware acceleration",
+                HardwareLink);
+        }
+
+        if (problems.Available.Count == 0)
         {
             return InfoResult(
-                "No compatible hardware acceleration kinds are supported by ffmpeg",
-                "FFmpeg does not support hardware acceleration");
-        }
-
-        Option<HealthCheckResult> maybeResult = await VerifyProfilesUseAcceleration(accelerationKinds);
-        foreach (HealthCheckResult result in maybeResult)
-        {
-            return result;
+                "No hardware acceleration is available to the next engine on this machine",
+                "No hardware acceleration available");
         }
 
         return OkResult();
     }
 
-    private async Task<Option<HealthCheckResult>> VerifyProfilesUseAcceleration(
-        IEnumerable<HardwareAccelerationKind> accelerationKinds)
-    {
-        await using TvContext dbContext = await _dbContextFactory.CreateDbContextAsync();
-
-        List<Channel> badChannels = await dbContext.Channels
-            .Filter(c => c.StreamingMode != StreamingMode.HttpLiveStreamingDirect)
-            .Filter(c => !accelerationKinds.Contains(c.FFmpegProfile.HardwareAcceleration))
-            .ToListAsync();
-
-        if (badChannels.Count != 0)
-        {
-            var accel = string.Join(", ", accelerationKinds);
-            var channels = string.Join(", ", badChannels.Map(c => $"{c.Number} - {c.Name}"));
-            return WarningResult(
-                $"The following channels use ffmpeg profiles that are not configured for hardware acceleration ({accel}): {channels}",
-                $"{badChannels.Count} channels are not configured for hardware acceleration");
-        }
-
-        return None;
-    }
-
-    private async Task<List<HardwareAccelerationKind>> GetSupportedAccelerationKinds(
-        string ffmpegPath,
-        CancellationToken cancellationToken)
-    {
-        var result = new System.Collections.Generic.HashSet<HardwareAccelerationKind>();
-
-        string output = await GetProcessOutput(ffmpegPath, FFmpegAccelsArguments, cancellationToken);
-        foreach (string method in output.Split("\n").Map(s => s.Trim()).Skip(1))
-        {
-            switch (method)
-            {
-                case "vaapi":
-                    result.Add(HardwareAccelerationKind.Vaapi);
-                    break;
-                case "nvenc":
-                    result.Add(HardwareAccelerationKind.Nvenc);
-                    break;
-                case "cuda":
-                    result.Add(HardwareAccelerationKind.Nvenc);
-                    break;
-                case "qsv":
-                    result.Add(HardwareAccelerationKind.Qsv);
-                    break;
-                case "videotoolbox":
-                    result.Add(HardwareAccelerationKind.VideoToolbox);
-                    break;
-                case "rkmpp":
-                    result.Add(HardwareAccelerationKind.Rkmpp);
-                    break;
-            }
-        }
-
-        // not real ffmpeg hwaccels, but have hw encoders that we can use
-        string output2 = await GetProcessOutput(
-            ffmpegPath,
-            FFmpegEncodersArguments,
-            cancellationToken);
-        foreach (string encoder in output2.Split("\n").Map(s => s.Trim()))
-        {
-            if (_runtimeInfo.IsOSPlatform(OSPlatform.Windows) && encoder.Contains("_amf "))
-            {
-                result.Add(HardwareAccelerationKind.Amf);
-            }
-
-            // TODO: fix and enable V4L2 M2M
-            // else if (_runtimeInfo.IsOSPlatform(OSPlatform.Linux) && encoder.Contains("_v4l2m2m "))
-            // {
-            //     result.Add(HardwareAccelerationKind.V4l2m2m);
-            // }
-        }
-
-        return result.ToList();
-    }
+    private static string Count(int count, string noun) => count == 1 ? $"1 {noun}" : $"{count} {noun}s";
 }

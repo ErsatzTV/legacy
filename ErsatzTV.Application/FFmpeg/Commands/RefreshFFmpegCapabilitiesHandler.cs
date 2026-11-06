@@ -1,6 +1,7 @@
 using ErsatzTV.Core;
 using ErsatzTV.Core.Domain;
 using ErsatzTV.Core.Interfaces.Metadata;
+using ErsatzTV.Core.Interfaces.Streaming;
 using ErsatzTV.FFmpeg.Capabilities;
 using ErsatzTV.Infrastructure.Data;
 using ErsatzTV.Infrastructure.Extensions;
@@ -11,7 +12,8 @@ namespace ErsatzTV.Application.FFmpeg;
 public class RefreshFFmpegCapabilitiesHandler(
     IDbContextFactory<TvContext> dbContextFactory,
     IHardwareCapabilitiesFactory hardwareCapabilitiesFactory,
-    ILocalStatisticsProvider localStatisticsProvider)
+    ILocalStatisticsProvider localStatisticsProvider,
+    INextProbeService nextProbeService)
     : IRequestHandler<RefreshFFmpegCapabilities>
 {
     public async Task Handle(RefreshFFmpegCapabilities request, CancellationToken cancellationToken)
@@ -26,6 +28,9 @@ public class RefreshFFmpegCapabilitiesHandler(
 
         foreach (string ffmpegPath in maybeFFmpegPath)
         {
+            // not awaited: a slow probe would block the worker queue
+            _ = nextProbeService.Refresh(ffmpegPath, CancellationToken.None);
+
             _ = await hardwareCapabilitiesFactory.GetFFmpegCapabilities(ffmpegPath, cancellationToken);
 
             Option<string> maybeFFprobePath = await dbContext.ConfigElements
