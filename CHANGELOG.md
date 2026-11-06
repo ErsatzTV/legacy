@@ -8,18 +8,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Use an ErsatzTV-ffmpeg develop build (`8.1.2-4089c130-develop`, newer than `8.1.2-7`) in docker images, Windows packages and macOS packages
   - Fix QSV streams failing about 10 seconds in with `Can't allocate a surface` or `Failed to query an output frame` on pre-Tiger Lake Intel GPUs (regression in 26.11.6)
   - Fix QSV, VAAPI and CUDA items failing when the source's color tags change mid-stream
-- Troubleshooting: replace the `NVIDIA`, `QSV`, `VAAPI` and `VideoToolbox` tabs with one `Hardware` tab showing what the next engine can use on this machine
-  - Each hardware acceleration (and for VAAPI, each device and driver) shows whether it works, why not, and what it can decode and encode
-  - Hardware is probed at startup and when FFmpeg settings are saved; use the refresh button on the tab or on `Health Checks` to probe again
-  - Troubleshooting results include `next_probe.json` instead of the `vainfo` and ffmpeg capability dumps
-- FFmpeg profile editor: show when the selected hardware acceleration, device and driver won't work on this machine, or when the format and bit depth will encode in software, with the combinations that do work
-  - Hardware accelerations that work on this machine are listed first
-  - VAAPI devices are limited to render nodes (`/dev/dri/renderD*`), which the next engine requires
-- Merge the `Hardware Acceleration` and `VAAPI Driver` health checks into one `Hardware Acceleration` check, based on what the next engine can use on this machine
-  - Fails when an FFmpeg profile's hardware acceleration, device or driver doesn't work, so its channels stream in software
-  - Warns when a profile's format and bit depth will encode in software
-  - Warns about channels without hardware acceleration only when some hardware acceleration works on this machine, and names it
-  - The `Default VAAPI driver is not optimal` message is removed; the `Hardware` troubleshooting tab shows what each driver can do
+- Troubleshooting: replace the separate accel-specific tabs with one `Hardware` tab showing what the next engine can use on the machine
+  - Each accel shows whether it works, why not, and what it can decode and encode
+- FFmpeg profile editor:
+  - Show when the selected accel, device and driver won't work on the machine
+  - Show when the format and bit depth will encode in software given the selected accel
+- Merge the `Hardware Acceleration` and `VAAPI Driver` health checks into one check, based on what the next engine can use on the machine
 
 ### Removed
 - Remove the legacy streaming engine; all channels now stream with the next engine
