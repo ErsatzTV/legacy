@@ -11,7 +11,7 @@ namespace ErsatzTV.Tests.ViewModels;
 [TestFixture]
 public class FFmpegProfileEditViewModelTests
 {
-    private static readonly string[] StoredProfiles =
+    private static readonly string?[] StoredProfiles =
         [VideoProfile.Main, VideoProfile.High, VideoProfile.High10, VideoProfile.High444p, string.Empty, null];
 
     [Test]

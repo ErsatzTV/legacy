@@ -8,7 +8,6 @@ using CliWrap.Buffered;
 using ErsatzTV.FFmpeg.Capabilities.Nvidia;
 using ErsatzTV.FFmpeg.Capabilities.Qsv;
 using ErsatzTV.FFmpeg.Capabilities.Vaapi;
-using ErsatzTV.FFmpeg.Capabilities.VideoToolbox;
 using ErsatzTV.FFmpeg.GlobalOption.HardwareAcceleration;
 using ErsatzTV.FFmpeg.Runtime;
 using Hardware.Info;
@@ -131,7 +130,7 @@ public partial class HardwareCapabilitiesFactory(
         };
     }
 
-    public async Task<QsvOutput> GetQsvOutput(string ffmpegPath, Option<string> qsvDevice)
+    public static async Task<QsvOutput> GetQsvOutput(string ffmpegPath, Option<string> qsvDevice)
     {
         if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
         {
@@ -155,7 +154,7 @@ public partial class HardwareCapabilitiesFactory(
         return new QsvOutput(result.ExitCode, output);
     }
 
-    public async Task<Option<string>> GetVaapiOutput(string display, Option<string> vaapiDriver, string vaapiDevice)
+    public static async Task<Option<string>> GetVaapiOutput(string display, Option<string> vaapiDriver, string vaapiDevice)
     {
         if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
         {
@@ -193,28 +192,6 @@ public partial class HardwareCapabilitiesFactory(
             .ExecuteAsync();
 
         return string.Join(System.Environment.NewLine, lines);
-    }
-
-    public async Task<List<string>> GetVaapiDisplays()
-    {
-        BufferedCommandResult whichResult = await Cli.Wrap("which")
-            .WithArguments("vainfo")
-            .WithValidation(CommandResultValidation.None)
-            .ExecuteBufferedAsync(Encoding.UTF8);
-
-        if (whichResult.ExitCode != 0)
-        {
-            return ["drm"];
-        }
-
-        BufferedCommandResult result = await Cli.Wrap("vainfo")
-            .WithArguments("--display help")
-            .WithValidation(CommandResultValidation.None)
-            .ExecuteBufferedAsync(Encoding.UTF8);
-
-        return string.IsNullOrWhiteSpace(result.StandardOutput)
-            ? ["drm"]
-            : result.StandardOutput.Trim().Split("\n").Skip(1).Map(s => s.Trim()).ToList();
     }
 
     public List<CpuModel> GetCpuList()

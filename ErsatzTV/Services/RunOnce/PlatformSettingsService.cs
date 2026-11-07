@@ -2,7 +2,6 @@
 using ErsatzTV.Application.Streaming;
 using ErsatzTV.Core.Interfaces.Metadata;
 using ErsatzTV.Core.Next.Description;
-using ErsatzTV.FFmpeg.Capabilities;
 using ErsatzTV.FFmpeg.Capabilities.Nvidia;
 using ErsatzTV.FFmpeg.Runtime;
 using MediatR;
@@ -49,16 +48,6 @@ public class PlatformSettingsService(IServiceScopeFactory serviceScopeFactory) :
                         .ToList();
 
                     memoryCache.Set("ffmpeg.render_devices", devices);
-                }
-
-                IHardwareCapabilitiesFactory hardwareCapabilitiesFactory =
-                    scope.ServiceProvider.GetRequiredService<IHardwareCapabilitiesFactory>();
-                if (hardwareCapabilitiesFactory != null)
-                {
-                    IMemoryCache memoryCache = scope.ServiceProvider.GetRequiredService<IMemoryCache>();
-
-                    List<string> displays = await hardwareCapabilitiesFactory.GetVaapiDisplays();
-                    memoryCache.Set("ffmpeg.vaapi_displays", displays);
                 }
             }
 

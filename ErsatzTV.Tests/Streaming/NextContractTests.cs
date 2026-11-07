@@ -118,7 +118,7 @@ public class NextContractTests
     [Test]
     public async Task Current_Versions_Match_Pinned_Binary()
     {
-        string folder = Environment.GetEnvironmentVariable("ETV_TEST_NEXT_FOLDER");
+        string? folder = Environment.GetEnvironmentVariable("ETV_TEST_NEXT_FOLDER");
         if (string.IsNullOrWhiteSpace(folder))
         {
             Assert.Ignore("set ETV_TEST_NEXT_FOLDER to a folder with ersatztv-channel");

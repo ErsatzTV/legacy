@@ -976,43 +976,6 @@ public class FFmpegLibraryProcessService : IFFmpegProcessService
         return GetCommand(ffmpegPath, videoInputFile, audioInputFile, None, None, None, pipeline);
     }
 
-    public async Task<Command> ConcatChannel(
-        string ffmpegPath,
-        bool saveReports,
-        Channel channel,
-        string scheme,
-        string host,
-        CancellationToken cancellationToken)
-    {
-        var resolution = new FrameSize(channel.FFmpegProfile.Resolution.Width, channel.FFmpegProfile.Resolution.Height);
-
-        var concatInputFile = new ConcatInputFile(
-            $"http://localhost:{Settings.StreamingPort}/internal/ffmpeg/concat/{channel.Number}?mode=ts-legacy",
-            resolution);
-
-        IPipelineBuilder pipelineBuilder = await _pipelineBuilderFactory.GetBuilder(
-            HardwareAccelerationMode.None,
-            Option<VideoInputFile>.None,
-            Option<AudioInputFile>.None,
-            Option<WatermarkInputFile>.None,
-            Option<SubtitleInputFile>.None,
-            concatInputFile,
-            Option<GraphicsEngineInput>.None,
-            Option<string>.None,
-            Option<string>.None,
-            Option<string>.None,
-            FileSystemLayout.FFmpegReportsFolder,
-            FileSystemLayout.FontsCacheFolder,
-            ffmpegPath,
-            cancellationToken);
-
-        FFmpegPipeline pipeline = pipelineBuilder.Concat(
-            concatInputFile,
-            FFmpegState.Concat(saveReports, channel.Name));
-
-        return GetCommand(ffmpegPath, None, None, None, concatInputFile, None, pipeline);
-    }
-
     public async Task<Command> WrapSegmenter(
         string ffmpegPath,
         bool saveReports,

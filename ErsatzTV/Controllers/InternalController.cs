@@ -18,7 +18,6 @@ using ErsatzTV.Core.Graphics;
 using ErsatzTV.Core.Interfaces.Scheduling;
 using ErsatzTV.Core.Interfaces.Streaming;
 using ErsatzTV.Core.Security;
-using ErsatzTV.Extensions;
 using ErsatzTV.FFmpeg;
 using ErsatzTV.Infrastructure.Data;
 using ErsatzTV.Infrastructure.Scheduling;
@@ -58,30 +57,6 @@ public class InternalController : StreamingControllerBase
         _playoutItemConverter = playoutItemConverter;
         _fileSystem = fileSystem;
         _logger = logger;
-    }
-
-    [HttpGet("ffmpeg/concat/{channelNumber}")]
-    public Task<IActionResult> GetConcatPlaylist(string channelNumber, [FromQuery] string mode = "ts-legacy")
-    {
-        if (!LegacyStreamingEngine.Enabled)
-        {
-            return Task.FromResult<IActionResult>(NotFound());
-        }
-
-        return _mediator.Send(
-                new GetConcatPlaylistByChannelNumber(Request.Scheme, Request.Host.ToString(), channelNumber, mode))
-            .ToActionResult();
-    }
-
-    [HttpGet("ffmpeg/stream/{channelNumber}")]
-    public Task<IActionResult> GetStream(string channelNumber)
-    {
-        if (!LegacyStreamingEngine.Enabled)
-        {
-            return Task.FromResult<IActionResult>(NotFound());
-        }
-
-        return GetTsLegacyStream(channelNumber);
     }
 
     [HttpGet("ffmpeg/music-video-credits/{playoutItemId:int}")]
@@ -427,17 +402,17 @@ public class InternalController : StreamingControllerBase
             }
         }
 
-        const long maxMilliseconds = long.MaxValue / TimeSpan.TicksPerMillisecond;
+        const long MAX_MILLISECONDS = long.MaxValue / TimeSpan.TicksPerMillisecond;
         if (!TryGetHeader("x-etv-offset-ms", out string offsetMsString) ||
             !long.TryParse(offsetMsString, NumberStyles.None, CultureInfo.InvariantCulture, out long offsetMs) ||
-            offsetMs > maxMilliseconds)
+            offsetMs > MAX_MILLISECONDS)
         {
             return BadRequest();
         }
 
         if (!TryGetHeader("x-etv-duration-ms", out string durationMsString) ||
             !long.TryParse(durationMsString, NumberStyles.None, CultureInfo.InvariantCulture, out long durationMs) ||
-            durationMs <= 0 || durationMs > maxMilliseconds - offsetMs)
+            durationMs <= 0 || durationMs > MAX_MILLISECONDS - offsetMs)
         {
             return BadRequest();
         }
@@ -564,25 +539,6 @@ public class InternalController : StreamingControllerBase
         }
 
         return false;
-    }
-
-    private async Task<IActionResult> GetTsLegacyStream(string channelNumber)
-    {
-        var request = new GetPlayoutItemProcessByChannelNumber(
-            channelNumber,
-            StreamingMode.TransportStream,
-            DateTimeOffset.Now,
-            false,
-            true,
-            DateTimeOffset.Now,
-            TimeSpan.Zero,
-            Option<FrameRate>.None,
-            IsTroubleshooting: false,
-            Option<int>.None);
-
-        Either<BaseError, PlayoutItemProcessModel> result = await _mediator.Send(request);
-
-        return GetProcessResponse(result, channelNumber, StreamingMode.TransportStream);
     }
 
     private static string EmptySubtitleDocument(string mimeType) => mimeType switch
