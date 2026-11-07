@@ -1,5 +1,3 @@
-using ErsatzTV.FFmpeg.Capabilities.Qsv;
-
 namespace ErsatzTV.FFmpeg.Capabilities;
 
 public interface IHardwareCapabilitiesFactory
@@ -17,12 +15,6 @@ public interface IHardwareCapabilitiesFactory
         Option<string> vaapiDisplay,
         Option<string> vaapiDriver,
         Option<string> vaapiDevice);
-
-    Task<QsvOutput> GetQsvOutput(string ffmpegPath, Option<string> qsvDevice);
-
-    Task<Option<string>> GetVaapiOutput(string display, Option<string> vaapiDriver, string vaapiDevice);
-
-    Task<List<string>> GetVaapiDisplays();
 
     List<CpuModel> GetCpuList();
 

@@ -11,7 +11,6 @@ using ErsatzTV.Core.Interfaces.FFmpeg;
 using ErsatzTV.Core.Interfaces.Streaming;
 using ErsatzTV.Core.Iptv;
 using ErsatzTV.Extensions;
-using ErsatzTV.FFmpeg;
 using ErsatzTV.Filters;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
@@ -111,32 +110,19 @@ public class IptvController : StreamingControllerBase
         }
 
         // cached lineup and playlist urls can still carry the legacy mode
-        if (mode == "ts-legacy" &&
-            (!LegacyStreamingEngine.Enabled || maybeChannel.Exists(c => c.StreamingEngine is StreamingEngine.Next)))
+        if (mode == "ts-legacy")
         {
             _logger.LogInformation(
                 "Channel {ChannelNumber} uses the next streaming engine; using ts instead of mode {Mode}",
                 channelNumber,
                 mode);
-            mode = "ts";
         }
 
-        if (mode == "ts-legacy")
-        {
-            _logger.LogWarning(
-                "Channel {ChannelNumber} uses the legacy streaming engine, which will be removed in ErsatzTV 26.12",
-                channelNumber);
-        }
-
-        FFmpegProcessRequest request = mode switch
-        {
-            "ts-legacy" => new GetConcatProcessByChannelNumber(Request.Scheme, Request.Host.ToString(), channelNumber),
-            _ => new GetWrappedProcessByChannelNumber(
-                Request.Scheme,
-                Request.Host.ToString(),
-                QueryAccessToken,
-                channelNumber)
-        };
+        FFmpegProcessRequest request = new GetWrappedProcessByChannelNumber(
+            Request.Scheme,
+            Request.Host.ToString(),
+            QueryAccessToken,
+            channelNumber);
 
         return await _mediator.Send(request)
             .Map(result => result.Match<IActionResult>(
@@ -237,8 +223,7 @@ public class IptvController : StreamingControllerBase
         }
 
         // cached playlist urls can still carry the legacy mode
-        if (mode is not ("segmenter" or "segmenter-v2" or "segmenter-fmp4") &&
-            (!LegacyStreamingEngine.Enabled || maybeChannel.Exists(c => c.StreamingEngine is StreamingEngine.Next)))
+        if (mode is not ("segmenter" or "segmenter-v2" or "segmenter-fmp4"))
         {
             _logger.LogInformation(
                 "Channel {ChannelNumber} uses the next streaming engine; using segmenter instead of mode {Mode}",
@@ -256,25 +241,14 @@ public class IptvController : StreamingControllerBase
                     "Maybe starting ffmpeg session for channel {Channel}, mode {Mode}",
                     channelNumber,
                     mode);
-                StreamingEngine streamingEngine =
-                    await maybeChannel.Map(c => c.StreamingEngine).IfNoneAsync(StreamingEngine.Legacy);
-                IRequest<Either<BaseError, string>> request =
-                    LegacyStreamingEngine.Enabled && streamingEngine is StreamingEngine.Legacy
-                    ? new StartFFmpegSession(
-                        channelNumber,
-                        mode,
-                        Request.Scheme,
-                        Request.Host.ToString(),
-                        Request.PathBase,
-                        AccessTokenQuery())
-                    : new StartFFmpegNextSession(
-                        channelNumber,
-                        mode,
-                        Request.Scheme,
-                        Request.Host.ToString(),
-                        Request.PathBase,
-                        AccessTokenQuery(),
-                        subtitles);
+                IRequest<Either<BaseError, string>> request = new StartFFmpegNextSession(
+                    channelNumber,
+                    mode,
+                    Request.Scheme,
+                    Request.Host.ToString(),
+                    Request.PathBase,
+                    AccessTokenQuery(),
+                    subtitles);
                 Either<BaseError, string> result = await _mediator.Send(request, cancellationToken);
                 return result.Match<IActionResult>(
                     multiVariantPlaylist =>
@@ -339,35 +313,11 @@ public class IptvController : StreamingControllerBase
     [HttpGet("iptv/hls-direct/{channelNumber}.mp4")]
     public async Task<IActionResult> GetStream(string channelNumber)
     {
-        if (!LegacyStreamingEngine.Enabled)
-        {
-            // old hls-direct playlist urls are one long ts segment each
-            string accessToken = string.IsNullOrWhiteSpace(QueryAccessToken)
-                ? string.Empty
-                : $"&access_token={QueryAccessToken}";
-            return Redirect($"~/iptv/channel/{channelNumber}.ts?mode=ts{accessToken}");
-        }
-
-        return await GetHlsDirectStream(channelNumber);
-    }
-
-    private async Task<IActionResult> GetHlsDirectStream(string channelNumber)
-    {
-        var request = new GetPlayoutItemProcessByChannelNumber(
-            channelNumber,
-            StreamingMode.HttpLiveStreamingDirect,
-            DateTimeOffset.Now,
-            false,
-            true,
-            DateTimeOffset.Now,
-            TimeSpan.Zero,
-            Option<FrameRate>.None,
-            IsTroubleshooting: false,
-            Option<int>.None);
-
-        Either<BaseError, PlayoutItemProcessModel> result = await _mediator.Send(request);
-
-        return GetProcessResponse(result, channelNumber, StreamingMode.HttpLiveStreamingDirect);
+        // old hls-direct playlist urls are one long ts segment each
+        string accessToken = string.IsNullOrWhiteSpace(QueryAccessToken)
+            ? string.Empty
+            : $"&access_token={QueryAccessToken}";
+        return Redirect($"~/iptv/channel/{channelNumber}.ts?mode=ts{accessToken}");
     }
 
     // without jwt the token authorizes nothing, so never echo it

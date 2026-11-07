@@ -323,7 +323,6 @@ public class Startup
                     options.Conventions.Add(new RemoveHdhrConvention());
                 }
 
-                options.OutputFormatters.Insert(0, new ConcatPlaylistOutputFormatter());
                 options.OutputFormatters.Insert(0, new ChannelPlaylistOutputFormatter());
                 options.OutputFormatters.Insert(0, new ChannelGuideOutputFormatter());
                 options.OutputFormatters.Insert(0, new DeviceXmlOutputFormatter());

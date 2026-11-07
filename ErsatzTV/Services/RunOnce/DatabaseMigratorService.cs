@@ -88,17 +88,13 @@ public class DatabaseMigratorService : BackgroundService
         _logger.LogInformation("Initializing database");
         await DbInitializer.Initialize(dbContext, stoppingToken);
 
-        if (!LegacyStreamingEngine.Enabled)
-        {
-            await MoveLegacyChannelsToNext(dbContext, stoppingToken);
-        }
+        await MoveLegacyChannelsToNext(dbContext, stoppingToken);
 
         _systemStartup.DatabaseIsReady();
 
         _logger.LogInformation("Done applying database migrations");
     }
 
-    // not an ef migration: a hotfix build with legacy enabled must not move channels
     private async Task MoveLegacyChannelsToNext(TvContext dbContext, CancellationToken cancellationToken)
     {
         // next only supports TransportStreamHybrid (5) and HttpLiveStreamingSegmenter (4)

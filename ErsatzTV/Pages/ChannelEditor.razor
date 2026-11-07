@@ -131,56 +131,22 @@ else
     </div>
     <MudCheckBox @bind-Value="_model.ShowInEpg" For="@(() => _model.ShowInEpg)" Dense="true"/>
 </MudStack>
-@if (LegacyStreamingEngine.Enabled)
-{
-    <MudStack Row="true" Breakpoint="Breakpoint.SmAndDown" Class="form-field-stack gap-md-8 mb-5">
-        <div class="d-flex">
-            <MudText>Streaming Engine</MudText>
-        </div>
-        <MudSelect @bind-Value="_model.StreamingEngine" For="@(() => _model.StreamingEngine)">
-            <MudSelectItem Value="@(StreamingEngine.Legacy)">Legacy</MudSelectItem>
-            <MudSelectItem Value="@(StreamingEngine.Next)">Next</MudSelectItem>
-        </MudSelect>
-    </MudStack>
-}
-@if (_model.StreamingEngine is StreamingEngine.Legacy)
-{
-    <MudAlert Severity="Severity.Warning" Class="mb-5">
-        The legacy streaming engine will be removed in ErsatzTV 26.12. If this channel doesn't work on the next
-        engine, please
-        <MudLink Href="@NextIssueUrl.Get()" Target="_blank">report the problem</MudLink>
-        with the ID from <b>Upload Results</b> in troubleshooting so it can be fixed before then.
-    </MudAlert>
-}
-@if (_model.StreamingEngine is StreamingEngine.Next)
-{
-    <MudStack Row="true" Breakpoint="Breakpoint.SmAndDown" Class="form-field-stack gap-md-8 mb-5">
-        <div class="d-flex">
-            <MudText>Next Engine Text Subtitle Mode</MudText>
-        </div>
-        <MudSelect @bind-Value="_model.NextEngineTextSubtitleMode" For="@(() => _model.NextEngineTextSubtitleMode)">
-            <MudSelectItem Value="@(NextEngineTextSubtitleMode.Burn)">Burn</MudSelectItem>
-            <MudSelectItem Value="@(NextEngineTextSubtitleMode.Convert)">Convert If Possible</MudSelectItem>
-        </MudSelect>
-    </MudStack>
-}
+<MudStack Row="true" Breakpoint="Breakpoint.SmAndDown" Class="form-field-stack gap-md-8 mb-5">
+    <div class="d-flex">
+        <MudText>Text Subtitle Mode</MudText>
+    </div>
+    <MudSelect @bind-Value="_model.NextEngineTextSubtitleMode" For="@(() => _model.NextEngineTextSubtitleMode)">
+        <MudSelectItem Value="@(NextEngineTextSubtitleMode.Burn)">Burn</MudSelectItem>
+        <MudSelectItem Value="@(NextEngineTextSubtitleMode.Convert)">Convert If Possible</MudSelectItem>
+    </MudSelect>
+</MudStack>
 <MudStack Row="true" Breakpoint="Breakpoint.SmAndDown" Class="form-field-stack gap-md-8 mb-5">
     <div class="d-flex">
         <MudText>Streaming Mode</MudText>
     </div>
     <MudSelect @bind-Value="_model.StreamingMode" For="@(() => _model.StreamingMode)">
-        @if (_model.StreamingEngine is StreamingEngine.Next)
-        {
-            <MudSelectItem Value="@(StreamingMode.TransportStreamHybrid)">MPEG-TS</MudSelectItem>
-            <MudSelectItem Value="@(StreamingMode.HttpLiveStreamingSegmenter)">HLS Segmenter</MudSelectItem>
-        }
-        else
-        {
-            <MudSelectItem Value="@(StreamingMode.TransportStreamHybrid)">MPEG-TS</MudSelectItem>
-            <MudSelectItem Value="@(StreamingMode.TransportStream)">MPEG-TS (Legacy)</MudSelectItem>
-            <MudSelectItem Value="@(StreamingMode.HttpLiveStreamingDirect)">HLS Direct</MudSelectItem>
-            <MudSelectItem Value="@(StreamingMode.HttpLiveStreamingSegmenter)">HLS Segmenter</MudSelectItem>
-        }
+        <MudSelectItem Value="@(StreamingMode.TransportStreamHybrid)">MPEG-TS</MudSelectItem>
+        <MudSelectItem Value="@(StreamingMode.HttpLiveStreamingSegmenter)">HLS Segmenter</MudSelectItem>
     </MudSelect>
 </MudStack>
 <MudStack Row="true" Breakpoint="Breakpoint.SmAndDown" Class="form-field-stack gap-md-8 mb-5">
@@ -195,22 +161,6 @@ else
         }
     </MudSelect>
 </MudStack>
-@if (_model.StreamingEngine is StreamingEngine.Legacy)
-{
-    <MudStack Row="true" Breakpoint="Breakpoint.SmAndDown" Class="form-field-stack gap-md-8 mb-5">
-        <div class="d-flex">
-            <MudText>Slug Seconds</MudText>
-        </div>
-        <MudSelect T="double?" @bind-Value="_model.SlugSeconds" For="@(() => _model.SlugSeconds)" HelperText="Seconds of black video and silent audio to insert between *every* playout item">
-            <MudSelectItem Value="@((double?)null)">(none)</MudSelectItem>
-            <MudSelectItem Value="@((double?)0.5)">0.5 seconds</MudSelectItem>
-            <MudSelectItem Value="@((double?)1)">1 second</MudSelectItem>
-            <MudSelectItem Value="@((double?)2)">2 seconds</MudSelectItem>
-            <MudSelectItem Value="@((double?)3)">3 seconds</MudSelectItem>
-            <MudSelectItem Value="@((double?)5)">5 seconds</MudSelectItem>
-        </MudSelect>
-    </MudStack>
-}
 <MudStack Row="true" Breakpoint="Breakpoint.SmAndDown" Class="form-field-stack gap-md-8 mb-5">
     <div class="d-flex">
         <MudText>Stream Selector Mode</MudText>
@@ -448,7 +398,7 @@ else
                         _model.PlayoutMode = channelViewModel.PlayoutMode;
                         _model.MirrorSourceChannelId = channelViewModel.MirrorSourceChannelId;
                         _model.PlayoutOffset = channelViewModel.PlayoutOffset;
-                        _model.StreamingEngine = channelViewModel.StreamingEngine;
+                        _model.StreamingEngine = StreamingEngine.Next;
                         _model.NextEngineTextSubtitleMode = channelViewModel.NextEngineTextSubtitleMode;
                         _model.StreamingMode = channelViewModel.StreamingMode;
                         _model.StreamSelectorMode = channelViewModel.StreamSelectorMode;

@@ -80,7 +80,7 @@
                     <MudSelectItem Value="StreamingEngine.Next">Next</MudSelectItem>
                 </MudSelect>
             </MudStack>
-            @if (!LegacyStreamingEngine.Enabled && _streamingEngine is StreamingEngine.Legacy)
+            @if (_streamingEngine is StreamingEngine.Legacy)
             {
                 <MudAlert Severity="Severity.Warning" Class="mb-5">
                     The legacy streaming engine is only available here for comparison; channels always stream using the

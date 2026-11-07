@@ -68,14 +68,6 @@ public interface IFFmpegProcessService
         TimeSpan ptsOffset,
         CancellationToken cancellationToken);
 
-    Task<Command> ConcatChannel(
-        string ffmpegPath,
-        bool saveReports,
-        Channel channel,
-        string scheme,
-        string host,
-        CancellationToken cancellationToken);
-
     Task<Command> WrapSegmenter(
         string ffmpegPath,
         bool saveReports,
