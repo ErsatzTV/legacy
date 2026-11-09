@@ -129,17 +129,16 @@ public class PlayoutModeSchedulerDuration(ILogger logger)
                     };
 
                     nextState.ScheduleItemsEnumerator.MoveNext();
+                    break;
                 }
-                else
-                {
-                    Logger.LogDebug(
-                        "Skipping playout item {Title} with duration {Duration:hh\\:mm\\:ss} that is longer than remaining duration {RemainingDuration:hh\\:mm\\:ss}",
-                        PlayoutBuilder.DisplayTitle(mediaItem),
-                        itemDuration,
-                        remainingDuration);
 
-                    contentEnumerator.MoveNext(Option<DateTimeOffset>.None);
-                }
+                Logger.LogDebug(
+                    "Skipping playout item {Title} with duration {Duration:hh\\:mm\\:ss} that is longer than remaining duration {RemainingDuration:hh\\:mm\\:ss}",
+                    PlayoutBuilder.DisplayTitle(mediaItem),
+                    itemDuration,
+                    remainingDuration);
+
+                contentEnumerator.MoveNext(Option<DateTimeOffset>.None);
             }
             else
             {

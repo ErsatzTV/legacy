@@ -922,4 +922,64 @@ public class PlayoutModeSchedulerDurationTests : SchedulerTestBase
 
         enumerator.State.Index.ShouldBe(0);
     }
+
+    [Test]
+    public void Should_Stop_At_Duration_When_Discard_To_Fill_Attempts_Exhausted()
+    {
+        Collection collectionOne = CollectionOf(
+            new Dictionary<int, TimeSpan>
+            {
+                { 1, TimeSpan.FromMinutes(40) },
+                { 2, TimeSpan.FromMinutes(40) },
+                { 3, TimeSpan.FromMinutes(40) },
+                { 4, TimeSpan.FromMinutes(15) }
+            });
+
+        var scheduleItem = new ProgramScheduleItemDuration
+        {
+            Id = 1,
+            Index = 1,
+            Collection = collectionOne,
+            CollectionId = collectionOne.Id,
+            StartTime = null,
+            PlayoutDuration = TimeSpan.FromHours(1),
+            TailMode = TailMode.Offline,
+            DiscardToFillAttempts = 1,
+            PlaybackOrder = PlaybackOrder.Chronological,
+            TailFiller = null,
+            FallbackFiller = null
+        };
+
+        var enumerator = new ChronologicalMediaCollectionEnumerator(
+            collectionOne.MediaItems,
+            new CollectionEnumeratorState());
+
+        var scheduleItemsEnumerator = new OrderedScheduleItemsEnumerator(
+            new List<ProgramScheduleItem> { scheduleItem, NextScheduleItem },
+            new CollectionEnumeratorState());
+
+        PlayoutBuilderState startState = StartState(scheduleItemsEnumerator);
+
+        var scheduler = new PlayoutModeSchedulerDuration(_logger);
+        (PlayoutBuilderState playoutBuilderState, List<PlayoutItem> playoutItems, PlayoutBuildWarnings _) = scheduler.Schedule(
+            startState,
+            CollectionEnumerators(scheduleItem, enumerator),
+            scheduleItem,
+            NextScheduleItem,
+            HardStop(scheduleItemsEnumerator),
+            _random,
+            _cancellationToken);
+
+        // item 1 fits; items 2 and 3 are too long for the remaining 20 minutes, which exhausts the single attempt
+        playoutItems.Count.ShouldBe(1);
+        playoutItems[0].MediaItemId.ShouldBe(1);
+        playoutItems[0].StartOffset.ShouldBe(startState.CurrentTime);
+        playoutItems[0].GuideFinish.HasValue.ShouldBeFalse();
+
+        playoutBuilderState.CurrentTime.ShouldBe(startState.CurrentTime.AddHours(1));
+        playoutBuilderState.DurationFinish.IsNone.ShouldBeTrue();
+        playoutBuilderState.ScheduleItemsEnumerator.State.Index.ShouldBe(1);
+
+        enumerator.State.Index.ShouldBe(2);
+    }
 }
