@@ -60,6 +60,7 @@ public class PlayoutModeSchedulerBaseTests : SchedulerTestBase
                     new PlayoutItem(),
                     new List<MediaChapter>(),
                     new PlayoutBuildWarnings(),
+                    new Random(),
                     _cancellationToken);
 
             playoutItems.Count.ShouldBe(1);
@@ -113,6 +114,7 @@ public class PlayoutModeSchedulerBaseTests : SchedulerTestBase
                     new PlayoutItem(),
                     new List<MediaChapter> { new() },
                     new PlayoutBuildWarnings(),
+                    new Random(),
                     _cancellationToken);
 
             playoutItems.Count.ShouldBe(1);
@@ -180,6 +182,7 @@ public class PlayoutModeSchedulerBaseTests : SchedulerTestBase
                         new() { StartTime = TimeSpan.FromMinutes(6), EndTime = TimeSpan.FromMinutes(60) }
                     },
                     new PlayoutBuildWarnings(),
+                    new Random(),
                     _cancellationToken);
 
             playoutItems.Count.ShouldBe(3);
@@ -189,6 +192,73 @@ public class PlayoutModeSchedulerBaseTests : SchedulerTestBase
             playoutItems[1].StartOffset.ShouldBe(startState.CurrentTime + TimeSpan.FromMinutes(6));
             playoutItems[2].MediaItemId.ShouldBe(1);
             playoutItems[2].StartOffset.ShouldBe(startState.CurrentTime + TimeSpan.FromMinutes(11));
+        }
+
+        [Test]
+        public void Should_Use_Seeded_Random_For_Random_Count_Filler()
+        {
+            Collection collectionOne = TwoItemCollection(1, 2, TimeSpan.FromHours(1));
+            Collection collectionTwo = TwoItemCollection(3, 4, TimeSpan.FromMinutes(5));
+
+            var scheduleItem = new ProgramScheduleItemOne
+            {
+                Id = 1,
+                Index = 1,
+                Collection = collectionOne,
+                CollectionId = collectionOne.Id,
+                StartTime = null,
+                PlaybackOrder = PlaybackOrder.Chronological,
+                PreRollFiller = new FillerPreset
+                {
+                    FillerKind = FillerKind.PreRoll,
+                    FillerMode = FillerMode.RandomCount,
+                    Count = 100
+                }
+            };
+
+            const int SEED = 12345;
+            int expectedFillerCount = new Random(SEED).Next(101);
+
+            for (var build = 0; build < 2; build++)
+            {
+                var scheduleItemsEnumerator = new OrderedScheduleItemsEnumerator(
+                    new List<ProgramScheduleItem> { scheduleItem },
+                    new CollectionEnumeratorState());
+
+                var enumerator = new ChronologicalMediaCollectionEnumerator(
+                    collectionOne.MediaItems,
+                    new CollectionEnumeratorState());
+
+                var fillerEnumerator = new ChronologicalMediaCollectionEnumerator(
+                    collectionTwo.MediaItems,
+                    new CollectionEnumeratorState());
+
+                PlayoutBuilderState startState = StartState(scheduleItemsEnumerator);
+
+                Dictionary<CollectionKey, IMediaCollectionEnumerator> enumerators = CollectionEnumerators(
+                    scheduleItem,
+                    enumerator);
+
+                enumerators.Add(CollectionKey.ForFillerPreset(scheduleItem.PreRollFiller), fillerEnumerator);
+
+                List<PlayoutItem> playoutItems = _scheduler
+                    .AddFiller(
+                        startState,
+                        enumerators,
+                        scheduleItem,
+                        new PlayoutItem
+                        {
+                            MediaItemId = 1,
+                            Start = startState.CurrentTime.UtcDateTime,
+                            Finish = startState.CurrentTime.AddHours(1).UtcDateTime
+                        },
+                        [],
+                        new PlayoutBuildWarnings(),
+                        new Random(SEED),
+                        _cancellationToken);
+
+                playoutItems.Count(pi => pi.MediaItemId != 1).ShouldBe(expectedFillerCount);
+            }
         }
 
         [Test]
@@ -272,6 +342,7 @@ public class PlayoutModeSchedulerBaseTests : SchedulerTestBase
                         new() { StartTime = TimeSpan.FromMinutes(6), EndTime = TimeSpan.FromMinutes(45) }
                     },
                     new PlayoutBuildWarnings(),
+                    new Random(),
                     _cancellationToken);
 
             playoutItems.Count.ShouldBe(5);
@@ -380,6 +451,7 @@ public class PlayoutModeSchedulerBaseTests : SchedulerTestBase
                         new MediaChapter { StartTime = TimeSpan.FromMinutes(30), EndTime = TimeSpan.FromMinutes(45) }
                     ],
                     new PlayoutBuildWarnings(),
+                    new Random(),
                     _cancellationToken);
 
             playoutItems.Count.ShouldBe(5);
@@ -489,6 +561,7 @@ public class PlayoutModeSchedulerBaseTests : SchedulerTestBase
                         new MediaChapter { StartTime = TimeSpan.FromMinutes(30), EndTime = TimeSpan.FromMinutes(45) }
                     ],
                     new PlayoutBuildWarnings(),
+                    new Random(),
                     _cancellationToken);
 
             playoutItems.Count.ShouldBe(6);
@@ -599,6 +672,7 @@ public class PlayoutModeSchedulerBaseTests : SchedulerTestBase
                         new() { StartTime = TimeSpan.FromMinutes(6), EndTime = TimeSpan.FromMinutes(45) }
                     },
                     new PlayoutBuildWarnings(),
+                    new Random(),
                     _cancellationToken);
 
             playoutItems.Count.ShouldBe(5);
@@ -707,6 +781,7 @@ public class PlayoutModeSchedulerBaseTests : SchedulerTestBase
                         new MediaChapter { StartTime = TimeSpan.FromMinutes(30), EndTime = TimeSpan.FromMinutes(45) }
                     ],
                     new PlayoutBuildWarnings(),
+                    new Random(),
                     _cancellationToken);
 
             playoutItems.Count.ShouldBe(5);
@@ -805,6 +880,7 @@ public class PlayoutModeSchedulerBaseTests : SchedulerTestBase
                     },
                     new List<MediaChapter>(),
                     new PlayoutBuildWarnings(),
+                    new Random(),
                     _cancellationToken);
 
             playoutItems.Count.ShouldBe(9); // 1 primary + 8 fallback

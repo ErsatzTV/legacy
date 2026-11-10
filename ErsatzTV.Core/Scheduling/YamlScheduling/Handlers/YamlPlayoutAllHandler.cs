@@ -95,7 +95,7 @@ public class YamlPlayoutAllHandler(EnumeratorCache enumeratorCache) : YamlPlayou
                             });
                     }
 
-                    await AddItemAndMidRoll(context, playoutItem, mediaItem, executeSequence);
+                    await AddItemAndMidRoll(context, playoutItem, mediaItem, executeSequence, logger);
                     context.AdvanceGuideGroup();
 
                     // create history record

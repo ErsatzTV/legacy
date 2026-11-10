@@ -206,6 +206,7 @@ public class PlayoutModeSchedulerDuration(ILogger logger)
                     playoutItem,
                     itemChapters,
                     warnings,
+                    random,
                     cancellationToken);
 
                 // foreach (PlayoutItem pi in maybePlayoutItems.OrderBy(pi => pi.StartOffset))
