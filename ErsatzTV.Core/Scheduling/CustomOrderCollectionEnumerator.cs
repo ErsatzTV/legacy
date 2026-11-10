@@ -26,6 +26,13 @@ public class CustomOrderCollectionEnumerator : IMediaCollectionEnumerator
             _sortedMediaItems.Bind(i => i.GetNonZeroDuration()).OrderBy(identity).HeadOrNone());
 
         State = new CollectionEnumeratorState { Seed = state.Seed, Started = state.Started };
+
+        if (state.Index >= _sortedMediaItems.Count)
+        {
+            state.Index = 0;
+            state.Seed = 0;
+        }
+
         while (State.Index < state.Index)
         {
             MoveNext(Option<DateTimeOffset>.None);
@@ -48,6 +55,11 @@ public class CustomOrderCollectionEnumerator : IMediaCollectionEnumerator
 
     public void MoveNext(Option<DateTimeOffset> scheduledAt)
     {
+        if (_sortedMediaItems.Count == 0)
+        {
+            return;
+        }
+
         State.Index = (State.Index + 1) % _sortedMediaItems.Count;
         State.Started = true;
     }

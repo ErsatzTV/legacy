@@ -1202,7 +1202,7 @@ public class MediaCollectionRepository : IMediaCollectionRepository
             new CollectionWithItems(
                 id,
                 id,
-                fakeKey,
+                $"{fakeKey}:other",
                 items.OfType<OtherVideo>().Cast<MediaItem>().ToList(),
                 true,
                 PlaybackOrder.Chronological,

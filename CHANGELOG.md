@@ -5,7 +5,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 ### Fixed
-- Fix classic schedule duration items with `Discard To Fill Attempts` running past their duration and skipping later schedule items once the attempts are used up
+- Classic schedules:
+  - Fix duration items with `Discard To Fill Attempts` running past their duration and skipping later schedule items once the attempts are used up
+  - Fix builds never finishing when a collection with `Use Custom Playback Order` has fewer items than the saved playout position
+  - Fix `Fill With Groups` behavior:
+    - Fix builds failing when the collection mixes movies, other videos and songs by more than one album artist
+    - Fix builds failing when the collection only holds images or remote streams; these now schedule without groups
+    - Fix groups resuming from another group's position after a playout refresh or restart
 
 ## [26.12.0] - 2026-11-06
 ### Changed
