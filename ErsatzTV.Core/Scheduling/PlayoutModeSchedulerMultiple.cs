@@ -143,6 +143,7 @@ public class PlayoutModeSchedulerMultiple(Map<CollectionKey, int> collectionItem
                     playoutItem,
                     itemChapters,
                     warnings,
+                    random,
                     cancellationToken));
 
             nextState = nextState with

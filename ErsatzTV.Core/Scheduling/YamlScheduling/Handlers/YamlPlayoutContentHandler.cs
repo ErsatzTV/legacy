@@ -165,7 +165,8 @@ public abstract class YamlPlayoutContentHandler(EnumeratorCache enumeratorCache)
         YamlPlayoutContext context,
         PlayoutItem playoutItem,
         MediaItem mediaItem,
-        Func<string, Task> executeSequence)
+        Func<string, Task> executeSequence,
+        ILogger logger)
     {
         List<MediaChapter> itemChapters = ChaptersForMediaItem(mediaItem);
         Option<YamlPlayoutContext.MidRollSequence> maybeMidRollSequence = context.GetMidRollSequence();
@@ -181,7 +182,9 @@ public abstract class YamlPlayoutContentHandler(EnumeratorCache enumeratorCache)
                 List<MediaChapter> filteredChapters = FillerExpression.FilterChapters(
                     midRollSequence.Expression,
                     itemChapters,
-                    playoutItem);
+                    playoutItem,
+                    midRollSequence.Sequence,
+                    logger);
 
                 if (filteredChapters.Count < 2)
                 {

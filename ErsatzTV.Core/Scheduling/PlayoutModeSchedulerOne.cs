@@ -89,6 +89,7 @@ public class PlayoutModeSchedulerOne(ILogger logger) : PlayoutModeSchedulerBase<
                 playoutItem,
                 itemChapters,
                 warnings,
+                random,
                 cancellationToken);
 
             PlayoutBuilderState nextState = playoutBuilderState with

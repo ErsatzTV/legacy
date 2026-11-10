@@ -28,8 +28,6 @@ public abstract class PlayoutModeSchedulerBase<T>(ILogger logger) : IPlayoutMode
         WriteIndented = false
     };
 
-    private readonly Random _random = new();
-
     protected ILogger Logger { get; } = logger;
 
     public abstract PlayoutSchedulerResult Schedule(
@@ -323,6 +321,7 @@ public abstract class PlayoutModeSchedulerBase<T>(ILogger logger) : IPlayoutMode
         PlayoutItem playoutItem,
         List<MediaChapter> chapters,
         PlayoutBuildWarnings warnings,
+        Random random,
         CancellationToken cancellationToken)
     {
         var result = new List<PlayoutItem>();
@@ -469,6 +468,7 @@ public abstract class PlayoutModeSchedulerBase<T>(ILogger logger) : IPlayoutMode
                     result.AddRange(
                         AddRandomCountFiller(
                             playoutBuilderState,
+                            random,
                             scheduleItem,
                             e3,
                             filler.Count.Value,
@@ -492,7 +492,9 @@ public abstract class PlayoutModeSchedulerBase<T>(ILogger logger) : IPlayoutMode
                 List<MediaChapter> filteredChapters = FillerExpression.FilterChapters(
                     filler.Expression,
                     effectiveChapters,
-                    playoutItem);
+                    playoutItem,
+                    filler.Name,
+                    Logger);
                 if (filteredChapters.Count <= 1)
                 {
                     result.Add(playoutItem);
@@ -555,6 +557,7 @@ public abstract class PlayoutModeSchedulerBase<T>(ILogger logger) : IPlayoutMode
                                 result.AddRange(
                                     AddRandomCountFiller(
                                         playoutBuilderState,
+                                        random,
                                         scheduleItem,
                                         e3,
                                         filler.Count.Value,
@@ -606,6 +609,7 @@ public abstract class PlayoutModeSchedulerBase<T>(ILogger logger) : IPlayoutMode
                     result.AddRange(
                         AddRandomCountFiller(
                             playoutBuilderState,
+                            random,
                             scheduleItem,
                             e3,
                             filler.Count.Value,
@@ -624,7 +628,12 @@ public abstract class PlayoutModeSchedulerBase<T>(ILogger logger) : IPlayoutMode
             var totalDuration = TimeSpan.FromTicks(result.Sum(pi => (pi.Finish - pi.Start).Ticks));
 
             List<MediaChapter> filteredChapters =
-                FillerExpression.FilterChapters(padFiller.Expression, effectiveChapters, playoutItem);
+                FillerExpression.FilterChapters(
+                    padFiller.Expression,
+                    effectiveChapters,
+                    playoutItem,
+                    padFiller.Name,
+                    Logger);
 
             FillerKind fillerKind = padFiller.FillerKind;
             if (filteredChapters.Count <= 1 && effectiveChapters.Count > 1)
@@ -960,6 +969,7 @@ public abstract class PlayoutModeSchedulerBase<T>(ILogger logger) : IPlayoutMode
 
     private List<PlayoutItem> AddRandomCountFiller(
         PlayoutBuilderState playoutBuilderState,
+        Random random,
         ProgramScheduleItem scheduleItem,
         IMediaCollectionEnumerator enumerator,
         int count,
@@ -970,7 +980,7 @@ public abstract class PlayoutModeSchedulerBase<T>(ILogger logger) : IPlayoutMode
     {
         var result = new List<PlayoutItem>();
         // randomCount is from 0 to count.
-        int randomCount = _random.Next(count + 1);
+        int randomCount = random.Next(count + 1);
 
         if (randomCount != 0)
         {

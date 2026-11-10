@@ -119,6 +119,7 @@ public class PlayoutModeSchedulerFlood(ILogger logger) : PlayoutModeSchedulerBas
                 playoutItem,
                 itemChapters,
                 warnings,
+                random,
                 cancellationToken);
 
             DateTimeOffset itemEndTimeWithFiller = maybePlayoutItems.Max(pi => pi.FinishOffset);

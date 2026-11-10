@@ -12,6 +12,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
     - Fix builds failing when the collection mixes movies, other videos and songs by more than one album artist
     - Fix builds failing when the collection only holds images or remote streams; these now schedule without groups
     - Fix groups resuming from another group's position after a playout refresh or restart
+  - Fix mid-roll and pad filler with an `Expression` giving wrong chapter times to later playout items of the same media item
+  - Fix `Random Count` filler giving a different number of items each time the same day is rebuilt
+- Fix playout builds failing when a filler expression is invalid
+  - The error is now logged with the filler preset name and no mid-roll is used
 
 ## [26.12.0] - 2026-11-06
 ### Changed

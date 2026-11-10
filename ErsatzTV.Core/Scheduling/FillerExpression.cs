@@ -1,4 +1,5 @@
 using ErsatzTV.Core.Domain;
+using Microsoft.Extensions.Logging;
 using NCalc;
 
 namespace ErsatzTV.Core.Scheduling;
@@ -8,7 +9,9 @@ public static class FillerExpression
     public static List<MediaChapter> FilterChapters(
         string fillerExpression,
         List<MediaChapter> effectiveChapters,
-        PlayoutItem playoutItem)
+        PlayoutItem playoutItem,
+        string fillerName,
+        ILogger logger)
     {
         if (effectiveChapters.Count == 0 || string.IsNullOrWhiteSpace(fillerExpression))
         {
@@ -47,22 +50,49 @@ public static class FillerExpression
                     "point" => chapterPoint.TotalSeconds,
                     "num" => chapterNum,
                     "title" => chapter.Title ?? string.Empty,
-                    _ => e.Result
+                    _ => throw new ArgumentException($"Unknown parameter {name}")
                 };
             };
 
-            if (expression.Evaluate() as bool? == true)
+            bool matched;
+            try
+            {
+                matched = expression.Evaluate() as bool? == true;
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(
+                    "Filler expression {Expression} for {FillerName} is invalid; no mid-roll will be used: {Error}",
+                    fillerExpression,
+                    fillerName,
+                    ex.Message);
+
+                // one chapter is the "no points" result; an empty list would drop the content duration from padding
+                return [new MediaChapter { StartTime = start, EndTime = end }];
+            }
+
+            if (matched)
             {
                 matches += 1;
                 lastFiller = chapterPoint.TotalSeconds;
-                newChapters.Add(effectiveChapters[index]);
+
+                // copy so the media item's own chapters keep their times for later playout items
+                MediaChapter source = effectiveChapters[index];
+                newChapters.Add(
+                    new MediaChapter
+                    {
+                        Id = source.Id,
+                        MediaVersionId = source.MediaVersionId,
+                        ChapterId = source.ChapterId,
+                        StartTime = source.StartTime,
+                        EndTime = source.EndTime,
+                        Title = source.Title
+                    });
             }
         }
 
         if (newChapters.Count > 0)
         {
-            newChapters[0].StartTime = start;
-
             TimeSpan currentTime = start;
             foreach (MediaChapter chapter in newChapters)
             {
