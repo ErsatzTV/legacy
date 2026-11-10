@@ -84,8 +84,15 @@ public class FakeMediaCollectionRepository : IMediaCollectionRepository
     public Task<bool> IsCustomPlaybackOrder(int collectionId) => false.AsTask();
     public Task<Option<string>> GetNameFromKey(CollectionKey emptyCollection, CancellationToken cancellationToken) => Option<string>.None.AsTask();
 
+    public Func<List<MediaItem>, string, List<CollectionWithItems>> FakeCollectionGrouper { get; init; }
+
     public List<CollectionWithItems> GroupIntoFakeCollections(List<MediaItem> items, string fakeKey = null)
     {
+        if (FakeCollectionGrouper is not null)
+        {
+            return FakeCollectionGrouper(items, fakeKey);
+        }
+
         return [new CollectionWithItems(1, 0, fakeKey, items, true, PlaybackOrder.Shuffle, false)];
     }
 }

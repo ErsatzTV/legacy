@@ -629,7 +629,7 @@ public class PlayoutBuilder : IPlayoutBuilder
                     var (_, _, k) when k is not null => new CollectionKey
                     {
                         CollectionType = CollectionType.FakeCollection,
-                        FakeCollectionKey = collectionKeyString
+                        FakeCollectionKey = k
                     },
                     var (_, _, _) => null
                 };
@@ -663,6 +663,15 @@ public class PlayoutBuilder : IPlayoutBuilder
 
                 // this makes multiple (0) work - since it needs the number of items in the collection
                 collectionItemCount.Add(key, fakeCollection.MediaItems.Count);
+            }
+
+            if (fakeScheduleItems.Count == 0)
+            {
+                // e.g. images and remote streams, which are not grouped
+                _logger.LogWarning(
+                    "Schedule item {Id} has no groups to fill with; scheduling its collection without groups",
+                    scheduleItem.Id);
+                continue;
             }
 
             CollectionEnumeratorState enumeratorState =
@@ -771,9 +780,11 @@ public class PlayoutBuilder : IPlayoutBuilder
             ProgramScheduleItem scheduleItem = playoutBuilderState.ScheduleItemsEnumerator.Current;
 
             // replace with the fake schedule item when filling with group
-            if (scheduleItem.FillWithGroupMode is not FillWithGroupMode.None)
+            if (scheduleItemsFillGroupEnumerators.TryGetValue(
+                    scheduleItem.Id,
+                    out IScheduleItemsEnumerator fillGroupEnumerator))
             {
-                scheduleItem = scheduleItemsFillGroupEnumerators[scheduleItem.Id].Current;
+                scheduleItem = fillGroupEnumerator.Current;
             }
 
             ProgramScheduleItem nextScheduleItem = playoutBuilderState.ScheduleItemsEnumerator.Peek(1);
@@ -821,11 +832,13 @@ public class PlayoutBuilder : IPlayoutBuilder
             result.Warnings.Merge(warnings);
 
             // if we completed a multiple/duration block, move to the next fill group
-            if (scheduleItem.FillWithGroupMode is not FillWithGroupMode.None)
+            if (scheduleItemsFillGroupEnumerators.TryGetValue(
+                    scheduleItem.Id,
+                    out IScheduleItemsEnumerator usedFillGroupEnumerator))
             {
                 if (nextState.MultipleRemaining.IsNone && nextState.DurationFinish.IsNone)
                 {
-                    scheduleItemsFillGroupEnumerators[scheduleItem.Id].MoveNext();
+                    usedFillGroupEnumerator.MoveNext();
                 }
             }
 
@@ -1273,14 +1286,7 @@ public class PlayoutBuilder : IPlayoutBuilder
     {
         Option<PlayoutProgramScheduleAnchor> maybeAnchor = playout.ProgramScheduleAnchors
             .OrderByDescending(a => a.AnchorDate ?? DateTime.MaxValue)
-            .FirstOrDefault(a => a.CollectionType == collectionKey.CollectionType
-                                 && a.CollectionId == collectionKey.CollectionId
-                                 && a.MultiCollectionId == collectionKey.MultiCollectionId
-                                 && a.SmartCollectionId == collectionKey.SmartCollectionId
-                                 && a.RerunCollectionId == collectionKey.RerunCollectionId
-                                 && a.MediaItemId == collectionKey.MediaItemId
-                                 && a.PlaylistId == collectionKey.PlaylistId
-                                 && a.SearchQuery == collectionKey.SearchQuery);
+            .FirstOrDefault(a => AnchorMatchesCollectionKey(a, collectionKey));
 
         CollectionEnumeratorState state = null;
 

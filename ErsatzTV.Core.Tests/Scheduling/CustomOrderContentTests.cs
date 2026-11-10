@@ -63,6 +63,31 @@ public class CustomOrderContentTests
         }
     }
 
+    [Test]
+    public void State_Index_Past_The_End_Should_Start_At_The_Beginning()
+    {
+        Collection collection = CreateCollection(5);
+        List<MediaItem> contents = Episodes(5);
+        var state = new CollectionEnumeratorState { Index = 7 };
+
+        var customOrderContent = new CustomOrderCollectionEnumerator(collection, contents, state);
+
+        customOrderContent.State.Index.ShouldBe(0);
+        customOrderContent.Current.Map(x => x.Id).IfNone(-1).ShouldBe(5);
+    }
+
+    [Test]
+    public void Empty_Collection_Should_Not_Throw()
+    {
+        var collection = new Collection { CollectionItems = [] };
+        var state = new CollectionEnumeratorState { Index = 3 };
+
+        var customOrderContent = new CustomOrderCollectionEnumerator(collection, [], state);
+        customOrderContent.MoveNext(Option<DateTimeOffset>.None);
+
+        customOrderContent.Current.IsNone.ShouldBeTrue();
+    }
+
     private static Collection CreateCollection(int episodeCount)
     {
         var collection = new Collection { CollectionItems = new List<CollectionItem>() };
