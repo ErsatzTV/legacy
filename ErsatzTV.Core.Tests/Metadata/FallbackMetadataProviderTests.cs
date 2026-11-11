@@ -151,6 +151,49 @@ public class FallbackMetadataProviderTests
         metadata.Map(m => m.EpisodeNumber).ShouldBe([episode1, episode2]);
     }
 
+    // search for added_inthelast reads DateAdded, so it must never stay at MinValue
+    [Test]
+    public void GetFallbackMetadata_Should_Set_DateAdded()
+    {
+        static List<MediaVersion> Versions(string path) => [new() { MediaFiles = [new MediaFile { Path = path }] }];
+
+        DateTime before = DateTime.UtcNow;
+
+        _fallbackMetadataProvider.GetFallbackMetadata(
+                new Movie { LibraryPath = new LibraryPath(), MediaVersions = Versions("Movie (2021).mkv") })
+            .DateAdded.ShouldBeGreaterThanOrEqualTo(before);
+
+        foreach (MusicVideoMetadata m in _fallbackMetadataProvider.GetFallbackMetadata(
+                     new MusicVideo { MediaVersions = Versions(Path.Combine("Artist", "Song.mkv")) }))
+        {
+            m.DateAdded.ShouldBeGreaterThanOrEqualTo(before);
+        }
+
+        foreach (OtherVideoMetadata m in _fallbackMetadataProvider.GetFallbackMetadata(
+                     new OtherVideo { MediaVersions = Versions(Path.Combine("other", "Video.mkv")) }))
+        {
+            m.DateAdded.ShouldBeGreaterThanOrEqualTo(before);
+        }
+
+        foreach (SongMetadata m in _fallbackMetadataProvider.GetFallbackMetadata(
+                     new Song { MediaVersions = Versions(Path.Combine("music", "Song.flac")) }))
+        {
+            m.DateAdded.ShouldBeGreaterThanOrEqualTo(before);
+        }
+
+        foreach (ImageMetadata m in _fallbackMetadataProvider.GetFallbackMetadata(
+                     new Image { MediaVersions = Versions(Path.Combine("images", "Image.png")) }))
+        {
+            m.DateAdded.ShouldBeGreaterThanOrEqualTo(before);
+        }
+
+        foreach (RemoteStreamMetadata m in _fallbackMetadataProvider.GetFallbackMetadata(
+                     new RemoteStream { MediaVersions = Versions(Path.Combine("streams", "Stream.yml")) }))
+        {
+            m.DateAdded.ShouldBeGreaterThanOrEqualTo(before);
+        }
+    }
+
     [Test]
     [TestCase("Something (2021).mkv", "Something")]
     [TestCase("Something Else (2021).mkv", "Something Else")]

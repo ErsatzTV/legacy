@@ -98,6 +98,7 @@ public partial class FallbackMetadataProvider : IFallbackMetadataProvider
         var metadata = new MovieMetadata
         {
             MetadataKind = MetadataKind.Fallback,
+            DateAdded = DateTime.UtcNow,
             Title = Path.GetFileNameWithoutExtension(path) ?? path,
             Artwork = [],
             Genres = [],
@@ -119,6 +120,7 @@ public partial class FallbackMetadataProvider : IFallbackMetadataProvider
         var metadata = new MusicVideoMetadata
         {
             MetadataKind = MetadataKind.Fallback,
+            DateAdded = DateTime.UtcNow,
             Title = fileName ?? path,
             Artwork = []
         };
@@ -133,6 +135,7 @@ public partial class FallbackMetadataProvider : IFallbackMetadataProvider
         var metadata = new OtherVideoMetadata
         {
             MetadataKind = MetadataKind.Fallback,
+            DateAdded = DateTime.UtcNow,
             Title = fileName ?? path,
             OtherVideo = otherVideo,
             Artwork = [],
@@ -155,6 +158,7 @@ public partial class FallbackMetadataProvider : IFallbackMetadataProvider
         var metadata = new SongMetadata
         {
             MetadataKind = MetadataKind.Fallback,
+            DateAdded = DateTime.UtcNow,
             Title = fileName ?? path,
             Song = song,
             Artwork = []
@@ -170,6 +174,7 @@ public partial class FallbackMetadataProvider : IFallbackMetadataProvider
         var metadata = new ImageMetadata
         {
             MetadataKind = MetadataKind.Fallback,
+            DateAdded = DateTime.UtcNow,
             Title = fileName ?? path,
             Image = image,
             Artwork = [],
@@ -190,6 +195,7 @@ public partial class FallbackMetadataProvider : IFallbackMetadataProvider
         var metadata = new RemoteStreamMetadata
         {
             MetadataKind = MetadataKind.Fallback,
+            DateAdded = DateTime.UtcNow,
             Title = fileName ?? path,
             RemoteStream = remoteStream,
             Artwork = [],

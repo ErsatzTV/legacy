@@ -16,6 +16,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Fix `Random Count` filler giving a different number of items each time the same day is rebuilt
 - Fix playout builds failing when a filler expression is invalid
   - The error is now logged with the filler preset name and no mid-roll is used
+- Fix local library items having no date added, so `added_inthelast` never matched them
+  - This happened with "fallback" metadata due to missing NFO files or other metadata errors
+  - Existing items are backfilled with the file's creation time on the next library scan
 
 ## [26.12.0] - 2026-11-06
 ### Changed

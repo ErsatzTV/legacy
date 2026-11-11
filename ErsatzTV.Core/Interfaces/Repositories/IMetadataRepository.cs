@@ -53,4 +53,9 @@ public interface IMetadataRepository
         SidecarSubtitleIdentity sidecarIdentity,
         CancellationToken cancellationToken);
     Task<bool> UpdateChapters(MediaVersion version, List<MediaChapter> chapters, CancellationToken cancellationToken);
+
+    Task<List<int>> BackfillDateAdded(
+        int libraryPathId,
+        Func<string, Option<DateTime>> getDateAdded,
+        CancellationToken cancellationToken);
 }

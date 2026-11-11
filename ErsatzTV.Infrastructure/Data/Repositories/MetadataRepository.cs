@@ -1,4 +1,5 @@
 using Dapper;
+using ErsatzTV.Core;
 using ErsatzTV.Core.Domain;
 using ErsatzTV.Core.Extensions;
 using ErsatzTV.Core.Interfaces.Repositories;
@@ -806,4 +807,121 @@ public class MetadataRepository(IDbContextFactory<TvContext> dbContextFactory) :
         existingSubtitle.Title = incomingSubtitle.Title;
         existingSubtitle.Path = incomingSubtitle.Path;
     }
+
+    public async Task<List<int>> BackfillDateAdded(
+        int libraryPathId,
+        Func<string, Option<DateTime>> getDateAdded,
+        CancellationToken cancellationToken)
+    {
+        await using TvContext dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+        DateTime missing = SystemTime.MinValueUtc;
+        var result = new List<int>();
+
+        result.AddRange(
+            await BackfillDateAdded(
+                dbContext.MovieMetadata,
+                dbContext.MovieMetadata
+                    .Where(m => m.DateAdded == missing && m.Movie.LibraryPathId == libraryPathId)
+                    .Select(m => new MissingDateAdded(
+                        m.Id,
+                        m.MovieId,
+                        m.Movie.MediaVersions.SelectMany(v => v.MediaFiles).Select(f => f.Path).FirstOrDefault())),
+                getDateAdded,
+                cancellationToken));
+
+        result.AddRange(
+            await BackfillDateAdded(
+                dbContext.MusicVideoMetadata,
+                dbContext.MusicVideoMetadata
+                    .Where(m => m.DateAdded == missing && m.MusicVideo.LibraryPathId == libraryPathId)
+                    .Select(m => new MissingDateAdded(
+                        m.Id,
+                        m.MusicVideoId,
+                        m.MusicVideo.MediaVersions.SelectMany(v => v.MediaFiles).Select(f => f.Path)
+                            .FirstOrDefault())),
+                getDateAdded,
+                cancellationToken));
+
+        result.AddRange(
+            await BackfillDateAdded(
+                dbContext.OtherVideoMetadata,
+                dbContext.OtherVideoMetadata
+                    .Where(m => m.DateAdded == missing && m.OtherVideo.LibraryPathId == libraryPathId)
+                    .Select(m => new MissingDateAdded(
+                        m.Id,
+                        m.OtherVideoId,
+                        m.OtherVideo.MediaVersions.SelectMany(v => v.MediaFiles).Select(f => f.Path)
+                            .FirstOrDefault())),
+                getDateAdded,
+                cancellationToken));
+
+        result.AddRange(
+            await BackfillDateAdded(
+                dbContext.SongMetadata,
+                dbContext.SongMetadata
+                    .Where(m => m.DateAdded == missing && m.Song.LibraryPathId == libraryPathId)
+                    .Select(m => new MissingDateAdded(
+                        m.Id,
+                        m.SongId,
+                        m.Song.MediaVersions.SelectMany(v => v.MediaFiles).Select(f => f.Path).FirstOrDefault())),
+                getDateAdded,
+                cancellationToken));
+
+        result.AddRange(
+            await BackfillDateAdded(
+                dbContext.ImageMetadata,
+                dbContext.ImageMetadata
+                    .Where(m => m.DateAdded == missing && m.Image.LibraryPathId == libraryPathId)
+                    .Select(m => new MissingDateAdded(
+                        m.Id,
+                        m.ImageId,
+                        m.Image.MediaVersions.SelectMany(v => v.MediaFiles).Select(f => f.Path).FirstOrDefault())),
+                getDateAdded,
+                cancellationToken));
+
+        result.AddRange(
+            await BackfillDateAdded(
+                dbContext.RemoteStreamMetadata,
+                dbContext.RemoteStreamMetadata
+                    .Where(m => m.DateAdded == missing && m.RemoteStream.LibraryPathId == libraryPathId)
+                    .Select(m => new MissingDateAdded(
+                        m.Id,
+                        m.RemoteStreamId,
+                        m.RemoteStream.MediaVersions.SelectMany(v => v.MediaFiles).Select(f => f.Path)
+                            .FirstOrDefault())),
+                getDateAdded,
+                cancellationToken));
+
+        return result;
+    }
+
+    private static async Task<List<int>> BackfillDateAdded<T>(
+        DbSet<T> metadataSet,
+        IQueryable<MissingDateAdded> query,
+        Func<string, Option<DateTime>> getDateAdded,
+        CancellationToken cancellationToken) where T : Core.Domain.Metadata
+    {
+        var result = new List<int>();
+
+        foreach (MissingDateAdded item in await query.ToListAsync(cancellationToken))
+        {
+            if (string.IsNullOrWhiteSpace(item.Path))
+            {
+                continue;
+            }
+
+            foreach (DateTime dateAdded in getDateAdded(item.Path))
+            {
+                await metadataSet
+                    .Where(m => m.Id == item.MetadataId)
+                    .ExecuteUpdateAsync(setters => setters.SetProperty(m => m.DateAdded, dateAdded), cancellationToken);
+
+                result.Add(item.MediaItemId);
+            }
+        }
+
+        return result;
+    }
+
+    private sealed record MissingDateAdded(int MetadataId, int MediaItemId, string Path);
 }
