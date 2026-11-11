@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.IO.Abstractions;
 using ErsatzTV.Core;
 using ErsatzTV.Core.Domain;
 using ErsatzTV.Core.Interfaces.Repositories;
@@ -12,10 +13,12 @@ namespace ErsatzTV.Scanner.Application.MediaSources;
 public class ScanLocalLibraryHandler : IRequestHandler<ScanLocalLibrary, Either<BaseError, string>>
 {
     private readonly IConfigElementRepository _configElementRepository;
+    private readonly IFileSystem _fileSystem;
     private readonly IImageFolderScanner _imageFolderScanner;
     private readonly IScannerProxy _scannerProxy;
     private readonly ILibraryRepository _libraryRepository;
     private readonly ILogger<ScanLocalLibraryHandler> _logger;
+    private readonly IMetadataRepository _metadataRepository;
     private readonly IMovieFolderScanner _movieFolderScanner;
     private readonly IMusicVideoFolderScanner _musicVideoFolderScanner;
     private readonly IOtherVideoFolderScanner _otherVideoFolderScanner;
@@ -34,8 +37,12 @@ public class ScanLocalLibraryHandler : IRequestHandler<ScanLocalLibrary, Either<
         ISongFolderScanner songFolderScanner,
         IImageFolderScanner imageFolderScanner,
         IRemoteStreamFolderScanner remoteStreamFolderScanner,
+        IMetadataRepository metadataRepository,
+        IFileSystem fileSystem,
         ILogger<ScanLocalLibraryHandler> logger)
     {
+        _metadataRepository = metadataRepository;
+        _fileSystem = fileSystem;
         _scannerProxy = scannerProxy;
         _libraryRepository = libraryRepository;
         _configElementRepository = configElementRepository;
@@ -78,6 +85,8 @@ public class ScanLocalLibraryHandler : IRequestHandler<ScanLocalLibrary, Either<
             if (forceScan || libraryRefreshInterval > 0 && nextScan < DateTimeOffset.Now)
             {
                 scanned = true;
+
+                await BackfillDateAdded(libraryPath, cancellationToken);
 
                 Either<BaseError, Unit> result = localLibrary.MediaKind switch
                 {
@@ -175,6 +184,48 @@ public class ScanLocalLibraryHandler : IRequestHandler<ScanLocalLibrary, Either<
         }
 
         return Unit.Default;
+    }
+
+    // older versions left DateAdded unset on local items that fell back to filename metadata
+    private async Task BackfillDateAdded(LibraryPath libraryPath, CancellationToken cancellationToken)
+    {
+        List<int> mediaItemIds = await _metadataRepository.BackfillDateAdded(
+            libraryPath.Id,
+            GetFileCreationTime,
+            cancellationToken);
+
+        if (mediaItemIds.Count > 0)
+        {
+            _logger.LogInformation(
+                "Backfilled date added for {Count} items in library path {Path}",
+                mediaItemIds.Count,
+                libraryPath.Path);
+
+            if (!await _scannerProxy.ReindexMediaItems(mediaItemIds.ToArray(), cancellationToken))
+            {
+                _logger.LogWarning("Failed to reindex media items from scanner process");
+            }
+        }
+    }
+
+    private Option<DateTime> GetFileCreationTime(string path)
+    {
+        try
+        {
+            if (!_fileSystem.File.Exists(path))
+            {
+                return None;
+            }
+
+            DateTime creationTime = _fileSystem.File.GetCreationTimeUtc(path);
+            DateTime now = DateTime.UtcNow;
+            return creationTime > now ? now : creationTime;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Failed to get creation time for {Path}", path);
+            return None;
+        }
     }
 
     private async Task<Validation<BaseError, RequestParameters>> Validate(
