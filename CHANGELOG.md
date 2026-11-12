@@ -22,6 +22,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Next engine:
   - Keep channels running when configured with **Idle Behavior** > **Keep Running**
   - Respect **HLS Segmenter Initial Segment Count** setting when greater than 3 (the new default in next, lowered from 4)
+  - Fix items playing fallback filler after a library scan replaces their subtitles
+    - Playouts are now synchronized with next after each library scan
+    - Subtitles that no longer exist are served empty instead of failing the item
+  - Send probe hints for text subtitles so next no longer probes them before each item
 
 ## [26.12.0] - 2026-11-06
 ### Changed

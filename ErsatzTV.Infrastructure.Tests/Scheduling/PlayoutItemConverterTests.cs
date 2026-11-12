@@ -117,6 +117,33 @@ public class PlayoutItemConverterTests
         serialized.GetProperty("uri").GetString().ShouldBe(source.Uri);
     }
 
+    [TestCase("subrip", "subrip", "srt")]
+    [TestCase("srt", "subrip", "srt")]
+    [TestCase("ass", "ass", "ass")]
+    [TestCase("ssa", "ass", "ass")]
+    [TestCase("webvtt", "webvtt", "webvtt")]
+    public async Task Text_subtitles_get_probe_hint(string codec, string hintCodec, string formatName)
+    {
+        Next.PlayoutItem result = await Convert(new JellyfinMovie(),
+            [new Subtitle { Id = 1, SubtitleKind = SubtitleKind.Sidecar, Codec = codec, StreamIndex = 100000 }]);
+
+        Next.ProbeHint hint = result.Tracks!.Subtitle!.Source!.ProbeHint!;
+        hint.FormatName.ShouldBe(formatName);
+        Next.SubtitleHint subtitle = hint.Subtitle.ShouldHaveSingleItem();
+        subtitle.Codec.ShouldBe(hintCodec);
+        subtitle.StreamIndex.ShouldBe(0);
+    }
+
+    [TestCase(null)]
+    [TestCase("smi")]
+    public async Task Unknown_subtitle_codecs_are_probed(string? codec)
+    {
+        Next.PlayoutItem result = await Convert(new JellyfinMovie(),
+            [new Subtitle { Id = 1, SubtitleKind = SubtitleKind.Sidecar, Codec = codec!, StreamIndex = 100000 }]);
+
+        result.Tracks!.Subtitle!.Source!.ProbeHint.ShouldBeNull();
+    }
+
     [Test]
     public async Task Persisted_local_sidecar_uses_proxy_after_checking_file_exists()
     {

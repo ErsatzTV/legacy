@@ -3,10 +3,12 @@ using ErsatzTV.Application;
 using ErsatzTV.Application.Emby;
 using ErsatzTV.Application.Jellyfin;
 using ErsatzTV.Application.MediaSources;
+using ErsatzTV.Application.Playouts;
 using ErsatzTV.Application.Plex;
 using ErsatzTV.Core;
 using ErsatzTV.Core.Errors;
 using ErsatzTV.Core.Interfaces.Locking;
+using ErsatzTV.Infrastructure.Data;
 using MediatR;
 
 namespace ErsatzTV.Services;
@@ -126,6 +128,11 @@ public class ScannerService : BackgroundService
                 }
             });
 
+        if (scanResult.IsRight)
+        {
+            await SyncNextPlayouts(scope, request.LibraryId, cancellationToken);
+        }
+
         if (entityLocker.IsLibraryLocked(request.LibraryId))
         {
             entityLocker.UnlockLibrary(request.LibraryId);
@@ -175,6 +182,11 @@ public class ScannerService : BackgroundService
                         error.Value);
                 }
             });
+
+        if (result.IsRight)
+        {
+            await SyncNextPlayouts(scope, request.PlexLibraryId, cancellationToken);
+        }
 
         if (entityLocker.IsLibraryLocked(request.PlexLibraryId))
         {
@@ -289,6 +301,11 @@ public class ScannerService : BackgroundService
                 }
             });
 
+        if (result.IsRight)
+        {
+            await SyncNextPlayouts(scope, request.JellyfinLibraryId, cancellationToken);
+        }
+
         if (entityLocker.IsLibraryLocked(request.JellyfinLibraryId))
         {
             entityLocker.UnlockLibrary(request.JellyfinLibraryId);
@@ -366,6 +383,11 @@ public class ScannerService : BackgroundService
                 }
             });
 
+        if (result.IsRight)
+        {
+            await SyncNextPlayouts(scope, request.EmbyLibraryId, cancellationToken);
+        }
+
         if (entityLocker.IsLibraryLocked(request.EmbyLibraryId))
         {
             entityLocker.UnlockLibrary(request.EmbyLibraryId);
@@ -398,6 +420,25 @@ public class ScannerService : BackgroundService
         if (entityLocker.AreEmbyCollectionsLocked())
         {
             entityLocker.UnlockEmbyCollections();
+        }
+    }
+
+    // next playouts embed scanned data such as subtitle ids
+    private async Task SyncNextPlayouts(IServiceScope scope, int libraryId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            TvContext dbContext = scope.ServiceProvider.GetRequiredService<TvContext>();
+            ChannelWriter<IBackgroundServiceRequest> workerChannel =
+                scope.ServiceProvider.GetRequiredService<ChannelWriter<IBackgroundServiceRequest>>();
+
+            List<string> channelNumbers =
+                await NextPlayoutDependents.ForLibrary(dbContext, libraryId, cancellationToken);
+            await workerChannel.QueueSyncNextPlayouts(channelNumbers, cancellationToken);
+        }
+        catch (Exception ex) when (ex is not (TaskCanceledException or OperationCanceledException))
+        {
+            _logger.LogWarning(ex, "Failed to queue next playout sync for library {LibraryId}", libraryId);
         }
     }
 }

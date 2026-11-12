@@ -93,6 +93,20 @@ public static class NextPlayoutDependents
         return await WithMirrors(dbContext, channelIds, cancellationToken);
     }
 
+    public static async Task<List<string>> ForLibrary(
+        TvContext dbContext,
+        int libraryId,
+        CancellationToken cancellationToken)
+    {
+        List<int> channelIds = await dbContext.PlayoutItems
+            .Where(pi => pi.MediaItem.LibraryPath.LibraryId == libraryId)
+            .Select(pi => pi.Playout.ChannelId)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+        return await WithMirrors(dbContext, channelIds, cancellationToken);
+    }
+
     public static Task<List<string>> ForFFmpegProfile(
         TvContext dbContext,
         int ffmpegProfileId,

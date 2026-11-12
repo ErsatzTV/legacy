@@ -152,8 +152,8 @@ public class ChannelConfigConverterTests
     {
         ChannelConfig config = await Convert(Profile);
 
-        config.Session.IdleTimeoutSeconds.ShouldBe(60);
-        config.Session.ReadySegmentCount.ShouldBeNull();
+        config.Session?.IdleTimeoutSeconds.ShouldBe(60);
+        config.Session?.ReadySegmentCount.ShouldBeNull();
     }
 
     [Test]
@@ -165,7 +165,7 @@ public class ChannelConfigConverterTests
             Option<FrameRate>.None,
             new EmptyConfigElementRepository());
 
-        config.Session.IdleTimeoutSeconds.ShouldBe(0);
+        config.Session?.IdleTimeoutSeconds.ShouldBe(0);
     }
 
     [TestCase(1, null)]
@@ -180,7 +180,7 @@ public class ChannelConfigConverterTests
 
         ChannelConfig config = await Convert(Channel, Profile, Option<FrameRate>.None, repository);
 
-        config.Session.ReadySegmentCount.ShouldBe(expected);
+        config.Session?.ReadySegmentCount.ShouldBe(expected);
     }
 
     [TestCase("24000/1001", "24000/1001")]
@@ -232,7 +232,7 @@ public class ChannelConfigConverterTests
             Task.FromResult(Option<ConfigElement>.None);
 
         public Task<Option<T>> GetValue<T>(ConfigElementKey key, CancellationToken cancellationToken) =>
-            Task.FromResult(Values.TryGetValue(key.Key, out object value) ? Option<T>.Some((T)value) : Option<T>.None);
+            Task.FromResult(Values.TryGetValue(key.Key, out object? value) ? Option<T>.Some((T)value) : Option<T>.None);
 
         public Task Delete(ConfigElement configElement, CancellationToken cancellationToken) =>
             throw new NotSupportedException();

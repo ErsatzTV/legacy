@@ -375,7 +375,13 @@ public class InternalController : StreamingControllerBase
             return new PhysicalFileResult(pathAndCodec.Path, mimeType);
         }
 
-        return new NotFoundResult();
+        // a scan can delete the subtitle after next's playout is written; an error fails the whole item
+        foreach (BaseError error in maybePath.LeftToSeq())
+        {
+            _logger.LogWarning("Serving empty subtitle for stale subtitle {SubtitleId}: {Error}", id, error.Value);
+        }
+
+        return Content(EmptySubtitleDocument("text/x-ssa"), "text/x-ssa");
     }
 
     [HttpGet("graphics/{channelNumber}/{playoutItemId:int}")]

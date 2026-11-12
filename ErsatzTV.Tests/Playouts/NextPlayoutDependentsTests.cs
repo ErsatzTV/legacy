@@ -151,6 +151,32 @@ public class NextPlayoutDependentsTests
         result.ShouldBe(["1"]);
     }
 
+    [Test]
+    public async Task ForLibrary_Should_Find_Channels_Playing_Its_Items_And_Mirrors()
+    {
+        LibraryPath libraryPath = AddLibraryPath();
+        LibraryPath otherLibraryPath = AddLibraryPath();
+
+        Channel channel = AddChannel("1");
+        AddPlayoutItem(AddPlayout(channel), AddMovie(libraryPath));
+
+        Channel mirror = AddChannel("2");
+        mirror.PlayoutSource = ChannelPlayoutSource.Mirror;
+        mirror.MirrorSourceChannel = channel;
+
+        Channel unrelated = AddChannel("3");
+        AddPlayoutItem(AddPlayout(unrelated), AddMovie(otherLibraryPath));
+
+        await _dbContext.SaveChangesAsync();
+
+        List<string> result = await NextPlayoutDependents.ForLibrary(
+            _dbContext,
+            libraryPath.LibraryId,
+            CancellationToken.None);
+
+        result.ShouldBe(["1", "2"], ignoreOrder: true);
+    }
+
     private Channel AddChannel(string number)
     {
         var channel = new Channel(Guid.NewGuid())

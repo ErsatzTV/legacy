@@ -695,7 +695,32 @@ public class PlayoutItemConverter(
             SetInOutPoints(playoutItem, source);
         }
 
+        source.ProbeHint = SubtitleProbeHint(subtitle);
+
         return source;
+    }
+
+    // match ffprobe on the served file (extraction writes mov_text as srt); unknown codecs are left for next to probe
+    private static Core.Next.ProbeHint SubtitleProbeHint(Subtitle subtitle)
+    {
+        (string codec, string formatName) = subtitle.Codec?.ToLowerInvariant() switch
+        {
+            "subrip" or "srt" or "mov_text" => ("subrip", "srt"),
+            "ass" or "ssa" => ("ass", "ass"),
+            "webvtt" or "vtt" => ("webvtt", "webvtt"),
+            _ => (null, null)
+        };
+
+        if (codec is null)
+        {
+            return null;
+        }
+
+        return new Core.Next.ProbeHint
+        {
+            Subtitle = [new Core.Next.SubtitleHint { StreamIndex = 0, Codec = codec }],
+            FormatName = formatName
+        };
     }
 
     private void SelectGraphics(
