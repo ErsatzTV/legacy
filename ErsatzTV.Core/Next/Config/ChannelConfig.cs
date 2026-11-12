@@ -53,6 +53,13 @@ namespace ErsatzTV.Core.Next.Config
         public Playout Playout { get; set; }
 
         /// <summary>
+        /// When the channel is ready to serve and when it stops without viewers.
+        /// </summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("session")]
+        public Session? Session { get; set; }
+
+        /// <summary>
         /// Schema version URI, e.g. "https://ersatztv.org/channel/version/0.1.0". Missing means
         /// 0.0.0.
         /// </summary>
@@ -618,6 +625,28 @@ namespace ErsatzTV.Core.Next.Config
         /// </summary>
         [JsonPropertyName("virtual_start")]
         public string? VirtualStart { get; set; }
+    }
+
+    /// <summary>
+    /// When the channel is ready to serve and when it stops without viewers.
+    /// </summary>
+    public partial class Session
+    {
+        /// <summary>
+        /// Seconds without a `.heartbeat` touch before the channel stops. Default 90. `0` never
+        /// stops the channel for being idle; it runs until it is terminated.
+        /// </summary>
+        [JsonPropertyName("idle_timeout_seconds")]
+        public long? IdleTimeoutSeconds { get; set; }
+
+        /// <summary>
+        /// Segments the playlist must hold before `.ready` is written, from 1 to 10. Default 3, so
+        /// players that start 3 segments from the live edge start at the first segment. The playlist
+        /// publishes only 12 seconds ahead of real time, so each segment above 4 delays `.ready` by
+        /// about 4 seconds.
+        /// </summary>
+        [JsonPropertyName("ready_segment_count")]
+        public long? ReadySegmentCount { get; set; }
     }
 
     /// <summary>

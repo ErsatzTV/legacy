@@ -147,6 +147,42 @@ public class ChannelConfigConverterTests
         config.Normalization.Video.FrameRate.ShouldBe("24000/1001");
     }
 
+    [Test]
+    public async Task Stop_on_disconnect_should_use_segmenter_timeout()
+    {
+        ChannelConfig config = await Convert(Profile);
+
+        config.Session.IdleTimeoutSeconds.ShouldBe(60);
+        config.Session.ReadySegmentCount.ShouldBeNull();
+    }
+
+    [Test]
+    public async Task Keep_running_should_never_idle()
+    {
+        ChannelConfig config = await Convert(
+            Channel with { IdleBehavior = ChannelIdleBehavior.KeepRunning },
+            Profile,
+            Option<FrameRate>.None,
+            new EmptyConfigElementRepository());
+
+        config.Session.IdleTimeoutSeconds.ShouldBe(0);
+    }
+
+    [TestCase(1, null)]
+    [TestCase(3, null)]
+    [TestCase(4, 4L)]
+    [TestCase(6, 6L)]
+    [TestCase(20, 10L)]
+    public async Task Initial_segment_count_should_only_raise_ready_count(int initialSegmentCount, long? expected)
+    {
+        var repository = new EmptyConfigElementRepository();
+        repository.Values[ConfigElementKey.FFmpegInitialSegmentCount.Key] = initialSegmentCount;
+
+        ChannelConfig config = await Convert(Channel, Profile, Option<FrameRate>.None, repository);
+
+        config.Session.ReadySegmentCount.ShouldBe(expected);
+    }
+
     [TestCase("24000/1001", "24000/1001")]
     [TestCase("25/1", "25/1")]
     [TestCase("30", "30")]
@@ -175,11 +211,20 @@ public class ChannelConfigConverterTests
         Convert(profile, Option<FrameRate>.None);
 
     private static Task<ChannelConfig> Convert(FFmpegProfileViewModel profile, Option<FrameRate> targetFramerate) =>
-        new ChannelConfigConverter(new EmptyConfigElementRepository(), new RealFileSystem())
-            .ToNext(Channel, profile, targetFramerate, CancellationToken.None);
+        Convert(Channel, profile, targetFramerate, new EmptyConfigElementRepository());
+
+    private static Task<ChannelConfig> Convert(
+        ChannelViewModel channel,
+        FFmpegProfileViewModel profile,
+        Option<FrameRate> targetFramerate,
+        IConfigElementRepository repository) =>
+        new ChannelConfigConverter(repository, new RealFileSystem())
+            .ToNext(channel, profile, targetFramerate, CancellationToken.None);
 
     private sealed class EmptyConfigElementRepository : IConfigElementRepository
     {
+        public Dictionary<string, object> Values { get; } = [];
+
         public Task<Unit> Upsert<T>(ConfigElementKey configElementKey, T value, CancellationToken cancellationToken) =>
             throw new NotSupportedException();
 
@@ -187,7 +232,7 @@ public class ChannelConfigConverterTests
             Task.FromResult(Option<ConfigElement>.None);
 
         public Task<Option<T>> GetValue<T>(ConfigElementKey key, CancellationToken cancellationToken) =>
-            Task.FromResult(Option<T>.None);
+            Task.FromResult(Values.TryGetValue(key.Key, out object value) ? Option<T>.Some((T)value) : Option<T>.None);
 
         public Task Delete(ConfigElement configElement, CancellationToken cancellationToken) =>
             throw new NotSupportedException();
