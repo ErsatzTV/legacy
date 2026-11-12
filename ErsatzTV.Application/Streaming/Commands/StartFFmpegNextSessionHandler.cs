@@ -81,8 +81,6 @@ public class StartFFmpegNextSessionHandler(
                 $"ersatztv-channel is not compatible with this version of ErsatzTV: {string.Join("; ", problems)}");
         }
 
-        Option<TimeSpan> idleTimeout = Option<TimeSpan>.None;
-
         Option<FrameRate> targetFramerate = await mediator.Send(
             new GetChannelFramerate(request.ChannelNumber),
             cancellationToken);
@@ -107,14 +105,6 @@ public class StartFFmpegNextSessionHandler(
         }
 
         FFmpegProfileViewModel ffmpegProfile = maybeFFmpegProfile.Head();
-
-        // only load timeout when needed
-        if (channel.IdleBehavior is not ChannelIdleBehavior.KeepRunning)
-        {
-            idleTimeout = await configElementRepository
-                .GetValue<int>(ConfigElementKey.FFmpegSegmenterTimeout, cancellationToken)
-                .Map(maybeTimeout => maybeTimeout.Match(i => TimeSpan.FromSeconds(i), () => TimeSpan.FromMinutes(1)));
-        }
 
         await mediator.Send(new RefreshGraphicsElements(), cancellationToken);
 
@@ -146,7 +136,10 @@ public class StartFFmpegNextSessionHandler(
         }
 
         // fire and forget worker
-        Task runTask = worker.Run(request.ChannelNumber, idleTimeout, hostApplicationLifetime.ApplicationStopping);
+        Task runTask = worker.Run(
+            request.ChannelNumber,
+            Option<TimeSpan>.None, // ersatztv-channel applies session.idle_timeout_seconds itself
+            hostApplicationLifetime.ApplicationStopping);
         _ = runTask.ContinueWith(
                 _ =>
                 {

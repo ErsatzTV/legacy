@@ -16,7 +16,7 @@ namespace ErsatzTV.Application.Streaming;
 public class ChannelConfigConverter(IConfigElementRepository configElementRepository, IFileSystem fileSystem)
     : IChannelConfigConverter
 {
-    public static readonly string ChannelConfigVersion = "https://ersatztv.org/channel/version/0.1.3";
+    public static readonly string ChannelConfigVersion = "https://ersatztv.org/channel/version/0.1.4";
 
     public async Task<ChannelConfig> ToNext(
         ChannelViewModel channel,
@@ -143,6 +143,8 @@ public class ChannelConfigConverter(IConfigElementRepository configElementReposi
 
         string playoutFolder = fileSystem.Path.Combine(FileSystemLayout.NextPlayoutsFolder, channel.Number, "current");
 
+        Session session = await ToNextSession(channel, cancellationToken);
+
         return new ChannelConfig
         {
             Version = ChannelConfigVersion,
@@ -161,8 +163,41 @@ public class ChannelConfigConverter(IConfigElementRepository configElementReposi
             {
                 ShowError = true,
                 BackgroundImage = BackgroundImagePath()
-            }
+            },
+            Session = session
         };
+    }
+
+    private const int NextDefaultReadySegmentCount = 3;
+    private const int NextMaxReadySegmentCount = 10;
+
+    private async Task<Session> ToNextSession(ChannelViewModel channel, CancellationToken cancellationToken)
+    {
+        var session = new Session();
+
+        if (channel.IdleBehavior is ChannelIdleBehavior.KeepRunning)
+        {
+            // next treats 0 as never idle
+            session.IdleTimeoutSeconds = 0;
+        }
+        else
+        {
+            session.IdleTimeoutSeconds = await configElementRepository
+                .GetValue<int>(ConfigElementKey.FFmpegSegmenterTimeout, cancellationToken)
+                .IfNoneAsync(60);
+        }
+
+        // legacy defaults to 1; players start 3 segments from the live edge, so fewer only
+        // shrinks the starting buffer. Only honor requests for more than next's default
+        int initialSegmentCount = await configElementRepository
+            .GetValue<int>(ConfigElementKey.FFmpegInitialSegmentCount, cancellationToken)
+            .IfNoneAsync(1);
+        if (initialSegmentCount > NextDefaultReadySegmentCount)
+        {
+            session.ReadySegmentCount = Math.Min(initialSegmentCount, NextMaxReadySegmentCount);
+        }
+
+        return session;
     }
 
     // matches the legacy offline screen, which uses a custom background.png when present

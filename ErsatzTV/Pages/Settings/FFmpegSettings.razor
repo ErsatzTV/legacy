@@ -120,7 +120,7 @@
                 <div class="d-flex">
                     <MudText>HLS Segmenter Initial Segment Count</MudText>
                 </div>
-                <MudTextField @bind-Value="_ffmpegSettings.InitialSegmentCount" Validation="@(new Func<int, string>(ValidateInitialSegmentCount))" Required="true" RequiredError="HLS Segmenter initial segment count is required!" HelperText="Delays stream start until the specified number of (4-second) segments have been transcoded; a larger number will mean slower initial playback, but potentially less buffering"/>
+                <MudTextField @bind-Value="_ffmpegSettings.InitialSegmentCount" Validation="@(new Func<int, string>(ValidateInitialSegmentCount))" Required="true" RequiredError="HLS Segmenter initial segment count is required!" HelperText="Delays stream start until this many 4-second segments are ready. Values below 3 are ignored: players start 3 segments behind live, so starting with fewer leaves players less video to work with. Higher values start slower, but may pause to load less often."/>
             </MudStack>
             <MudStack Row="true" Breakpoint="Breakpoint.SmAndDown" Class="form-field-stack gap-md-8 mb-5">
                 <div class="d-flex">
