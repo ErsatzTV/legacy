@@ -44,6 +44,12 @@ public class GetSubtitlePathByIdHandler(IDbContextFactory<TvContext> dbContextFa
                 return new SubtitlePathAndCodec(embyUrl, subtitle.Codec);
             }
 
+            // orphaned media server sidecars have no path until cleanup deletes them
+            if (string.IsNullOrWhiteSpace(subtitle.Path))
+            {
+                return BaseError.New($"Subtitle with id {request.Id} has no path");
+            }
+
             return new SubtitlePathAndCodec(subtitle.Path, subtitle.Codec);
         }
 

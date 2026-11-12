@@ -109,7 +109,7 @@ public class FillWithGroupsTests : PlayoutBuilderTestBase
         playout.FillGroupIndices.ShouldBeEmpty();
     }
 
-    private TestData TestData(Func<List<MediaItem>, string, List<CollectionWithItems>> grouper)
+    private new TestData TestData(Func<List<MediaItem>, string, List<CollectionWithItems>> grouper)
     {
         var collection = new Collection
         {
