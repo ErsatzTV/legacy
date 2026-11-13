@@ -418,7 +418,7 @@ public class BuildPlayoutHandler : IRequestHandler<BuildPlayout, Either<BaseErro
             switch (playout.ScheduleKind)
             {
                 case PlayoutScheduleKind.Classic:
-                    // EnumeratorState is owned on both, so it loads with the collection
+                    // EnumeratorState is an owned type, so it loads with the collection
                     await dbContext.Entry(playout)
                         .Collection(p => p.FillGroupIndices)
                         .LoadAsync(cancellationToken);

@@ -267,6 +267,7 @@ public class SchedulingEngine(
             shufflePlaylistItems: false,
             batchSize: Option<int>.None,
             randomStartPoint: false,
+            cache: null,
             CancellationToken.None);
 
         string historyKey = HistoryDetails.KeyForSchedulingContent(key, PlaybackOrder.None);

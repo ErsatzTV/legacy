@@ -7,6 +7,7 @@ public interface IMediaCollectionRepository
 {
     Task<Dictionary<PlaylistItem, List<MediaItem>>> GetPlaylistItemMap(
         int playlistId,
+        CollectionItemsCache cache,
         CancellationToken cancellationToken);
 
     Task<Dictionary<PlaylistItem, List<MediaItem>>> GetPlaylistItemMap(
@@ -16,6 +17,7 @@ public interface IMediaCollectionRepository
 
     Task<Dictionary<PlaylistItem, List<MediaItem>>> GetPlaylistItemMap(
         Playlist playlist,
+        CollectionItemsCache cache,
         CancellationToken cancellationToken);
 
     Task<Option<Collection>> GetCollectionWithCollectionItemsUntracked(int id);
@@ -37,7 +39,7 @@ public interface IMediaCollectionRepository
         CancellationToken cancellationToken);
     Task<List<MediaItem>> GetRerunCollectionItems(int id, CancellationToken cancellationToken);
     Task<List<MediaItem>> GetShowItemsByShowGuids(List<string> guids);
-    Task<List<MediaItem>> GetPlaylistItems(int id, CancellationToken cancellationToken);
+    Task<List<MediaItem>> GetPlaylistItems(int id, CollectionItemsCache cache, CancellationToken cancellationToken);
     Task<List<Movie>> GetMovie(int id);
     Task<List<Episode>> GetEpisode(int id);
     Task<List<MusicVideo>> GetMusicVideo(int id);

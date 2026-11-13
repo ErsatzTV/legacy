@@ -19,6 +19,7 @@ public class FakeMediaCollectionRepository : IMediaCollectionRepository
 
     public Task<Dictionary<PlaylistItem, List<MediaItem>>> GetPlaylistItemMap(
         int playlistId,
+        CollectionItemsCache cache,
         CancellationToken cancellationToken) =>
         _playlists[playlistId].AsTask();
 
@@ -30,6 +31,7 @@ public class FakeMediaCollectionRepository : IMediaCollectionRepository
 
     public Task<Dictionary<PlaylistItem, List<MediaItem>>> GetPlaylistItemMap(
         Playlist playlist,
+        CollectionItemsCache cache,
         CancellationToken cancellationToken) =>
         throw new NotSupportedException();
 
@@ -57,7 +59,10 @@ public class FakeMediaCollectionRepository : IMediaCollectionRepository
 
     public Task<List<MediaItem>> GetRerunCollectionItems(int id, CancellationToken cancellationToken) => throw new NotSupportedException();
     public Task<List<MediaItem>> GetShowItemsByShowGuids(List<string> guids) => throw new NotSupportedException();
-    public Task<List<MediaItem>> GetPlaylistItems(int id, CancellationToken cancellationToken) =>
+    public Task<List<MediaItem>> GetPlaylistItems(
+        int id,
+        CollectionItemsCache cache,
+        CancellationToken cancellationToken) =>
         _playlists[id].Values.SelectMany(items => items).DistinctBy(mi => mi.Id).ToList().AsTask();
     public Task<List<Movie>> GetMovie(int id) => throw new NotSupportedException();
     public Task<List<Episode>> GetEpisode(int id) => throw new NotSupportedException();

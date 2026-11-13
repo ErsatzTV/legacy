@@ -1333,8 +1333,14 @@ public class PlayoutBuilder : IPlayoutBuilder
             foreach (int playlistId in Optional(collectionKey.PlaylistId))
             {
                 Dictionary<PlaylistItem, List<MediaItem>> playlistItemMap = DebugPlaylist is not null
-                    ? await _mediaCollectionRepository.GetPlaylistItemMap(DebugPlaylist, cancellationToken)
-                    : await _mediaCollectionRepository.GetPlaylistItemMap(playlistId, cancellationToken);
+                    ? await _mediaCollectionRepository.GetPlaylistItemMap(
+                        DebugPlaylist,
+                        collectionItemsCache,
+                        cancellationToken)
+                    : await _mediaCollectionRepository.GetPlaylistItemMap(
+                        playlistId,
+                        collectionItemsCache,
+                        cancellationToken);
 
                 // this reads the item map again, so the items that CheckForEmptyCollections removed are back
                 if (DebugPlaylist is null && mediaItems.Count > 0 && !mediaItems.Any(i => i is ChapterMediaItem))
@@ -1353,6 +1359,7 @@ public class PlayoutBuilder : IPlayoutBuilder
                     marathonShuffleGroups,
                     batchSize: Option<int>.None,
                     randomStartPoint,
+                    collectionItemsCache,
                     cancellationToken);
             }
         }

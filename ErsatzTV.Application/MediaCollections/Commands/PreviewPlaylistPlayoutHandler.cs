@@ -72,6 +72,7 @@ public class PreviewPlaylistPlayoutHandler(
                 Dictionary<PlaylistItem, List<MediaItem>> map =
                     await mediaCollectionRepository.GetPlaylistItemMap(
                         playout.ProgramSchedule.Items[0].Playlist,
+                        cache: null,
                         cancellationToken);
                 foreach (PlaylistItem item in playout.ProgramSchedule.Items[0].Playlist.Items)
                 {

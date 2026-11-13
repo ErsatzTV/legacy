@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using ErsatzTV.Core.Domain;
 using ErsatzTV.Core.Domain.Filler;
@@ -446,6 +446,7 @@ public class BlockPlayoutBuilder(
             .Distinct()
             .ToList();
 
+        var cache = new CollectionItemsCache();
         IEnumerable<Tuple<CollectionKey, List<MediaItem>>> tuples = await collectionKeys.Map(async collectionKey =>
             Tuple(
                 collectionKey,
@@ -454,7 +455,7 @@ public class BlockPlayoutBuilder(
                     televisionRepository,
                     artistRepository,
                     collectionKey,
-                    cache: null,
+                    cache,
                     cancellationToken))).SequenceParallel();
 
         return Map.createRange(tuples);

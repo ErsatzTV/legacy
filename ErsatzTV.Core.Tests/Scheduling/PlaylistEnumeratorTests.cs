@@ -64,6 +64,7 @@ public class PlaylistEnumeratorTests
             shufflePlaylistItems: false,
             batchSize: Option<int>.None,
             randomStartPoint: false,
+            cache: null,
             CancellationToken.None);
 
         var items = new List<int>();
@@ -133,6 +134,7 @@ public class PlaylistEnumeratorTests
             shufflePlaylistItems: false,
             batchSize: Option<int>.None,
             randomStartPoint: false,
+            cache: null,
             CancellationToken.None);
 
         var items = new List<int>();
@@ -204,6 +206,7 @@ public class PlaylistEnumeratorTests
             shufflePlaylistItems: true,
             batchSize: Option<int>.None,
             randomStartPoint: false,
+            cache: null,
             CancellationToken.None);
 
         var items = new List<int>();
@@ -275,6 +278,7 @@ public class PlaylistEnumeratorTests
             shufflePlaylistItems: true,
             batchSize: Option<int>.None,
             randomStartPoint: false,
+            cache: null,
             CancellationToken.None);
 
         var items = new List<int>();
@@ -358,6 +362,7 @@ public class PlaylistEnumeratorTests
             shufflePlaylistItems: true,
             batchSize: Option<int>.None,
             randomStartPoint: false,
+            cache: null,
             CancellationToken.None);
 
         enumerator.CountForFiller.ShouldBe(7);
@@ -418,6 +423,7 @@ public class PlaylistEnumeratorTests
             shufflePlaylistItems: false,
             batchSize: Option<int>.None,
             randomStartPoint: true,
+            cache: null,
             CancellationToken.None);
 
         // capture a reference sequence and the state we would persist halfway through
@@ -445,6 +451,7 @@ public class PlaylistEnumeratorTests
             shufflePlaylistItems: false,
             batchSize: Option<int>.None,
             randomStartPoint: true,
+            cache: null,
             CancellationToken.None);
 
         var continued = new List<int>();
@@ -488,6 +495,7 @@ public class PlaylistEnumeratorTests
             shufflePlaylistItems: true,
             batchSize: Option<int>.None,
             randomStartPoint: false,
+            cache: null,
             CancellationToken.None);
 
         // past the end of the first cycle, which reseeds and reshuffles
@@ -513,6 +521,7 @@ public class PlaylistEnumeratorTests
             shufflePlaylistItems: true,
             batchSize: Option<int>.None,
             randomStartPoint: false,
+            cache: null,
             CancellationToken.None);
 
         var continued = new List<int>();
@@ -546,6 +555,7 @@ public class PlaylistEnumeratorTests
             shufflePlaylistItems: true,
             batchSize: Option<int>.None,
             randomStartPoint: false,
+            cache: null,
             CancellationToken.None);
 
         var sawSecondCycle = false;
@@ -589,6 +599,7 @@ public class PlaylistEnumeratorTests
             shufflePlaylistItems: true,
             batchSize: Option<int>.None,
             randomStartPoint: false,
+            cache: null,
             cts.Token);
 
         cts.IsCancellationRequested.ShouldBeFalse("ShufflePlaylistItems did not return on its own");
@@ -624,6 +635,7 @@ public class PlaylistEnumeratorTests
             shufflePlaylistItems: false,
             batchSize: Option<int>.None,
             randomStartPoint: false,
+            cache: null,
             CancellationToken.None);
 
         enumerator.ChildEnumerators.ShouldBeEmpty();

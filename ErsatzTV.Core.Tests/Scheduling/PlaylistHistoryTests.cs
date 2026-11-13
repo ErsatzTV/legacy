@@ -164,6 +164,7 @@ public class PlaylistHistoryTests
             [],
             seedOffset: 0,
             HISTORY_KEY,
+            cache: null,
             _cancellationToken);
 
         var history = new List<PlayoutHistory>();
@@ -185,6 +186,7 @@ public class PlaylistHistoryTests
             history,
             seedOffset: 0,
             HISTORY_KEY,
+            cache: null,
             _cancellationToken);
 
         Take(buildTwo, COMPARE_COUNT).ShouldBe(expected);
@@ -199,7 +201,8 @@ public class PlaylistHistoryTests
         const string HISTORY_KEY = "playlist";
 
         IMediaCollectionRepository repo = FakePlaylistRepository(playlistId: 1, collections: 3, itemsPerCollection: 4);
-        Dictionary<PlaylistItem, List<MediaItem>> itemMap = await repo.GetPlaylistItemMap(1, _cancellationToken);
+        Dictionary<PlaylistItem, List<MediaItem>> itemMap =
+            await repo.GetPlaylistItemMap(1, cache: null, _cancellationToken);
 
         SchedulingEngine engine = CreateEngine(repo);
         PlaylistEnumerator buildOne = await CreatePlaylistEnumerator(repo, itemMap, _cancellationToken);
@@ -232,7 +235,8 @@ public class PlaylistHistoryTests
         const int BUILD_ONE_COUNT = 7;
 
         IMediaCollectionRepository repo = FakePlaylistRepository(playlistId: 1, collections: 3, itemsPerCollection: 4);
-        Dictionary<PlaylistItem, List<MediaItem>> itemMap = await repo.GetPlaylistItemMap(1, _cancellationToken);
+        Dictionary<PlaylistItem, List<MediaItem>> itemMap =
+            await repo.GetPlaylistItemMap(1, cache: null, _cancellationToken);
 
         PlaylistEnumerator buildOne = await CreatePlaylistEnumerator(repo, itemMap, _cancellationToken);
 
@@ -255,6 +259,7 @@ public class PlaylistHistoryTests
             history,
             seedOffset: 0,
             "playlist",
+            cache: null,
             _cancellationToken);
 
         buildTwo.State.Index.ShouldBe(expectedPlaylistIndex);
@@ -269,7 +274,8 @@ public class PlaylistHistoryTests
         const string HISTORY_KEY = "scripted-playlist";
 
         IMediaCollectionRepository repo = FakePlaylistRepository(playlistId: 1, collections: 3, itemsPerCollection: 4);
-        Dictionary<PlaylistItem, List<MediaItem>> itemMap = await repo.GetPlaylistItemMap(1, _cancellationToken);
+        Dictionary<PlaylistItem, List<MediaItem>> itemMap =
+            await repo.GetPlaylistItemMap(1, cache: null, _cancellationToken);
 
         SchedulingEngine engine = CreateEngine(repo);
         PlaylistEnumerator buildOne = await CreatePlaylistEnumerator(repo, itemMap, _cancellationToken);
@@ -304,7 +310,8 @@ public class PlaylistHistoryTests
         const string HISTORY_KEY = "uneven-playlist";
 
         IMediaCollectionRepository repo = FakeUnevenPlaylistRepository(itemPlaybackOrder);
-        Dictionary<PlaylistItem, List<MediaItem>> itemMap = await repo.GetPlaylistItemMap(1, _cancellationToken);
+        Dictionary<PlaylistItem, List<MediaItem>> itemMap =
+            await repo.GetPlaylistItemMap(1, cache: null, _cancellationToken);
 
         SchedulingEngine engine = CreateEngine(repo);
         PlaylistEnumerator buildOne = await CreateShuffledPlaylistEnumerator(repo, itemMap, _cancellationToken);
@@ -355,6 +362,7 @@ public class PlaylistHistoryTests
             shufflePlaylistItems: true,
             batchSize: Option<int>.None,
             randomStartPoint: false,
+            cache: null,
             cancellationToken);
 
     private static IMediaCollectionRepository FakeUnevenPlaylistRepository(PlaybackOrder itemPlaybackOrder)
@@ -378,7 +386,8 @@ public class PlaylistHistoryTests
                     .ToList());
 
         IMediaCollectionRepository repo = Substitute.For<IMediaCollectionRepository>();
-        repo.GetPlaylistItemMap(1, Arg.Any<CancellationToken>()).Returns(_ => Task.FromResult(itemMap));
+        repo.GetPlaylistItemMap(1, Arg.Any<CollectionItemsCache>(), Arg.Any<CancellationToken>())
+            .Returns(_ => Task.FromResult(itemMap));
 
         return repo;
     }
@@ -394,6 +403,7 @@ public class PlaylistHistoryTests
             shufflePlaylistItems: false,
             batchSize: Option<int>.None,
             randomStartPoint: false,
+            cache: null,
             cancellationToken);
 
     private static async Task<PlaylistEnumerator> GetPlaylistEnumerator(
@@ -571,7 +581,7 @@ public class PlaylistHistoryTests
                     .ToList());
 
         IMediaCollectionRepository repo = Substitute.For<IMediaCollectionRepository>();
-        repo.GetPlaylistItemMap(playlistId, Arg.Any<CancellationToken>())
+        repo.GetPlaylistItemMap(playlistId, Arg.Any<CollectionItemsCache>(), Arg.Any<CancellationToken>())
             .Returns(_ => Task.FromResult(itemMap));
 
         return repo;

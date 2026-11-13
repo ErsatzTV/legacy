@@ -1,4 +1,4 @@
-﻿using System.IO.Abstractions;
+using System.IO.Abstractions;
 using Dapper;
 using ErsatzTV.Core;
 using ErsatzTV.Core.Domain;

@@ -3,8 +3,7 @@ using ErsatzTV.Core.Domain;
 
 namespace ErsatzTV.Core.Scheduling;
 
-// one instance per playout build; repositories are scoped and can outlive a build (blazor circuits),
-// so they must not hold this themselves
+// one per playout build; scoped repositories can outlive a build (blazor circuits), so they must not hold this
 public sealed class CollectionItemsCache
 {
     private readonly ConcurrentDictionary<int, Lazy<Task<List<MediaItem>>>> _smartCollectionItems = new();
@@ -17,7 +16,7 @@ public sealed class CollectionItemsCache
             smartCollectionId,
             _ => new Lazy<Task<List<MediaItem>>>(load));
 
-        // callers mutate the lists they receive (e.g. RemoveAll in GetMultiCollectionCollections)
+        // copy: callers change the returned list (e.g. GetMultiCollectionCollections)
         return [..await lazy.Value];
     }
 }

@@ -1,4 +1,4 @@
-﻿using System.Collections.Immutable;
+using System.Collections.Immutable;
 using ErsatzTV.Core.Domain;
 using ErsatzTV.Core.Extensions;
 using ErsatzTV.Core.Interfaces.Repositories;
@@ -178,6 +178,7 @@ public class PlaylistEnumerator : IMediaCollectionEnumerator
         bool shufflePlaylistItems,
         Option<int> batchSize,
         bool randomStartPoint,
+        CollectionItemsCache cache,
         CancellationToken cancellationToken)
     {
         var result = new PlaylistEnumerator
@@ -245,7 +246,7 @@ public class PlaylistEnumerator : IMediaCollectionEnumerator
                             new ProgramSchedule { KeepMultiPartEpisodesTogether = false },
                             items,
                             CollectionKey.ForPlaylistItem(playlistItem),
-                            cache: null,
+                            cache,
                             cancellationToken);
                         enumerator = new ShuffledMediaCollectionEnumerator(i, initState, cancellationToken);
                         break;
@@ -255,7 +256,7 @@ public class PlaylistEnumerator : IMediaCollectionEnumerator
                                 mediaCollectionRepository,
                                 CollectionKey.ForPlaylistItem(playlistItem),
                                 items,
-                                cache: null,
+                                cache,
                                 cancellationToken),
                             initState,
                             randomStartPoint,

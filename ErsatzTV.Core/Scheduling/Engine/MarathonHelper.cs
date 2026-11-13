@@ -69,6 +69,7 @@ public class MarathonHelper(IMediaCollectionRepository mediaCollectionRepository
             marathonShuffleGroups,
             marathonBatchSize,
             randomStartPoint: false,
+            cache: null,
             cancellationToken);
     }
 
@@ -148,6 +149,7 @@ public class MarathonHelper(IMediaCollectionRepository mediaCollectionRepository
             shuffleGroups,
             batchSize: Option<int>.None,
             randomStartPoint: false,
+            cache: null,
             cancellationToken);
 
         return new PlaylistContentResult(

@@ -53,7 +53,10 @@ public static class MediaItemsForCollection
                 break;
             case CollectionType.Playlist:
                 result.AddRange(
-                    await mediaCollectionRepository.GetPlaylistItems(collectionKey.PlaylistId ?? 0, cancellationToken));
+                    await mediaCollectionRepository.GetPlaylistItems(
+                        collectionKey.PlaylistId ?? 0,
+                        cache,
+                        cancellationToken));
                 break;
             case CollectionType.SearchQuery:
                 result.AddRange(
