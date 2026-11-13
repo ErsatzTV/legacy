@@ -26,6 +26,7 @@ public class MediaCollectionRepository : IMediaCollectionRepository
 
     public async Task<Dictionary<PlaylistItem, List<MediaItem>>> GetPlaylistItemMap(
         int playlistId,
+        CollectionItemsCache cache,
         CancellationToken cancellationToken)
     {
         await using TvContext dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
@@ -87,7 +88,7 @@ public class MediaCollectionRepository : IMediaCollectionRepository
                 case CollectionType.MultiCollection:
                     foreach (int multiCollectionId in Optional(playlistItem.MultiCollectionId))
                     {
-                        mediaItems.AddRange(await GetMultiCollectionItems(multiCollectionId, cancellationToken));
+                        mediaItems.AddRange(await GetMultiCollectionItems(multiCollectionId, cache, cancellationToken));
                     }
 
                     break;
@@ -95,7 +96,7 @@ public class MediaCollectionRepository : IMediaCollectionRepository
                 case CollectionType.SmartCollection:
                     foreach (int smartCollectionId in Optional(playlistItem.SmartCollectionId))
                     {
-                        mediaItems.AddRange(await GetSmartCollectionItems(smartCollectionId, cancellationToken));
+                        mediaItems.AddRange(await GetSmartCollectionItems(smartCollectionId, cache, cancellationToken));
                     }
 
                     break;
@@ -176,7 +177,7 @@ public class MediaCollectionRepository : IMediaCollectionRepository
 
         foreach (Playlist playlist in maybePlaylist)
         {
-            return await GetPlaylistItemMap(playlist.Id, cancellationToken);
+            return await GetPlaylistItemMap(playlist.Id, cache: null, cancellationToken);
         }
 
         return [];
@@ -184,6 +185,7 @@ public class MediaCollectionRepository : IMediaCollectionRepository
 
     public async Task<Dictionary<PlaylistItem, List<MediaItem>>> GetPlaylistItemMap(
         Playlist playlist,
+        CollectionItemsCache cache,
         CancellationToken cancellationToken)
     {
         await using TvContext dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
@@ -240,7 +242,7 @@ public class MediaCollectionRepository : IMediaCollectionRepository
                 case CollectionType.MultiCollection:
                     foreach (int multiCollectionId in Optional(playlistItem.MultiCollectionId))
                     {
-                        mediaItems.AddRange(await GetMultiCollectionItems(multiCollectionId, cancellationToken));
+                        mediaItems.AddRange(await GetMultiCollectionItems(multiCollectionId, cache, cancellationToken));
                     }
 
                     break;
@@ -248,7 +250,7 @@ public class MediaCollectionRepository : IMediaCollectionRepository
                 case CollectionType.SmartCollection:
                     foreach (int smartCollectionId in Optional(playlistItem.SmartCollectionId))
                     {
-                        mediaItems.AddRange(await GetSmartCollectionItems(smartCollectionId, cancellationToken));
+                        mediaItems.AddRange(await GetSmartCollectionItems(smartCollectionId, cache, cancellationToken));
                     }
 
                     break;
@@ -363,7 +365,10 @@ public class MediaCollectionRepository : IMediaCollectionRepository
         return [];
     }
 
-    public async Task<List<MediaItem>> GetMultiCollectionItems(int id, CancellationToken cancellationToken)
+    public async Task<List<MediaItem>> GetMultiCollectionItems(
+        int id,
+        CollectionItemsCache cache,
+        CancellationToken cancellationToken)
     {
         await using TvContext dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
 
@@ -393,7 +398,7 @@ public class MediaCollectionRepository : IMediaCollectionRepository
 
             foreach (int smartCollectionId in multiCollection.SmartCollections.Map(c => c.Id))
             {
-                result.AddRange(await GetSmartCollectionItems(smartCollectionId, cancellationToken));
+                result.AddRange(await GetSmartCollectionItems(smartCollectionId, cache, cancellationToken));
             }
         }
 
@@ -410,13 +415,21 @@ public class MediaCollectionRepository : IMediaCollectionRepository
 
         foreach (MultiCollection collection in maybeCollection)
         {
-            return await GetMultiCollectionItems(collection.Id, cancellationToken);
+            return await GetMultiCollectionItems(collection.Id, cache: null, cancellationToken);
         }
 
         return [];
     }
 
-    public async Task<List<MediaItem>> GetSmartCollectionItems(int id, CancellationToken cancellationToken)
+    public Task<List<MediaItem>> GetSmartCollectionItems(
+        int id,
+        CollectionItemsCache cache,
+        CancellationToken cancellationToken) =>
+        cache is null
+            ? GetSmartCollectionItems(id, cancellationToken)
+            : cache.GetSmartCollectionItems(id, () => GetSmartCollectionItems(id, cancellationToken));
+
+    private async Task<List<MediaItem>> GetSmartCollectionItems(int id, CancellationToken cancellationToken)
     {
         await using TvContext dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
 
@@ -482,17 +495,58 @@ public class MediaCollectionRepository : IMediaCollectionRepository
             result.AddRange(await GetSeasonItemsFromSeasonId(dbContext, seasonId));
         }
 
-        foreach (int artistId in searchResults.Items.Filter(i => i.Type == LuceneSearchIndex.ArtistType)
-                     .Map(i => i.Id))
-        {
-            result.AddRange(await GetArtistItemsFromArtistId(dbContext, artistId));
-        }
+        var artistIds = searchResults.Items
+            .Filter(i => i.Type == LuceneSearchIndex.ArtistType)
+            .Map(i => i.Id)
+            .ToList();
 
         var musicVideoIds = searchResults.Items
             .Filter(i => i.Type == LuceneSearchIndex.MusicVideoType)
             .Map(i => i.Id)
             .ToList();
-        result.AddRange(await GetMusicVideoItems(dbContext, musicVideoIds));
+
+        // shuffle depends on this order: artist hits, each artist's videos by id, then direct hits by id
+        var artistVideoIds = new Dictionary<int, List<int>>();
+        if (artistIds.Count > 0)
+        {
+            IEnumerable<(int Id, int ArtistId)> rows = await dbContext.Connection.QueryAsync<(int Id, int ArtistId)>(
+                "SELECT Id, ArtistId FROM MusicVideo WHERE ArtistId IN @ArtistIds",
+                new { ArtistIds = artistIds });
+            foreach ((int id, int artistId) in rows)
+            {
+                if (!artistVideoIds.TryGetValue(artistId, out List<int> list))
+                {
+                    list = [];
+                    artistVideoIds[artistId] = list;
+                }
+
+                list.Add(id);
+            }
+        }
+
+        var allMusicVideoIds = artistVideoIds.Values.SelectMany(v => v).Union(musicVideoIds).ToList();
+        Dictionary<int, MusicVideo> musicVideosById = allMusicVideoIds.Count > 0
+            ? (await GetMusicVideoItems(dbContext, allMusicVideoIds)).ToDictionary(mv => mv.Id)
+            : [];
+
+        foreach (int artistId in artistIds)
+        {
+            foreach (int id in artistVideoIds.GetValueOrDefault(artistId, []).Order())
+            {
+                if (musicVideosById.TryGetValue(id, out MusicVideo musicVideo))
+                {
+                    result.Add(musicVideo);
+                }
+            }
+        }
+
+        foreach (int id in musicVideoIds.Distinct().Order())
+        {
+            if (musicVideosById.TryGetValue(id, out MusicVideo musicVideo))
+            {
+                result.Add(musicVideo);
+            }
+        }
 
         var episodeIds = searchResults.Items
             .Filter(i => i.Type == LuceneSearchIndex.EpisodeType)
@@ -585,7 +639,7 @@ public class MediaCollectionRepository : IMediaCollectionRepository
                 case CollectionType.MultiCollection:
                     foreach (int multiCollectionId in Optional(rerunCollection.MultiCollectionId))
                     {
-                        result.AddRange(await GetMultiCollectionItems(multiCollectionId, cancellationToken));
+                        result.AddRange(await GetMultiCollectionItems(multiCollectionId, cache: null, cancellationToken));
                     }
 
                     break;
@@ -698,6 +752,7 @@ public class MediaCollectionRepository : IMediaCollectionRepository
 
     public async Task<List<CollectionWithItems>> GetMultiCollectionCollections(
         int id,
+        CollectionItemsCache cache,
         CancellationToken cancellationToken)
     {
         await using TvContext dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
@@ -759,6 +814,7 @@ public class MediaCollectionRepository : IMediaCollectionRepository
             {
                 List<MediaItem> items = await GetSmartCollectionItems(
                     multiCollectionSmartItem.SmartCollectionId,
+                    cache,
                     cancellationToken);
 
                 result.Add(
@@ -788,7 +844,10 @@ public class MediaCollectionRepository : IMediaCollectionRepository
         return result;
     }
 
-    public async Task<List<MediaItem>> GetPlaylistItems(int id, CancellationToken cancellationToken)
+    public async Task<List<MediaItem>> GetPlaylistItems(
+        int id,
+        CollectionItemsCache cache,
+        CancellationToken cancellationToken)
     {
         await using TvContext dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
 
@@ -847,7 +906,7 @@ public class MediaCollectionRepository : IMediaCollectionRepository
                 case CollectionType.MultiCollection:
                     foreach (int multiCollectionId in Optional(playlistItem.MultiCollectionId))
                     {
-                        result.AddRange(await GetMultiCollectionItems(multiCollectionId, cancellationToken));
+                        result.AddRange(await GetMultiCollectionItems(multiCollectionId, cache, cancellationToken));
                     }
 
                     break;
@@ -855,7 +914,7 @@ public class MediaCollectionRepository : IMediaCollectionRepository
                 case CollectionType.SmartCollection:
                     foreach (int smartCollectionId in Optional(playlistItem.SmartCollectionId))
                     {
-                        result.AddRange(await GetSmartCollectionItems(smartCollectionId, cancellationToken));
+                        result.AddRange(await GetSmartCollectionItems(smartCollectionId, cache, cancellationToken));
                     }
 
                     break;
@@ -966,6 +1025,7 @@ public class MediaCollectionRepository : IMediaCollectionRepository
     public async Task<List<CollectionWithItems>> GetFakeMultiCollectionCollections(
         int? collectionId,
         int? smartCollectionId,
+        CollectionItemsCache cache,
         CancellationToken cancellationToken)
     {
         var items = new List<MediaItem>();
@@ -977,7 +1037,7 @@ public class MediaCollectionRepository : IMediaCollectionRepository
 
         if (smartCollectionId.HasValue)
         {
-            items = await GetSmartCollectionItems(smartCollectionId.Value, cancellationToken);
+            items = await GetSmartCollectionItems(smartCollectionId.Value, cache, cancellationToken);
         }
 
         return GroupIntoFakeCollections(items);

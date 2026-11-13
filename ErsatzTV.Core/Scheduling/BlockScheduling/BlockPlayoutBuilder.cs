@@ -446,6 +446,7 @@ public class BlockPlayoutBuilder(
             .Distinct()
             .ToList();
 
+        var cache = new CollectionItemsCache();
         IEnumerable<Tuple<CollectionKey, List<MediaItem>>> tuples = await collectionKeys.Map(async collectionKey =>
             Tuple(
                 collectionKey,
@@ -454,6 +455,7 @@ public class BlockPlayoutBuilder(
                     televisionRepository,
                     artistRepository,
                     collectionKey,
+                    cache,
                     cancellationToken))).SequenceParallel();
 
         return Map.createRange(tuples);

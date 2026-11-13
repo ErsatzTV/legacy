@@ -70,12 +70,14 @@ public class BlockPlayoutFillerBuilder(
             .ToList();
 
         var collectionEnumerators = new Dictionary<CollectionKey, IMediaCollectionEnumerator>();
+        var collectionItemsCache = new CollectionItemsCache();
 
         var breakContentResult = await AddBreakContent(
             playout,
             referenceData,
             mode,
             collectionEnumerators,
+            collectionItemsCache,
             allItems,
             filteredExistingHistory,
             result.AddedHistory,
@@ -105,6 +107,7 @@ public class BlockPlayoutFillerBuilder(
             referenceData,
             result,
             collectionEnumerators,
+            collectionItemsCache,
             allItems,
             filteredExistingHistory,
             cancellationToken);
@@ -117,6 +120,7 @@ public class BlockPlayoutFillerBuilder(
         PlayoutReferenceData referenceData,
         PlayoutBuildMode mode,
         Dictionary<CollectionKey, IMediaCollectionEnumerator> collectionEnumerators,
+        CollectionItemsCache collectionItemsCache,
         IReadOnlyCollection<PlayoutItem> allItems,
         IReadOnlyCollection<PlayoutHistory> filteredExistingHistory,
         IReadOnlyCollection<PlayoutHistory> addedHistory,
@@ -192,6 +196,7 @@ public class BlockPlayoutFillerBuilder(
                         () => filteredExistingHistory.Append(addedHistory).Append(result.AddedHistory).ToList(),
                         playout.Seed,
                         deco.Id,
+                        collectionItemsCache,
                         cancellationToken);
 
                     int count = enumerator switch
@@ -308,6 +313,7 @@ public class BlockPlayoutFillerBuilder(
         PlayoutReferenceData referenceData,
         PlayoutBuildResult result,
         Dictionary<CollectionKey, IMediaCollectionEnumerator> collectionEnumerators,
+        CollectionItemsCache collectionItemsCache,
         List<PlayoutItem> allItems,
         List<PlayoutHistory> filteredExistingHistory,
         CancellationToken cancellationToken)
@@ -346,6 +352,7 @@ public class BlockPlayoutFillerBuilder(
                     () => filteredExistingHistory.Append(result.AddedHistory).ToList(),
                     playout.Seed,
                     deco.Id,
+                    collectionItemsCache,
                     cancellationToken);
 
                 // skip this deco if the collection has no items
@@ -447,6 +454,7 @@ public class BlockPlayoutFillerBuilder(
         Func<List<PlayoutHistory>> allHistory,
         int playoutSeed,
         int seedOffset,
+        CollectionItemsCache collectionItemsCache,
         CancellationToken cancellationToken)
     {
         // load collection items from db on demand
@@ -462,6 +470,7 @@ public class BlockPlayoutFillerBuilder(
                     allHistory(),
                     seedOffset,
                     historyKey,
+                    collectionItemsCache,
                     cancellationToken);
             }
             else
@@ -471,6 +480,7 @@ public class BlockPlayoutFillerBuilder(
                     televisionRepository,
                     artistRepository,
                     collectionKey,
+                    collectionItemsCache,
                     cancellationToken);
 
                 enumerator = BlockPlayoutEnumerator.Shuffle(

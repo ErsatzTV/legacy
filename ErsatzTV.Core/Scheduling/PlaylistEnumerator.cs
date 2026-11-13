@@ -178,6 +178,7 @@ public class PlaylistEnumerator : IMediaCollectionEnumerator
         bool shufflePlaylistItems,
         Option<int> batchSize,
         bool randomStartPoint,
+        CollectionItemsCache cache,
         CancellationToken cancellationToken)
     {
         var result = new PlaylistEnumerator
@@ -245,6 +246,7 @@ public class PlaylistEnumerator : IMediaCollectionEnumerator
                             new ProgramSchedule { KeepMultiPartEpisodesTogether = false },
                             items,
                             CollectionKey.ForPlaylistItem(playlistItem),
+                            cache,
                             cancellationToken);
                         enumerator = new ShuffledMediaCollectionEnumerator(i, initState, cancellationToken);
                         break;
@@ -254,6 +256,7 @@ public class PlaylistEnumerator : IMediaCollectionEnumerator
                                 mediaCollectionRepository,
                                 CollectionKey.ForPlaylistItem(playlistItem),
                                 items,
+                                cache,
                                 cancellationToken),
                             initState,
                             randomStartPoint,

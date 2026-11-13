@@ -12,6 +12,7 @@ public static class MediaItemsForCollection
         ITelevisionRepository televisionRepository,
         IArtistRepository artistRepository,
         CollectionKey collectionKey,
+        CollectionItemsCache cache,
         CancellationToken cancellationToken)
     {
         var result = new List<MediaItem>();
@@ -34,12 +35,14 @@ public static class MediaItemsForCollection
                 result.AddRange(
                     await mediaCollectionRepository.GetMultiCollectionItems(
                         collectionKey.MultiCollectionId ?? 0,
+                        cache,
                         cancellationToken));
                 break;
             case CollectionType.SmartCollection:
                 result.AddRange(
                     await mediaCollectionRepository.GetSmartCollectionItems(
                         collectionKey.SmartCollectionId ?? 0,
+                        cache,
                         cancellationToken));
                 break;
             case CollectionType.RerunFirstRun or CollectionType.RerunRerun:
@@ -50,7 +53,10 @@ public static class MediaItemsForCollection
                 break;
             case CollectionType.Playlist:
                 result.AddRange(
-                    await mediaCollectionRepository.GetPlaylistItems(collectionKey.PlaylistId ?? 0, cancellationToken));
+                    await mediaCollectionRepository.GetPlaylistItems(
+                        collectionKey.PlaylistId ?? 0,
+                        cache,
+                        cancellationToken));
                 break;
             case CollectionType.SearchQuery:
                 result.AddRange(

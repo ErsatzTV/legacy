@@ -149,10 +149,11 @@ public static class BlockPlayoutEnumerator
         IReadOnlyCollection<PlayoutHistory> playoutHistory,
         int seedOffset,
         string historyKey,
+        CollectionItemsCache cache,
         CancellationToken cancellationToken)
     {
         Dictionary<PlaylistItem, List<MediaItem>> itemMap =
-            await mediaCollectionRepository.GetPlaylistItemMap(playlistId, cancellationToken);
+            await mediaCollectionRepository.GetPlaylistItemMap(playlistId, cache, cancellationToken);
 
         var playlistMediaItems = new Dictionary<CollectionKey, List<MediaItem>>();
         foreach ((PlaylistItem playlistItem, List<MediaItem> mediaItems) in itemMap)
@@ -169,6 +170,7 @@ public static class BlockPlayoutEnumerator
             shufflePlaylistItems: false,
             batchSize: Option<int>.None,
             randomStartPoint: false,
+            cache,
             cancellationToken);
 
         DateTime historyTime = currentTime.UtcDateTime;

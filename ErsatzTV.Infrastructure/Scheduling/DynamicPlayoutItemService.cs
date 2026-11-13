@@ -152,6 +152,7 @@ public class DynamicPlayoutItemService(
                 televisionRepository,
                 artistRepository,
                 collectionKey,
+                cache: null,
                 cancellationToken);
 
             // ignore the fallback filler preset if it has no items
