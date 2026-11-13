@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
+### Changed
+- Use ErsatzTV-ffmpeg `8.1.2-41c82b12-develop` in docker images, Windows packages and macOS packages
+  - Fix a box appearing next to Arabic lam-alef ligatures (such as in بلا) in burned-in text subtitles when the font has no U+FEFF glyph (e.g. Arial)
+    - This is a backport of an upstream FFMpeg 9.x shaping fix: the subtitles filter now uses complex (HarfBuzz) shaping by default
+
 ### Fixed
 - Classic schedules:
   - Fix duration items with `Discard To Fill Attempts` running past their duration and skipping later schedule items once the attempts are used up
