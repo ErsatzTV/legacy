@@ -418,27 +418,14 @@ public class BuildPlayoutHandler : IRequestHandler<BuildPlayout, Either<BaseErro
             switch (playout.ScheduleKind)
             {
                 case PlayoutScheduleKind.Classic:
+                    // EnumeratorState is owned on both, so it loads with the collection
                     await dbContext.Entry(playout)
                         .Collection(p => p.FillGroupIndices)
                         .LoadAsync(cancellationToken);
 
-                    foreach (PlayoutScheduleItemFillGroupIndex fillGroupIndex in playout.FillGroupIndices)
-                    {
-                        await dbContext.Entry(fillGroupIndex)
-                            .Reference(fgi => fgi.EnumeratorState)
-                            .LoadAsync(cancellationToken);
-                    }
-
                     await dbContext.Entry(playout)
                         .Collection(p => p.ProgramScheduleAnchors)
                         .LoadAsync(cancellationToken);
-
-                    foreach (PlayoutProgramScheduleAnchor anchor in playout.ProgramScheduleAnchors)
-                    {
-                        await dbContext.Entry(anchor)
-                            .Reference(a => a.EnumeratorState)
-                            .LoadAsync(cancellationToken);
-                    }
 
                     break;
             }
