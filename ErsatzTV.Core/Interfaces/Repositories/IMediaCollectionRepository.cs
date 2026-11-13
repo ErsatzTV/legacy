@@ -21,9 +21,15 @@ public interface IMediaCollectionRepository
     Task<Option<Collection>> GetCollectionWithCollectionItemsUntracked(int id);
     Task<List<MediaItem>> GetItems(int id);
     Task<List<MediaItem>> GetCollectionItemsByName(string name, CancellationToken cancellationToken);
-    Task<List<MediaItem>> GetMultiCollectionItems(int id, CancellationToken cancellationToken);
+    Task<List<MediaItem>> GetMultiCollectionItems(
+        int id,
+        CollectionItemsCache cache,
+        CancellationToken cancellationToken);
     Task<List<MediaItem>> GetMultiCollectionItemsByName(string name, CancellationToken cancellationToken);
-    Task<List<MediaItem>> GetSmartCollectionItems(int id, CancellationToken cancellationToken);
+    Task<List<MediaItem>> GetSmartCollectionItems(
+        int id,
+        CollectionItemsCache cache,
+        CancellationToken cancellationToken);
     Task<List<MediaItem>> GetSmartCollectionItemsByName(string name, CancellationToken cancellationToken);
     Task<List<MediaItem>> GetSmartCollectionItems(
         string query,
@@ -39,11 +45,15 @@ public interface IMediaCollectionRepository
     Task<List<Song>> GetSong(int id);
     Task<List<Image>> GetImage(int id);
     Task<List<RemoteStream>> GetRemoteStream(int id);
-    Task<List<CollectionWithItems>> GetMultiCollectionCollections(int id, CancellationToken cancellationToken);
+    Task<List<CollectionWithItems>> GetMultiCollectionCollections(
+        int id,
+        CollectionItemsCache cache,
+        CancellationToken cancellationToken);
 
     Task<List<CollectionWithItems>> GetFakeMultiCollectionCollections(
         int? collectionId,
         int? smartCollectionId,
+        CollectionItemsCache cache,
         CancellationToken cancellationToken);
 
     Task<List<int>> PlayoutIdsUsingCollection(int collectionId);

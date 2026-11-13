@@ -229,6 +229,7 @@ public class PlayoutBuilder : IPlayoutBuilder
             parameters.Start,
             parameters.Finish,
             parameters.CollectionMediaItems,
+            parameters.CollectionItemsCache,
             cancellationToken);
     }
 
@@ -266,6 +267,7 @@ public class PlayoutBuilder : IPlayoutBuilder
             parameters.Start,
             parameters.Finish,
             parameters.CollectionMediaItems,
+            parameters.CollectionItemsCache,
             cancellationToken);
 
         foreach (BaseError error in maybeResult.LeftToSeq())
@@ -313,6 +315,7 @@ public class PlayoutBuilder : IPlayoutBuilder
             parameters.Start,
             parameters.Finish,
             parameters.CollectionMediaItems,
+            parameters.CollectionItemsCache,
             cancellationToken);
     }
 
@@ -327,8 +330,9 @@ public class PlayoutBuilder : IPlayoutBuilder
             return BaseError.New($"Playout {referenceData.Channel.Name}'s schedule has no schedule items");
         }
 
+        var collectionItemsCache = new CollectionItemsCache();
         Map<CollectionKey, List<MediaItem>> collectionMediaItems =
-            await GetCollectionMediaItems(referenceData, cancellationToken);
+            await GetCollectionMediaItems(referenceData, collectionItemsCache, cancellationToken);
         if (collectionMediaItems.IsEmpty)
         {
             _logger.LogWarning("Playout {Playout} has no items", referenceData.Channel.Name);
@@ -377,7 +381,8 @@ public class PlayoutBuilder : IPlayoutBuilder
         return new PlayoutParameters(
             now,
             now.AddDays(await daysToBuild.IfNoneAsync(2)),
-            collectionMediaItems);
+            collectionMediaItems,
+            collectionItemsCache);
     }
 
     private async Task<Either<BaseError, PlayoutBuildResult>> BuildPlayoutItems(
@@ -387,6 +392,7 @@ public class PlayoutBuilder : IPlayoutBuilder
         DateTimeOffset playoutStart,
         DateTimeOffset playoutFinish,
         Map<CollectionKey, List<MediaItem>> collectionMediaItems,
+        CollectionItemsCache collectionItemsCache,
         CancellationToken cancellationToken)
     {
         DateTimeOffset trimBefore = playoutStart.AddHours(-4);
@@ -425,6 +431,7 @@ public class PlayoutBuilder : IPlayoutBuilder
                 start,
                 finish,
                 collectionMediaItems,
+                collectionItemsCache,
                 cancellationToken);
 
             foreach (BaseError error in buildResult.LeftToSeq())
@@ -456,6 +463,7 @@ public class PlayoutBuilder : IPlayoutBuilder
                 start,
                 playoutFinish,
                 collectionMediaItems,
+                collectionItemsCache,
                 cancellationToken);
 
             foreach (BaseError error in buildResult.LeftToSeq())
@@ -506,6 +514,7 @@ public class PlayoutBuilder : IPlayoutBuilder
         DateTimeOffset playoutStart,
         DateTimeOffset playoutFinish,
         Map<CollectionKey, List<MediaItem>> collectionMediaItems,
+        CollectionItemsCache collectionItemsCache,
         CancellationToken cancellationToken)
     {
         var random = new Random(playout.Seed);
@@ -558,6 +567,7 @@ public class PlayoutBuilder : IPlayoutBuilder
                         scheduleItem.MarathonBatchSize,
                         activeSchedule.RandomStartPoint,
                         random,
+                        collectionItemsCache,
                         cancellationToken);
 
                 collectionEnumerators.Add(collectionKey, enumerator);
@@ -579,6 +589,7 @@ public class PlayoutBuilder : IPlayoutBuilder
                         marathonBatchSize: null,
                         activeSchedule.RandomStartPoint,
                         random,
+                        collectionItemsCache,
                         cancellationToken);
 
                 collectionEnumerators.Add(collectionKey, enumerator);
@@ -597,6 +608,7 @@ public class PlayoutBuilder : IPlayoutBuilder
                 _televisionRepository,
                 _artistRepository,
                 collectionKey,
+                collectionItemsCache,
                 cancellationToken);
             string collectionKeyString = JsonConvert.SerializeObject(
                 collectionKey,
@@ -657,6 +669,7 @@ public class PlayoutBuilder : IPlayoutBuilder
                     scheduleItem.MarathonBatchSize,
                     activeSchedule.RandomStartPoint,
                     random,
+                    collectionItemsCache,
                     cancellationToken);
 
                 collectionEnumerators.Add(key, enumerator);
@@ -1009,6 +1022,7 @@ public class PlayoutBuilder : IPlayoutBuilder
 
     private async Task<Map<CollectionKey, List<MediaItem>>> GetCollectionMediaItems(
         PlayoutReferenceData referenceData,
+        CollectionItemsCache collectionItemsCache,
         CancellationToken cancellationToken)
     {
         IEnumerable<KeyValuePair<CollectionKey, Option<FillerPreset>>> collectionKeys =
@@ -1016,7 +1030,11 @@ public class PlayoutBuilder : IPlayoutBuilder
 
         IEnumerable<Task<KeyValuePair<CollectionKey, List<MediaItem>>>> tasks = collectionKeys.Select(async key =>
         {
-            List<MediaItem> mediaItems = await FetchMediaItemsForKeyAsync(key.Key, key.Value, cancellationToken);
+            List<MediaItem> mediaItems = await FetchMediaItemsForKeyAsync(
+                key.Key,
+                key.Value,
+                collectionItemsCache,
+                cancellationToken);
             return new KeyValuePair<CollectionKey, List<MediaItem>>(key.Key, mediaItems);
         });
 
@@ -1034,6 +1052,7 @@ public class PlayoutBuilder : IPlayoutBuilder
     private async Task<List<MediaItem>> FetchMediaItemsForKeyAsync(
         CollectionKey collectionKey,
         Option<FillerPreset> fillerPreset,
+        CollectionItemsCache collectionItemsCache,
         CancellationToken cancellationToken)
     {
         List<MediaItem> result = await MediaItemsForCollection.Collect(
@@ -1041,6 +1060,7 @@ public class PlayoutBuilder : IPlayoutBuilder
             _televisionRepository,
             _artistRepository,
             collectionKey,
+            collectionItemsCache,
             cancellationToken);
 
         foreach (FillerPreset _ in fillerPreset.Where(p => p.UseChaptersAsMediaItems))
@@ -1282,6 +1302,7 @@ public class PlayoutBuilder : IPlayoutBuilder
         int? marathonBatchSize,
         bool randomStartPoint,
         Random random,
+        CollectionItemsCache collectionItemsCache,
         CancellationToken cancellationToken)
     {
         Option<PlayoutProgramScheduleAnchor> maybeAnchor = playout.ProgramScheduleAnchors
@@ -1387,6 +1408,7 @@ public class PlayoutBuilder : IPlayoutBuilder
                         _mediaCollectionRepository,
                         collectionKey,
                         mediaItems,
+                        collectionItemsCache,
                         cancellationToken),
                     state,
                     activeSchedule.RandomStartPoint,
@@ -1433,6 +1455,7 @@ public class PlayoutBuilder : IPlayoutBuilder
                         activeSchedule,
                         mediaItems,
                         collectionKey,
+                        collectionItemsCache,
                         cancellationToken),
                     state,
                     cancellationToken);
@@ -1488,12 +1511,13 @@ public class PlayoutBuilder : IPlayoutBuilder
         ProgramSchedule activeSchedule,
         List<MediaItem> mediaItems,
         CollectionKey collectionKey,
+        CollectionItemsCache cache,
         CancellationToken cancellationToken)
     {
         if (collectionKey.MultiCollectionId != null)
         {
             List<CollectionWithItems> collections = await mediaCollectionRepository
-                .GetMultiCollectionCollections(collectionKey.MultiCollectionId.Value, cancellationToken);
+                .GetMultiCollectionCollections(collectionKey.MultiCollectionId.Value, cache, cancellationToken);
 
             return MultiCollectionGrouper.GroupMediaItems(RestrictToPlayoutItems(collections, mediaItems));
         }
@@ -1507,6 +1531,7 @@ public class PlayoutBuilder : IPlayoutBuilder
         IMediaCollectionRepository mediaCollectionRepository,
         CollectionKey collectionKey,
         List<MediaItem> mediaItems,
+        CollectionItemsCache cache,
         CancellationToken cancellationToken)
     {
         List<CollectionWithItems> result;
@@ -1515,6 +1540,7 @@ public class PlayoutBuilder : IPlayoutBuilder
         {
             result = await mediaCollectionRepository.GetMultiCollectionCollections(
                 collectionKey.MultiCollectionId.Value,
+                cache,
                 cancellationToken);
         }
         else
@@ -1522,6 +1548,7 @@ public class PlayoutBuilder : IPlayoutBuilder
             result = await mediaCollectionRepository.GetFakeMultiCollectionCollections(
                 collectionKey.CollectionId,
                 collectionKey.SmartCollectionId,
+                cache,
                 cancellationToken);
         }
 

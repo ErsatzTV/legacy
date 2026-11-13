@@ -1,4 +1,4 @@
-using ErsatzTV.Core.Domain;
+﻿using ErsatzTV.Core.Domain;
 using ErsatzTV.Core.Domain.Filler;
 using ErsatzTV.Core.Domain.Scheduling;
 using ErsatzTV.Core.Extensions;
@@ -471,6 +471,7 @@ public class BlockPlayoutFillerBuilder(
                     televisionRepository,
                     artistRepository,
                     collectionKey,
+                    cache: null,
                     cancellationToken);
 
                 enumerator = BlockPlayoutEnumerator.Shuffle(

@@ -1,4 +1,4 @@
-using System.Collections.Immutable;
+﻿using System.Collections.Immutable;
 using ErsatzTV.Core.Domain;
 using ErsatzTV.Core.Extensions;
 using ErsatzTV.Core.Interfaces.Repositories;
@@ -245,6 +245,7 @@ public class PlaylistEnumerator : IMediaCollectionEnumerator
                             new ProgramSchedule { KeepMultiPartEpisodesTogether = false },
                             items,
                             CollectionKey.ForPlaylistItem(playlistItem),
+                            cache: null,
                             cancellationToken);
                         enumerator = new ShuffledMediaCollectionEnumerator(i, initState, cancellationToken);
                         break;
@@ -254,6 +255,7 @@ public class PlaylistEnumerator : IMediaCollectionEnumerator
                                 mediaCollectionRepository,
                                 CollectionKey.ForPlaylistItem(playlistItem),
                                 items,
+                                cache: null,
                                 cancellationToken),
                             initState,
                             randomStartPoint,

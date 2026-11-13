@@ -38,9 +38,15 @@ public class FakeMediaCollectionRepository : IMediaCollectionRepository
 
     public Task<List<MediaItem>> GetItems(int id) => _data[id].ToList().AsTask();
     public Task<List<MediaItem>> GetCollectionItemsByName(string name, CancellationToken cancellationToken) => throw new NotSupportedException();
-    public Task<List<MediaItem>> GetMultiCollectionItems(int id, CancellationToken cancellationToken) => throw new NotSupportedException();
+    public Task<List<MediaItem>> GetMultiCollectionItems(
+        int id,
+        CollectionItemsCache cache,
+        CancellationToken cancellationToken) => throw new NotSupportedException();
     public Task<List<MediaItem>> GetMultiCollectionItemsByName(string name, CancellationToken cancellationToken) => throw new NotSupportedException();
-    public Task<List<MediaItem>> GetSmartCollectionItems(int id, CancellationToken cancellationToken) => _data[id].ToList().AsTask();
+    public Task<List<MediaItem>> GetSmartCollectionItems(
+        int id,
+        CollectionItemsCache cache,
+        CancellationToken cancellationToken) => _data[id].ToList().AsTask();
     public Task<List<MediaItem>> GetSmartCollectionItemsByName(string name, CancellationToken cancellationToken) => throw new NotSupportedException();
 
     public Task<List<MediaItem>> GetSmartCollectionItems(
@@ -61,12 +67,16 @@ public class FakeMediaCollectionRepository : IMediaCollectionRepository
     public Task<List<Image>> GetImage(int id) => throw new NotSupportedException();
     public Task<List<RemoteStream>> GetRemoteStream(int id) => throw new NotSupportedException();
 
-    public Task<List<CollectionWithItems>> GetMultiCollectionCollections(int id, CancellationToken cancellationToken) =>
+    public Task<List<CollectionWithItems>> GetMultiCollectionCollections(
+        int id,
+        CollectionItemsCache cache,
+        CancellationToken cancellationToken) =>
         throw new NotSupportedException();
 
     public Task<List<CollectionWithItems>> GetFakeMultiCollectionCollections(
         int? collectionId,
         int? smartCollectionId,
+        CollectionItemsCache cache,
         CancellationToken cancellationToken) =>
         throw new NotSupportedException();
 
