@@ -482,17 +482,59 @@ public class MediaCollectionRepository : IMediaCollectionRepository
             result.AddRange(await GetSeasonItemsFromSeasonId(dbContext, seasonId));
         }
 
-        foreach (int artistId in searchResults.Items.Filter(i => i.Type == LuceneSearchIndex.ArtistType)
-                     .Map(i => i.Id))
-        {
-            result.AddRange(await GetArtistItemsFromArtistId(dbContext, artistId));
-        }
+        var artistIds = searchResults.Items
+            .Filter(i => i.Type == LuceneSearchIndex.ArtistType)
+            .Map(i => i.Id)
+            .ToList();
 
         var musicVideoIds = searchResults.Items
             .Filter(i => i.Type == LuceneSearchIndex.MusicVideoType)
             .Map(i => i.Id)
             .ToList();
-        result.AddRange(await GetMusicVideoItems(dbContext, musicVideoIds));
+
+        // one query for all artists instead of one per artist; output order must stay
+        // (artist hits, each artist's videos by id, then direct hits by id) because shuffle depends on it
+        var artistVideoIds = new Dictionary<int, List<int>>();
+        if (artistIds.Count > 0)
+        {
+            IEnumerable<(int Id, int ArtistId)> rows = await dbContext.Connection.QueryAsync<(int Id, int ArtistId)>(
+                "SELECT Id, ArtistId FROM MusicVideo WHERE ArtistId IN @ArtistIds",
+                new { ArtistIds = artistIds });
+            foreach ((int id, int artistId) in rows)
+            {
+                if (!artistVideoIds.TryGetValue(artistId, out List<int> list))
+                {
+                    list = [];
+                    artistVideoIds[artistId] = list;
+                }
+
+                list.Add(id);
+            }
+        }
+
+        var allMusicVideoIds = artistVideoIds.Values.SelectMany(v => v).Union(musicVideoIds).ToList();
+        Dictionary<int, MusicVideo> musicVideosById = allMusicVideoIds.Count > 0
+            ? (await GetMusicVideoItems(dbContext, allMusicVideoIds)).ToDictionary(mv => mv.Id)
+            : [];
+
+        foreach (int artistId in artistIds)
+        {
+            foreach (int id in artistVideoIds.GetValueOrDefault(artistId, []).Order())
+            {
+                if (musicVideosById.TryGetValue(id, out MusicVideo musicVideo))
+                {
+                    result.Add(musicVideo);
+                }
+            }
+        }
+
+        foreach (int id in musicVideoIds.Distinct().Order())
+        {
+            if (musicVideosById.TryGetValue(id, out MusicVideo musicVideo))
+            {
+                result.Add(musicVideo);
+            }
+        }
 
         var episodeIds = searchResults.Items
             .Filter(i => i.Type == LuceneSearchIndex.EpisodeType)
