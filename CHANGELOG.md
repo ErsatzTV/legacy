@@ -26,6 +26,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Fix local library items having no date added, so `added_inthelast` never matched them
   - This happened with "fallback" metadata due to missing NFO files or other metadata errors
   - Existing items are backfilled with the file's creation time on the next library scan
+- Fix Jellyfin-compatible servers (e.g. Silo) that list external subtitles after the file's streams
+  - Video and audio streams were saved with negative indexes, which broke playback of these items with the next engine (`expected u32`)
+  - Affected Jellyfin movies and episodes will be rescanned automatically
 - Next engine:
   - Keep channels running when configured with **Idle Behavior** > **Keep Running**
   - Respect **HLS Segmenter Initial Segment Count** setting when greater than 3 (the new default in next, lowered from 4)
