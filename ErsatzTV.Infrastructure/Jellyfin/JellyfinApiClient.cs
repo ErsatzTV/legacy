@@ -1010,6 +1010,10 @@ public class JellyfinApiClient : IJellyfinApiClient
         return result;
     }
 
+    // Jellyfin lists external streams first; compatible servers (e.g. Silo) list them last
+    internal static int SourceStreamIndex(IEnumerable<JellyfinMediaStreamResponse> streams, int index) =>
+        index - streams.Count(s => s.IsExternal && s.Index < index);
+
     private Option<MediaVersion> ProjectToMediaVersion(JellyfinPlaybackInfoResponse response)
     {
         if (response.MediaSources is null || response.MediaSources.Count == 0)
@@ -1019,14 +1023,6 @@ public class JellyfinApiClient : IJellyfinApiClient
         }
 
         JellyfinMediaSourceResponse mediaSource = response.MediaSources.Head();
-
-        // jellyfin includes external streams first, obscuring real stream indexes
-        // from the source file
-        int streamIndexOffset = mediaSource.MediaStreams
-            .Filter(s => s.IsExternal)
-            .Map(s => s.Index + 1)
-            .OrderByDescending(i => i)
-            .FirstOrDefault();
 
         IList<JellyfinMediaStreamResponse> streams = mediaSource.MediaStreams;
 
@@ -1080,7 +1076,7 @@ public class JellyfinApiClient : IJellyfinApiClient
                 {
                     MediaVersionId = version.Id,
                     MediaStreamKind = MediaStreamKind.Video,
-                    Index = videoStream.Index - streamIndexOffset,
+                    Index = SourceStreamIndex(streams, videoStream.Index),
                     Codec = videoStream.Codec,
                     Profile = (videoStream.Profile ?? string.Empty).ToLowerInvariant(),
                     Default = videoStream.IsDefault,
@@ -1103,7 +1099,7 @@ public class JellyfinApiClient : IJellyfinApiClient
                 {
                     MediaVersionId = version.Id,
                     MediaStreamKind = MediaStreamKind.Audio,
-                    Index = audioStream.Index - streamIndexOffset,
+                    Index = SourceStreamIndex(streams, audioStream.Index),
                     Codec = audioStream.Codec,
                     Profile = (audioStream.Profile ?? string.Empty).ToLowerInvariant(),
                     Channels = audioStream.Channels ?? 2,
@@ -1138,7 +1134,7 @@ public class JellyfinApiClient : IJellyfinApiClient
                 else
                 {
                     stream.MediaStreamKind = MediaStreamKind.Subtitle;
-                    stream.Index = subtitleStream.Index - streamIndexOffset;
+                    stream.Index = SourceStreamIndex(streams, subtitleStream.Index);
                 }
 
                 version.Streams.Add(stream);
