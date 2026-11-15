@@ -28,6 +28,13 @@ namespace ErsatzTV.Core.Next.Config
     public partial class ChannelConfig
     {
         /// <summary>
+        /// Files rendered once and reused across items and channels.
+        /// </summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("cache")]
+        public Cache? Cache { get; set; }
+
+        /// <summary>
         /// What plays when nothing is scheduled or an item fails.
         /// </summary>
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -66,6 +73,26 @@ namespace ErsatzTV.Core.Next.Config
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("version")]
         public string? Version { get; set; }
+    }
+
+    /// <summary>
+    /// Files rendered once and reused across items and channels.
+    /// </summary>
+    public partial class Cache
+    {
+        /// <summary>
+        /// Folder for cached files, e.g. still images scaled to their overlay size. Channels can
+        /// share it. Each kind of file has its own subfolder, e.g. `still-images`; only files there
+        /// are deleted. Unset uses `ersatztv-next` in the system temp folder.
+        /// </summary>
+        [JsonPropertyName("folder")]
+        public string? Folder { get; set; }
+
+        /// <summary>
+        /// Days a cached file can go unused before it is deleted. Default 30.
+        /// </summary>
+        [JsonPropertyName("max_unused_days")]
+        public long? MaxUnusedDays { get; set; }
     }
 
     /// <summary>
