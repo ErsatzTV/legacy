@@ -1,6 +1,7 @@
 using ErsatzTV.Application.Channels;
 using ErsatzTV.Application.FFmpegProfiles;
 using ErsatzTV.Application.Streaming;
+using ErsatzTV.Core;
 using ErsatzTV.Core.Domain;
 using ErsatzTV.Core.FFmpeg;
 using ErsatzTV.Core.Interfaces.Repositories;
@@ -97,6 +98,7 @@ public class ChannelConfigConverterTests
         ChannelConfig config = await Convert(profile);
 
         config.Version.ShouldBe(ChannelConfigConverter.ChannelConfigVersion);
+        config.Cache.ShouldNotBeNull().Folder.ShouldBe(FileSystemLayout.NextCacheFolder);
         config.Normalization.Audio.Mode.ShouldBe(StreamMode.Copy);
         config.Normalization.Audio.Format.ShouldBe(AudioFormat.Aac);
         config.Normalization.Video.Mode.ShouldBe(StreamMode.Copy);

@@ -41,6 +41,8 @@ public static class FileSystemLayout
 
     public static readonly string StreamsCacheFolder;
 
+    public static readonly string NextCacheFolder;
+
     public static readonly string SubtitleCacheFolder;
     public static readonly string FontsCacheFolder;
 
@@ -174,6 +176,8 @@ public static class FileSystemLayout
 
         SubtitleCacheFolder = Path.Combine(StreamsCacheFolder, "subtitles");
         FontsCacheFolder = Path.Combine(StreamsCacheFolder, "fonts");
+
+        NextCacheFolder = Path.Combine(AppDataFolder, "cache", "next");
 
         TemplatesFolder = Path.Combine(AppDataFolder, "templates");
 

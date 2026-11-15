@@ -36,6 +36,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
     - Playouts are now synchronized with next after each library scan
     - Subtitles that no longer exist are served empty instead of failing the item
   - Send probe hints for text subtitles so next no longer probes them before each item
+  - Fix slow streams (below realtime) with large still-image watermarks on slow CPUs
+    - Watermarks are now scaled once and cached in `cache/next`, instead of scaled for every frame
 
 ## [26.12.0] - 2026-11-06
 ### Changed
