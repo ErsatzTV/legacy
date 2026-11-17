@@ -1148,6 +1148,6 @@ public class JellyfinApiClient : IJellyfinApiClient
     {
         var client = _httpClientFactory.CreateClient("RefitCustomClient");
         client.BaseAddress = new Uri(address);
-        return RestService.ForGenerated<IJellyfinApi>(client);
+        return RestService.ForGenerated<IJellyfinApi>(client, RefitJson.Settings);
     }
 }

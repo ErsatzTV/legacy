@@ -47,7 +47,8 @@ public class PlexServerApiClient(PlexEtag plexEtag, ILogger<PlexServerApiClient>
                 {
                     BaseAddress = new Uri(connection.Uri),
                     Timeout = TimeSpan.FromSeconds(10)
-                });
+                },
+                RefitJson.Settings);
             List<PlexLibraryResponse> directory =
                 await service.GetLibraries(token.AuthToken).Map(r => r.MediaContainer.Directory);
             var response = directory
@@ -417,7 +418,8 @@ public class PlexServerApiClient(PlexEtag plexEtag, ILogger<PlexServerApiClient>
         try
         {
             IPlexServerApi service = RestService.ForGenerated<IPlexServerApi>(
-                new HttpClient { BaseAddress = new Uri(connection.Uri) });
+                new HttpClient { BaseAddress = new Uri(connection.Uri) },
+                RefitJson.Settings);
 
             PlexMediaContainerResponse<PlexMediaContainerHubContent<PlexHubResponse>> searchResponse =
                 await service.Search(showTitle, library.Key, token.AuthToken);
@@ -466,7 +468,7 @@ public class PlexServerApiClient(PlexEtag plexEtag, ILogger<PlexServerApiClient>
 
         const int PAGE_SIZE = 10;
 
-        IPlexServerApi jsonService = RestService.ForGenerated<IPlexServerApi>(connection.Uri);
+        IPlexServerApi jsonService = RestService.ForGenerated<IPlexServerApi>(connection.Uri, RefitJson.Settings);
         int pages = (size - 1) / PAGE_SIZE + 1;
 
         for (var i = 0; i < pages; i++)
