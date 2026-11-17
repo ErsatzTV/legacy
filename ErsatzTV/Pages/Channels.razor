@@ -320,11 +320,6 @@
             _ => "?mode=segmenter"
         };
 
-        if (JwtHelper.IsEnabled)
-        {
-            uri.Query += $"&access_token={JwtHelper.GenerateToken()}";
-        }
-
         var parameters = new DialogParameters { { "StreamUri", uri.ToString() } };
         var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.ExtraLarge };
         await Dialog.ShowAsync<ChannelPreviewDialog>("Channel Preview", parameters, options);

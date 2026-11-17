@@ -11,7 +11,6 @@ using ErsatzTV.Core.Interfaces.FFmpeg;
 using ErsatzTV.Core.Interfaces.Streaming;
 using ErsatzTV.Core.Iptv;
 using ErsatzTV.Extensions;
-using ErsatzTV.Filters;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 
@@ -19,7 +18,6 @@ namespace ErsatzTV.Controllers;
 
 [ApiController]
 [ApiExplorerSettings(IgnoreApi = true)]
-[ServiceFilter(typeof(ConditionalIptvAuthorizeFilter))]
 public class IptvController : StreamingControllerBase
 {
     private readonly IFFmpegSegmenterService _ffmpegSegmenterService;
@@ -49,8 +47,7 @@ public class IptvController : StreamingControllerBase
                     Request.Host.ToString(),
                     Request.PathBase,
                     mode,
-                    Request.Headers.UserAgent,
-                    QueryAccessToken))
+                    Request.Headers.UserAgent))
             .Map<ChannelPlaylist, IActionResult>(Ok);
 
     [HttpHead("iptv/xmltv.xml")]
@@ -60,8 +57,7 @@ public class IptvController : StreamingControllerBase
                 new GetChannelGuide(
                     Request.Scheme,
                     Request.Host.ToString(),
-                    Request.PathBase,
-                    QueryAccessToken))
+                    Request.PathBase))
             .ToActionResult();
 
     [HttpHead("iptv/hdhr/channel/{channelNumber}.ts")]
@@ -104,7 +100,7 @@ public class IptvController : StreamingControllerBase
                         mode = "ts";
                         break;
                     default:
-                        return Redirect($"~/iptv/channel/{channelNumber}.m3u8{AccessTokenQuery()}");
+                        return Redirect($"~/iptv/channel/{channelNumber}.m3u8");
                 }
             }
         }
@@ -121,7 +117,6 @@ public class IptvController : StreamingControllerBase
         FFmpegProcessRequest request = new GetWrappedProcessByChannelNumber(
             Request.Scheme,
             Request.Host.ToString(),
-            QueryAccessToken,
             channelNumber);
 
         return await _mediator.Send(request)
@@ -217,7 +212,7 @@ public class IptvController : StreamingControllerBase
                         mode = "segmenter";
                         break;
                     default:
-                        return Redirect($"~/iptv/channel/{channelNumber}.ts{AccessTokenQuery()}");
+                        return Redirect($"~/iptv/channel/{channelNumber}.ts");
                 }
             }
         }
@@ -247,7 +242,6 @@ public class IptvController : StreamingControllerBase
                     Request.Scheme,
                     Request.Host.ToString(),
                     Request.PathBase,
-                    AccessTokenQuery(),
                     subtitles);
                 Either<BaseError, string> result = await _mediator.Send(request, cancellationToken);
                 return result.Match<IActionResult>(
@@ -285,8 +279,7 @@ public class IptvController : StreamingControllerBase
                             Request.Scheme,
                             Request.Host.ToString(),
                             channelNumber,
-                            mode,
-                            QueryAccessToken),
+                            mode),
                         cancellationToken)
                     .Map(r => r.Match<IActionResult>(
                         playlist => Content(playlist, "application/vnd.apple.mpegurl"),
@@ -311,20 +304,6 @@ public class IptvController : StreamingControllerBase
     [HttpGet("iptv/hls-direct/{channelNumber}.ts")]
     [HttpGet("iptv/hls-direct/{channelNumber}.mkv")]
     [HttpGet("iptv/hls-direct/{channelNumber}.mp4")]
-    public async Task<IActionResult> GetStream(string channelNumber)
-    {
-        // old hls-direct playlist urls are one long ts segment each
-        string accessToken = string.IsNullOrWhiteSpace(QueryAccessToken)
-            ? string.Empty
-            : $"&access_token={QueryAccessToken}";
-        return Redirect($"~/iptv/channel/{channelNumber}.ts?mode=ts{accessToken}");
-    }
-
-    // without jwt the token authorizes nothing, so never echo it
-    private string QueryAccessToken =>
-        JwtHelper.IsEnabled ? AccessToken.Sanitize(Request.Query["access_token"]) : null;
-
-    private string AccessTokenQuery() => string.IsNullOrWhiteSpace(QueryAccessToken)
-        ? string.Empty
-        : $"?access_token={QueryAccessToken}";
+    // old hls-direct playlist urls are one long ts segment each
+    public IActionResult GetStream(string channelNumber) => Redirect($"~/iptv/channel/{channelNumber}.ts?mode=ts");
 }

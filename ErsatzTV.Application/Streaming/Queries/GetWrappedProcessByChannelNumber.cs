@@ -7,7 +7,6 @@ public record GetWrappedProcessByChannelNumber : FFmpegProcessRequest
     public GetWrappedProcessByChannelNumber(
         string scheme,
         string host,
-        string accessToken,
         string channelNumber) : base(
         channelNumber,
         StreamingMode.TransportStreamHybrid,
@@ -20,10 +19,8 @@ public record GetWrappedProcessByChannelNumber : FFmpegProcessRequest
     {
         Scheme = scheme;
         Host = host;
-        AccessToken = accessToken;
     }
 
     public string Scheme { get; }
     public string Host { get; }
-    public string AccessToken { get; }
 }

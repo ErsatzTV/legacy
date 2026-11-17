@@ -68,10 +68,6 @@ public class GetHlsPlaylistByChannelNumberHandler :
             };
         }
 
-        string accessToken = string.IsNullOrWhiteSpace(request.AccessToken)
-            ? string.Empty
-            : $"&access_token={request.AccessToken}";
-
         long index = GetIndexForChannel(parameters.Channel, parameters.PlayoutItem);
         double timeRemaining = Math.Abs((parameters.PlayoutItem.FinishOffset - now).TotalSeconds);
         return $@"#EXTM3U
@@ -80,7 +76,7 @@ public class GetHlsPlaylistByChannelNumberHandler :
 #EXT-X-MEDIA-SEQUENCE:{index}
 #EXT-X-DISCONTINUITY
 #EXTINF:{timeRemaining:F2},
-{request.Scheme}://{request.Host}/{endpoint}/{request.ChannelNumber}{extension}?index={index}{mode}{accessToken}
+{request.Scheme}://{request.Host}/{endpoint}/{request.ChannelNumber}{extension}?index={index}{mode}
 ";
     }
 

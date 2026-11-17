@@ -38,18 +38,15 @@ public partial class GetChannelGuideHandler(
 
         long mtime = fileSystem.File.GetLastWriteTime(channelsFile).Ticks;
 
-        var accessTokenUri = $"?v={mtime}";
-        if (!string.IsNullOrWhiteSpace(request.AccessToken))
-        {
-            accessTokenUri += $"&amp;access_token={request.AccessToken}";
-        }
+        // cached guide fragments still use the {AccessTokenUri} placeholder, which now only carries the cache buster
+        var cacheBusterUri = $"?v={mtime}";
 
         string channelsFragment = await ReadAllTextShared(channelsFile, cancellationToken);
 
         // TODO: is regex faster?
         channelsFragment = channelsFragment
             .Replace("{RequestBase}", $"{request.Scheme}://{request.Host}{request.BaseUrl}")
-            .Replace("{AccessTokenUri}", accessTokenUri);
+            .Replace("{AccessTokenUri}", cacheBusterUri);
 
         var channelDataFragments = new Dictionary<string, string>();
 
@@ -71,7 +68,7 @@ public partial class GetChannelGuideHandler(
 
                 channelDataFragment = channelDataFragment
                     .Replace("{RequestBase}", $"{request.Scheme}://{request.Host}{request.BaseUrl}")
-                    .Replace("{AccessTokenUri}", accessTokenUri);
+                    .Replace("{AccessTokenUri}", cacheBusterUri);
 
                 channelDataFragment = EtvTagRegex().Replace(channelDataFragment, string.Empty);
 
