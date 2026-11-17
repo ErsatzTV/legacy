@@ -503,7 +503,7 @@ public class Startup
 
         services.AddMediatR(config => config.RegisterServicesFromAssemblyContaining<GetAllChannels>());
 
-        services.AddRefitGeneratedClient<IPlexTvApi>()
+        services.AddRefitGeneratedClient<IPlexTvApi>(RefitJson.Settings)
             .ConfigureHttpClient(c => c.BaseAddress = new Uri("https://plex.tv/api/v2"));
 
         services.AddRefitGeneratedClient<ITraktApi>(

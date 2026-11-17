@@ -34,7 +34,7 @@ public partial class EmbyApiClient : IEmbyApiClient
     {
         try
         {
-            IEmbyApi service = RestService.ForGenerated<IEmbyApi>(address);
+            IEmbyApi service = RestService.ForGenerated<IEmbyApi>(address, RefitJson.Settings);
             var cts = new CancellationTokenSource();
             cts.CancelAfter(TimeSpan.FromSeconds(5));
             return await service.GetSystemInformation(apiKey, cts.Token)
@@ -56,7 +56,7 @@ public partial class EmbyApiClient : IEmbyApiClient
     {
         try
         {
-            IEmbyApi service = RestService.ForGenerated<IEmbyApi>(address);
+            IEmbyApi service = RestService.ForGenerated<IEmbyApi>(address, RefitJson.Settings);
             List<EmbyLibraryResponse> libraries = await service.GetLibraries(apiKey);
             return libraries
                 .Map(Project)
@@ -181,7 +181,7 @@ public partial class EmbyApiClient : IEmbyApiClient
     {
         try
         {
-            IEmbyApi service = RestService.ForGenerated<IEmbyApi>(address);
+            IEmbyApi service = RestService.ForGenerated<IEmbyApi>(address, RefitJson.Settings);
             EmbyPlaybackInfoResponse playbackInfo = await service.GetPlaybackInfo(apiKey, itemId);
             Option<MediaVersion> maybeVersion = ProjectToMediaVersion(playbackInfo);
             return maybeVersion.ToEither(() => BaseError.New("Unable to locate Emby statistics"));
@@ -201,7 +201,7 @@ public partial class EmbyApiClient : IEmbyApiClient
     {
         try
         {
-            IEmbyApi service = RestService.ForGenerated<IEmbyApi>(address);
+            IEmbyApi service = RestService.ForGenerated<IEmbyApi>(address, RefitJson.Settings);
             EmbyLibraryItemsResponse itemsResponse = await service.GetShowLibraryItems(
                 apiKey,
                 library.ItemId,
@@ -232,7 +232,7 @@ public partial class EmbyApiClient : IEmbyApiClient
     {
         try
         {
-            IEmbyApi service = RestService.ForGenerated<IEmbyApi>(address);
+            IEmbyApi service = RestService.ForGenerated<IEmbyApi>(address, RefitJson.Settings);
             EmbySearchHintsResponse searchResponse = await service.SearchHints(
                 apiKey,
                 showTitle,
@@ -280,7 +280,7 @@ public partial class EmbyApiClient : IEmbyApiClient
         Func<IEmbyApi, string, int, int, Task<EmbyLibraryItemsResponse>> getItems,
         Func<Option<EmbyLibrary>, EmbyLibraryItemResponse, Option<TItem>> mapper)
     {
-        IEmbyApi service = RestService.ForGenerated<IEmbyApi>(address);
+        IEmbyApi service = RestService.ForGenerated<IEmbyApi>(address, RefitJson.Settings);
         const int PAGE_SIZE = 10;
 
         int pages = int.MaxValue;
