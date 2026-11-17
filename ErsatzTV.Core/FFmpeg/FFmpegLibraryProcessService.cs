@@ -982,19 +982,13 @@ public class FFmpegLibraryProcessService : IFFmpegProcessService
         Channel channel,
         string scheme,
         string host,
-        string accessToken,
         CancellationToken cancellationToken)
     {
         var resolution = new FrameSize(channel.FFmpegProfile.Resolution.Width, channel.FFmpegProfile.Resolution.Height);
 
-        accessToken = AccessToken.Sanitize(accessToken);
-        string accessTokenQuery = string.IsNullOrWhiteSpace(accessToken)
-            ? string.Empty
-            : $"&access_token={accessToken}";
-
         // Empty subtitle streams delay MPEG-TS output by about 10 seconds.
         var concatInputFile = new ConcatInputFile(
-            $"http://localhost:{Settings.StreamingPort}/iptv/channel/{channel.Number}.m3u8?mode=segmenter&subtitles=false{accessTokenQuery}",
+            $"http://localhost:{Settings.StreamingPort}/iptv/channel/{channel.Number}.m3u8?mode=segmenter&subtitles=false",
             resolution);
 
         if (channel.FFmpegProfile.AudioFormat is FFmpegProfileAudioFormat.AacLatm)

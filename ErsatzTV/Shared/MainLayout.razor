@@ -258,6 +258,12 @@
         </MudDrawer>
     }
     <MudMainContent>
+        @if (UnsupportedJwtConfig.IsConfigured)
+        {
+            <MudAlert Severity="Severity.Error" Variant="Variant.Filled" Square="true">
+                @UnsupportedJwtConfig.Message
+            </MudAlert>
+        }
         @Body
     </MudMainContent>
 </MudLayout>

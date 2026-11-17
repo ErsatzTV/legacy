@@ -6,7 +6,6 @@ namespace ErsatzTV.Core.Iptv;
 
 public class ChannelPlaylist
 {
-    private readonly string _accessToken;
     private readonly string _baseUrl;
     private readonly List<Channel> _channels;
     private readonly string _host;
@@ -18,30 +17,20 @@ public class ChannelPlaylist
         string host,
         string baseUrl,
         List<Channel> channels,
-        string userAgent,
-        string accessToken)
+        string userAgent)
     {
         _scheme = scheme;
         _host = host;
         _baseUrl = baseUrl;
         _channels = channels;
         _userAgent = userAgent;
-        _accessToken = accessToken;
     }
 
     public string ToM3U()
     {
         var sb = new StringBuilder();
 
-        string accessTokenUri = string.Empty;
-        string accessTokenUriAmp = string.Empty;
-        if (_accessToken != null)
-        {
-            accessTokenUri = $"?access_token={_accessToken}";
-            accessTokenUriAmp = $"&access_token={_accessToken}";
-        }
-
-        var xmltv = $"{_scheme}://{_host}{_baseUrl}/iptv/xmltv.xml{accessTokenUri}";
+        var xmltv = $"{_scheme}://{_host}{_baseUrl}/iptv/xmltv.xml";
         sb.AppendLine(CultureInfo.InvariantCulture, $"#EXTM3U url-tvg=\"{xmltv}\" x-tvg-url=\"{xmltv}\"");
         foreach (Channel channel in _channels.OrderBy(c => decimal.Parse(c.Number, CultureInfo.InvariantCulture)))
         {
@@ -62,12 +51,12 @@ public class ChannelPlaylist
             Option<Artwork> maybeArtwork = Optional(channel.Artwork).Flatten()
                 .Filter(a => a.ArtworkKind == ArtworkKind.Logo)
                 .HeadOrNone();
-            var logo = $"{_scheme}://{_host}{_baseUrl}/iptv/logos/gen?text={channel.WebEncodedName}{accessTokenUriAmp}";
+            var logo = $"{_scheme}://{_host}{_baseUrl}/iptv/logos/gen?text={channel.WebEncodedName}";
             foreach (Artwork artwork in maybeArtwork)
             {
                 logo = artwork.IsExternalUrl()
                     ? artwork.Path
-                    : $"{_scheme}://{_host}{_baseUrl}/iptv/logos/{artwork.Path}.jpg{accessTokenUri}";
+                    : $"{_scheme}://{_host}{_baseUrl}/iptv/logos/{artwork.Path}.jpg";
             }
 
             string shortUniqueId = Convert.ToBase64String(channel.UniqueId.ToByteArray())
@@ -77,10 +66,10 @@ public class ChannelPlaylist
 
             string format = channel.StreamingMode switch
             {
-                StreamingMode.HttpLiveStreamingDirect => $"m3u8?mode=hls-direct{accessTokenUriAmp}",
-                StreamingMode.HttpLiveStreamingSegmenter => $"m3u8?mode=segmenter{accessTokenUriAmp}",
-                StreamingMode.TransportStreamHybrid => $"ts{accessTokenUri}",
-                _ => $"ts?mode=ts-legacy{accessTokenUriAmp}"
+                StreamingMode.HttpLiveStreamingDirect => "m3u8?mode=hls-direct",
+                StreamingMode.HttpLiveStreamingSegmenter => "m3u8?mode=segmenter",
+                StreamingMode.TransportStreamHybrid => "ts",
+                _ => "ts?mode=ts-legacy"
             };
 
             string vcodec = channel.FFmpegProfile.VideoFormat.ToString().ToLowerInvariant();

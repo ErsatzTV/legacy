@@ -74,7 +74,6 @@ public interface IFFmpegProcessService
         Channel channel,
         string scheme,
         string host,
-        string accessToken,
         CancellationToken cancellationToken);
 
     Task<Command> ResizeImage(

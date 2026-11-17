@@ -5,6 +5,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 ### Changed
+- **BREAKING CHANGE**: remove JWT authentication for streaming (`JWT__ISSUERSIGNINGKEY`)
+  - IPTV and HDHomeRun endpoints are disabled, and the UI shows a warning, until `JWT__ISSUERSIGNINGKEY` is removed
+  - Streams are not authenticated; use a VPN or reverse proxy for remote access
 - Use ErsatzTV-ffmpeg `8.1.2-9` in docker images, Windows packages and macOS packages
   - Fix a box appearing next to Arabic lam-alef ligatures (such as in بلا) in burned-in text subtitles when the font has no U+FEFF glyph (e.g. Arial)
     - This is a backport of an upstream FFMpeg 9.x shaping fix: the subtitles filter now uses complex (HarfBuzz) shaping by default

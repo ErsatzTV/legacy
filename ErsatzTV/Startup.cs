@@ -85,7 +85,6 @@ using FluentValidation.AspNetCore;
 using Ganss.Xss;
 using MediatR.Courier.DependencyInjection;
 using Microsoft.AspNetCore.Authentication.Cookies;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.DataProtection;
@@ -94,9 +93,7 @@ using Microsoft.AspNetCore.Localization;
 using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
-using Microsoft.Extensions.Primitives;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
-using Microsoft.IdentityModel.Tokens;
 using Microsoft.IO;
 using Microsoft.AspNetCore.OpenApi;
 using Microsoft.OpenApi;
@@ -188,7 +185,7 @@ public class Startup
         services.ConfigureHttpJsonOptions(o => o.SerializerOptions.NumberHandling = JsonNumberHandling.Strict);
 
         OidcHelper.Init(Configuration);
-        JwtHelper.Init(Configuration);
+        UnsupportedJwtConfig.Init(Configuration);
         SearchHelper.Init(Configuration);
 
         if (OidcHelper.IsEnabled)
@@ -246,63 +243,14 @@ public class Startup
                     });
         }
 
-        if (JwtHelper.IsEnabled)
-        {
-            services.AddAuthentication().AddJwtBearer(
-                "jwt",
-                options =>
-                {
-                    options.TokenValidationParameters = new TokenValidationParameters
-                    {
-                        ValidateIssuer = false,
-                        ValidateAudience = false,
-                        ValidateIssuerSigningKey = true,
-                        IssuerSigningKey = JwtHelper.IssuerSigningKey,
-                        ValidateLifetime = true
-                    };
-                    options.Events = new JwtBearerEvents
-                    {
-                        OnMessageReceived = static context =>
-                        {
-                            StringValues token = context.Request.Query["access_token"];
-                            if (!string.IsNullOrWhiteSpace(token))
-                            {
-                                context.Token = token;
-                            }
-
-                            return Task.CompletedTask;
-                        }
-                    };
-                });
-        }
-
-        if (OidcHelper.IsEnabled || JwtHelper.IsEnabled)
+        if (OidcHelper.IsEnabled)
         {
             services.AddAuthorization(options =>
-                {
-                    if (OidcHelper.IsEnabled)
-                    {
-                        var defaultAuthorizationPolicyBuilder = new AuthorizationPolicyBuilder(
-                            "cookie",
-                            "oidc");
-
-                        defaultAuthorizationPolicyBuilder =
-                            defaultAuthorizationPolicyBuilder.RequireAuthenticatedUser();
-
-                        options.DefaultPolicy = defaultAuthorizationPolicyBuilder.Build();
-                    }
-
-                    if (JwtHelper.IsEnabled)
-                    {
-                        var onlyJwtSchemePolicyBuilder = new AuthorizationPolicyBuilder("jwt");
-                        options.AddPolicy(
-                            "JwtOnlyScheme",
-                            onlyJwtSchemePolicyBuilder
-                                .RequireAuthenticatedUser()
-                                .Build());
-                    }
-                }
-            );
+            {
+                options.DefaultPolicy = new AuthorizationPolicyBuilder("cookie", "oidc")
+                    .RequireAuthenticatedUser()
+                    .Build();
+            });
         }
 
         services.AddCors(o => o.AddPolicy(
@@ -318,11 +266,6 @@ public class Startup
 
         services.AddControllers(options =>
             {
-                if (JwtHelper.IsEnabled)
-                {
-                    options.Conventions.Add(new RemoveHdhrConvention());
-                }
-
                 options.OutputFormatters.Insert(0, new ChannelPlaylistOutputFormatter());
                 options.OutputFormatters.Insert(0, new ChannelGuideOutputFormatter());
                 options.OutputFormatters.Insert(0, new DeviceXmlOutputFormatter());
@@ -336,7 +279,6 @@ public class Startup
                 opt.SerializerSettings.Converters.Add(new StringEnumConverter());
             });
 
-        services.AddScoped(_ => new ConditionalIptvAuthorizeFilter("JwtOnlyScheme"));
         services.AddScoped<ConditionalUiAuthorizeFilter>();
 
         services.AddFluentValidationAutoValidation();
@@ -563,6 +505,14 @@ public class Startup
             }
         }
 
+        if (UnsupportedJwtConfig.IsConfigured)
+        {
+            Log.Error(UnsupportedJwtConfig.Message);
+
+            // runs before the static /iptv/session mount so no stream file can bypass it
+            app.Use(UnsupportedJwtConfig.BlockIptv);
+        }
+
         // keep this before `UseForwardedHeaders`
         app.Use(async (context, next) =>
         {
@@ -768,14 +718,7 @@ public class Startup
 
         return;
 
-        bool IsIptvPath(PathString path)
-        {
-            return path.StartsWithSegments("/iptv") ||
-                   path.StartsWithSegments("/discover.json") ||
-                   path.StartsWithSegments("/device.xml") ||
-                   path.StartsWithSegments("/lineup.json") ||
-                   path.StartsWithSegments("/lineup_status.json");
-        }
+        bool IsIptvPath(PathString path) => IptvPaths.IsIptvPath(path);
 
         bool IsInternalPath(PathString path) => path.StartsWithSegments("/internal");
 
