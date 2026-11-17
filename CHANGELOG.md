@@ -5,7 +5,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 ### Changed
-- Use ErsatzTV-ffmpeg `8.1.2-41c82b12-develop` in docker images, Windows packages and macOS packages
+- Use ErsatzTV-ffmpeg `8.1.2-9` in docker images, Windows packages and macOS packages
   - Fix a box appearing next to Arabic lam-alef ligatures (such as in بلا) in burned-in text subtitles when the font has no U+FEFF glyph (e.g. Arial)
     - This is a backport of an upstream FFMpeg 9.x shaping fix: the subtitles filter now uses complex (HarfBuzz) shaping by default
 
@@ -38,6 +38,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Send probe hints for text subtitles so next no longer probes them before each item
   - Fix slow streams (below realtime) with large still-image watermarks on slow CPUs
     - Watermarks are now scaled once and cached in `cache/next`, instead of scaled for every frame
+  - Fix full-range (JPEG) watermarks stretching the main video to full range when scaling or converting before a software overlay
 
 ## [26.12.0] - 2026-11-06
 ### Changed
