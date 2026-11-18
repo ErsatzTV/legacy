@@ -102,11 +102,11 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: macos-15
+          - os: macos-26
             kind: macOS
             target: osx-x64
             ffmpeg_target: macos64
-          - os: macos-15
+          - os: macos-26
             kind: macOS
             target: osx-arm64
             ffmpeg_target: macosarm64
