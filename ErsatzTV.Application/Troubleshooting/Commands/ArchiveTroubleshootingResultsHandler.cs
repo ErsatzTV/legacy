@@ -12,7 +12,7 @@ public partial class ArchiveTroubleshootingResultsHandler(IFileSystem fileSystem
     public Task<Option<string>> Handle(ArchiveTroubleshootingResults request, CancellationToken cancellationToken)
     {
         string tempFile = request.OutputPath ?? Path.GetTempFileName();
-        var hasReport = false;
+        var hasResults = false;
 
         // update mode keeps entries from a stale file
         if (request.OutputPath is not null)
@@ -22,25 +22,25 @@ public partial class ArchiveTroubleshootingResultsHandler(IFileSystem fileSystem
 
         try
         {
-            hasReport = AddResults(tempFile);
+            hasResults = AddResults(tempFile);
         }
         finally
         {
             // the archive must be closed before the file can be deleted
-            if (!hasReport)
+            if (!hasResults)
             {
                 fileSystem.File.Delete(tempFile);
             }
         }
 
-        return Task.FromResult(hasReport ? tempFile : Option<string>.None);
+        return Task.FromResult(hasResults ? tempFile : Option<string>.None);
     }
 
     private bool AddResults(string tempFile)
     {
         using ZipArchive zipArchive = ZipFile.Open(tempFile, ZipArchiveMode.Update);
 
-        var hasReport = false;
+        var hasResults = false;
         List<string> directories =
         [
             FileSystemLayout.TranscodeTroubleshootingFolder,
@@ -53,13 +53,16 @@ public partial class ArchiveTroubleshootingResultsHandler(IFileSystem fileSystem
             {
                 string fileName = fileSystem.Path.GetFileName(file);
 
-                bool isReport = fileName.StartsWith("ffmpeg-", StringComparison.OrdinalIgnoreCase)
-                                 || fileName.StartsWith("ffreport", StringComparison.OrdinalIgnoreCase);
+                // next can fail before ffmpeg runs, leaving no report
+                bool isResult = fileName.StartsWith("ffmpeg-", StringComparison.OrdinalIgnoreCase)
+                                || fileName.StartsWith("ffreport", StringComparison.OrdinalIgnoreCase)
+                                || fileName.Equals("ffmpeg_stderr.log", StringComparison.OrdinalIgnoreCase)
+                                || fileName.Equals("logs.txt", StringComparison.OrdinalIgnoreCase)
+                                || fileName.Equals("outcome.txt", StringComparison.OrdinalIgnoreCase);
 
-                hasReport = hasReport || isReport;
+                hasResults = hasResults || isResult;
 
-                bool shouldArchive = isReport
-                    || fileName.Equals("logs.txt", StringComparison.OrdinalIgnoreCase)
+                bool shouldArchive = isResult
                     || fileSystem.Path.GetExtension(file).Equals(".json", StringComparison.OrdinalIgnoreCase)
                     || fileName.Contains("capabilities", StringComparison.OrdinalIgnoreCase)
                     || fileName.Contains("stream-selector", StringComparison.OrdinalIgnoreCase)
@@ -92,7 +95,7 @@ public partial class ArchiveTroubleshootingResultsHandler(IFileSystem fileSystem
             }
         }
 
-        return hasReport;
+        return hasResults;
     }
 
     // <channel number>_<timestamp>[_<playout item id>];
