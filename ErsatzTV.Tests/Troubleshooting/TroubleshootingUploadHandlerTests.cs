@@ -205,6 +205,72 @@ public class TroubleshootingUploadHandlerTests
     }
 
     [Test]
+    public async Task Archive_should_include_next_failure_without_ffmpeg_report()
+    {
+        string dir = Directory.CreateTempSubdirectory("troubleshooting-archive-tests").FullName;
+        try
+        {
+            string dossier = Path.Combine(dir, "1_20261118T064239.322559169-0600");
+            Directory.CreateDirectory(dossier);
+            string logs = Path.Combine(dir, "logs.txt");
+            string outcome = Path.Combine(dossier, "outcome.txt");
+            string stderr = Path.Combine(dossier, "ffmpeg_stderr.log");
+            foreach (string file in new[] { logs, outcome, stderr })
+            {
+                await File.WriteAllTextAsync(file, "x");
+            }
+
+            string output = Path.Combine(dir, "out.zip");
+
+            ILocalFileSystem? localFileSystem = Substitute.For<ILocalFileSystem>();
+            localFileSystem.ListSubdirectories(FileSystemLayout.TranscodeTroubleshootingFolder).Returns([dossier]);
+            localFileSystem.ListFiles(FileSystemLayout.TranscodeTroubleshootingFolder).Returns([logs]);
+            localFileSystem.ListFiles(dossier).Returns([outcome, stderr]);
+
+            var handler = new ArchiveTroubleshootingResultsHandler(new RealFileSystem(), localFileSystem);
+            Option<string> result = await handler.Handle(
+                new ArchiveTroubleshootingResults(output),
+                CancellationToken.None);
+
+            result.ShouldBe(Some(output));
+            using ZipArchive zip = ZipFile.OpenRead(output);
+            zip.Entries.Select(e => e.FullName).ShouldBe(["logs.txt", "outcome.txt", "ffmpeg_stderr.log"]);
+        }
+        finally
+        {
+            Directory.Delete(dir, true);
+        }
+    }
+
+    [Test]
+    public async Task Archive_should_be_empty_without_results()
+    {
+        string dir = Directory.CreateTempSubdirectory("troubleshooting-archive-tests").FullName;
+        try
+        {
+            string info = Path.Combine(dir, "troubleshooting_info.json");
+            await File.WriteAllTextAsync(info, "{}");
+            string output = Path.Combine(dir, "out.zip");
+
+            ILocalFileSystem? localFileSystem = Substitute.For<ILocalFileSystem>();
+            localFileSystem.ListSubdirectories(Arg.Any<string>()).Returns([]);
+            localFileSystem.ListFiles(FileSystemLayout.TranscodeTroubleshootingFolder).Returns([info]);
+
+            var handler = new ArchiveTroubleshootingResultsHandler(new RealFileSystem(), localFileSystem);
+            Option<string> result = await handler.Handle(
+                new ArchiveTroubleshootingResults(output),
+                CancellationToken.None);
+
+            result.IsNone.ShouldBeTrue();
+            File.Exists(output).ShouldBeFalse();
+        }
+        finally
+        {
+            Directory.Delete(dir, true);
+        }
+    }
+
+    [Test]
     public void Archive_path_should_reject_paths_without_a_directory()
     {
         TroubleshootingUpload.IsArchivePath(ArchivePath).ShouldBeTrue();

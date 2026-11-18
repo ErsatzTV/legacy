@@ -43,6 +43,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
     - Watermarks are now scaled once and cached in `cache/next`, instead of scaled for every frame
   - Fix full-range (JPEG) watermarks stretching the main video to full range when scaling or converting before a software overlay
   - Skip transcoding items (typically fallback) that are less than 1 frame in duration, which can crash VAAPI encoders
+  - Fix missing playback troubleshooting results when next fails before ffmpeg starts
+    - This showed `There are no troubleshooting results to upload`
 
 ## [26.12.0] - 2026-11-06
 ### Changed
