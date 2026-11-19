@@ -53,4 +53,7 @@ COPY --from=build /app ./
 COPY ersatztv-channel ./
 ENV ETV_CONFIG_FOLDER=/config
 ENV ETV_TRANSCODE_FOLDER=/transcode
+# HOME (/root) isn't writable for non-root users, so drivers would recompile kernels and shaders
+# on every ffmpeg launch
+ENV XDG_CACHE_HOME=/config/cache/xdg
 ENTRYPOINT ["./ErsatzTV"]
