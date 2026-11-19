@@ -32,8 +32,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Fix Jellyfin-compatible servers (e.g. Silo) that list external subtitles after the file's streams
   - Video and audio streams were saved with negative indexes, which broke playback of these items with the next engine (`expected u32`)
   - Affected Jellyfin movies and episodes will be rescanned automatically
-- NVIDIA: fix slow stream startup in docker when running as a non-root user
-  - Compiled CUDA kernels are cached in `/config/nvidia-cache`
+- Fix slow stream startup in docker when running as a non-root user
+  - Compiled GPU kernels and shaders are cached in `/config/cache/cuda` and `/config/cache/xdg`
 - Next engine:
   - Keep channels running when configured with **Idle Behavior** > **Keep Running**
   - Respect **HLS Segmenter Initial Segment Count** setting when greater than 3 (the new default in next, lowered from 4)
@@ -47,6 +47,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Skip transcoding items (typically fallback) that are less than 1 frame in duration, which can crash VAAPI encoders
   - Fix missing playback troubleshooting results when next fails before ffmpeg starts
     - This showed `There are no troubleshooting results to upload`
+  - Fix slow CUDA channel startup
+  - Fix slow channel startup with libplacebo tone mapping
+    - Compiled shaders are cached in config folder
 
 ## [26.12.0] - 2026-11-06
 ### Changed

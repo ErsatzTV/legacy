@@ -350,6 +350,25 @@ public class Startup
             }
         }
 
+        // drivers only create their own subfolder in these; docker points them into an empty volume
+        foreach (string variable in (string[]) ["XDG_CACHE_HOME", "CUDA_CACHE_PATH"])
+        {
+            string directory = Environment.GetEnvironmentVariable(variable);
+            if (string.IsNullOrWhiteSpace(directory))
+            {
+                continue;
+            }
+
+            try
+            {
+                Directory.CreateDirectory(directory);
+            }
+            catch (Exception ex)
+            {
+                Log.Logger.Warning(ex, "Failed to create {Variable} folder {Folder}", variable, directory);
+            }
+        }
+
         TroubleshootingUpload.DeleteArchives();
 
         // until we add a setting for a file-specific scheme://host:port to access
