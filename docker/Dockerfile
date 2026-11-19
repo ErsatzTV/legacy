@@ -68,4 +68,6 @@ COPY ersatztv-channel ./
 ENV PYTHONPATH=/app/pythonlibs
 ENV ETV_CONFIG_FOLDER=/config
 ENV ETV_TRANSCODE_FOLDER=/transcode
+# persist compiled CUDA kernels; HOME (/root) isn't writable for non-root users, so the driver recompiles them on every ffmpeg launch
+ENV CUDA_CACHE_PATH=/config/nvidia-cache
 ENTRYPOINT ["./ErsatzTV"]

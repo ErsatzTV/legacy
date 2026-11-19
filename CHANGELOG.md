@@ -32,6 +32,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Fix Jellyfin-compatible servers (e.g. Silo) that list external subtitles after the file's streams
   - Video and audio streams were saved with negative indexes, which broke playback of these items with the next engine (`expected u32`)
   - Affected Jellyfin movies and episodes will be rescanned automatically
+- NVIDIA: fix slow stream startup in docker when running as a non-root user
+  - Compiled CUDA kernels are cached in `/config/nvidia-cache`
 - Next engine:
   - Keep channels running when configured with **Idle Behavior** > **Keep Running**
   - Respect **HLS Segmenter Initial Segment Count** setting when greater than 3 (the new default in next, lowered from 4)
