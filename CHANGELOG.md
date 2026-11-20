@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
+
+## [26.13.0] - 2026-11-20
 ### Changed
 - **BREAKING CHANGE**: remove JWT authentication for streaming (`JWT__ISSUERSIGNINGKEY`)
   - IPTV and HDHomeRun endpoints are disabled, and the UI shows a warning, until `JWT__ISSUERSIGNINGKEY` is removed
@@ -3827,7 +3829,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Initial release to facilitate testing outside of Docker.
 
 
-[Unreleased]: https://github.com/ErsatzTV/legacy/compare/v26.12.0...HEAD
+[Unreleased]: https://github.com/ErsatzTV/legacy/compare/v26.13.0...HEAD
+[26.13.0]: https://github.com/ErsatzTV/legacy/compare/v26.12.0...v26.13.0
 [26.12.0]: https://github.com/ErsatzTV/legacy/compare/v26.11.6...v26.12.0
 [26.11.6]: https://github.com/ErsatzTV/legacy/compare/v26.11.5...v26.11.6
 [26.11.5]: https://github.com/ErsatzTV/legacy/compare/v26.11.4...v26.11.5
