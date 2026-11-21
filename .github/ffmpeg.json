@@ -1,5 +1,6 @@
 {
-  "tag": "8.1.2-9",
-  "digest": "sha256:689c158305c2456a230f002539b47499841cee0d237975ed30ee6a9b119bb9a5",
-  "sha256sums": "1649ef78132c4ac0d26fbe07ce302778382dc1e208fdc41b608d99f7b58be5eb"
+  "tag": "8.1.2-f15d7b3e-develop",
+  "digest": "sha256:7665ec9939be2f03d68d15ca7a36a838f41e60bc31e6aee75803988ec06d8f7c",
+  "sha256sums": "b2c890b5d9e2e7e0c7328960e7e640503f6f91c76876d9443510d503c0688408",
+  "last_release": "8.1.2-9"
 }
