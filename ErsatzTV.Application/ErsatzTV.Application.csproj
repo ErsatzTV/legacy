@@ -18,7 +18,7 @@
         <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.15" />
         <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
         <PackageReference Include="Serilog.Formatting.Compact.Reader" Version="4.0.0" />
-        <PackageReference Include="WebMarkupMin.Core" Version="2.24.0" />
+        <PackageReference Include="WebMarkupMin.Core" Version="2.24.1" />
         <PackageReference Include="Winista.MimeDetect" Version="1.1.0" />
     </ItemGroup>
 

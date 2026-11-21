@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
+### Changed
+- Use ErsatzTV-ffmpeg `8.1.2-f15d7b3e-develop` (newer than `8.1.2-9`) in docker images, Windows packages and macOS packages
+  - Update Mesa to `26.2.7` in Docker
+
+### Fixed
+- Video copy: fix frozen video or early fallback after seeking into MKV and MP4 sources
+- Docker VAAPI: fix radeonsi h264 encode hang
 
 ## [26.13.0] - 2026-11-20
 ### Changed
