@@ -11,6 +11,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Fixed
 - Video copy: fix frozen video or early fallback after seeking into MKV and MP4 sources
 - Docker VAAPI: fix radeonsi h264 encode hang
+- Fix audio drifting out of sync over time on MPEG-TS clients
+  - This happened when audio overlapped at item boundaries (e.g. Plex Live TV, VLC)
 
 ## [26.13.0] - 2026-11-20
 ### Changed
