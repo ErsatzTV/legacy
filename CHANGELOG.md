@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
+
+## [26.14.0] - 2026-11-25
 ### Changed
 - Use ErsatzTV-ffmpeg `8.1.2-10` in docker images, Windows packages and macOS packages
   - Update Mesa to `26.2.7` in Docker
@@ -3838,7 +3840,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Initial release to facilitate testing outside of Docker.
 
 
-[Unreleased]: https://github.com/ErsatzTV/legacy/compare/v26.13.0...HEAD
+[Unreleased]: https://github.com/ErsatzTV/legacy/compare/v26.14.0...HEAD
+[26.14.0]: https://github.com/ErsatzTV/legacy/compare/v26.13.0...v26.14.0
 [26.13.0]: https://github.com/ErsatzTV/legacy/compare/v26.12.0...v26.13.0
 [26.12.0]: https://github.com/ErsatzTV/legacy/compare/v26.11.6...v26.12.0
 [26.11.6]: https://github.com/ErsatzTV/legacy/compare/v26.11.5...v26.11.6
