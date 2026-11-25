@@ -16,20 +16,20 @@
         <PackageReference Include="BouncyCastle.Cryptography" Version="2.7.0" />
         <PackageReference Include="CliWrap" Version="3.10.5" />
         <PackageReference Include="Dapper" Version="2.1.100" />
-        <PackageReference Include="EFCore.BulkExtensions.Core" Version="[9.0.2,10)" />
+        <PackageReference Include="EFCore.BulkExtensions.Core" Version="10.0.2" />
         <PackageReference Include="Elastic.Clients.Elasticsearch" Version="9.5.3" />
         <PackageReference Include="Humanizer.Core" Version="3.0.10" />
-        <PackageReference Include="Jint" Version="4.18.0" />
+        <PackageReference Include="Jint" Version="4.18.1" />
         <PackageReference Include="JsonSchema.Net" Version="9.7.0" />
         <PackageReference Include="Lucene.Net" Version="4.8.0-beta00018" />
         <PackageReference Include="Lucene.Net.Analysis.Common" Version="4.8.0-beta00018" />
         <PackageReference Include="Lucene.Net.QueryParser" Version="4.8.0-beta00018" />
-        <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.23" />
-        <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.23">
+        <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.15" />
+        <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.15">
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
-        <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="9.0.23" />
+        <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.15" />
         <PackageReference Include="Newtonsoft.Json.Schema" Version="4.0.2" />
         <PackageReference Include="Refit" Version="17.0.0" />
         <PackageReference Include="Refit.Newtonsoft.Json" Version="17.0.0" />
