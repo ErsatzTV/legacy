@@ -5,7 +5,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 ### Changed
-- Use ErsatzTV-ffmpeg `8.1.2-f15d7b3e-develop` (newer than `8.1.2-9`) in docker images, Windows packages and macOS packages
+- Use ErsatzTV-ffmpeg `8.1.2-10` in docker images, Windows packages and macOS packages
   - Update Mesa to `26.2.7` in Docker
 
 ### Fixed

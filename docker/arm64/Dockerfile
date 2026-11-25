@@ -1,5 +1,5 @@
 ﻿# keep equal to .github/ffmpeg.json (.github/scripts/ffmpeg-pin.sh check)
-ARG FFMPEG_IMAGE=ghcr.io/ersatztv/ersatztv-ffmpeg-develop:8.1.2-f15d7b3e-develop@sha256:7665ec9939be2f03d68d15ca7a36a838f41e60bc31e6aee75803988ec06d8f7c
+ARG FFMPEG_IMAGE=ghcr.io/ersatztv/ersatztv-ffmpeg:8.1.2-10@sha256:1bf679e2a005183fa01c3c04cd0f155d2d197801cb5eca49068197f523737236
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0.13-noble-arm64v8@sha256:3a05e37c371f358d2b5cb9687d9992171b34b8c9146c283bef865bdbd2c53c55 AS dotnet-runtime
 
